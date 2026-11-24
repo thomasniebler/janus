@@ -1,0 +1,55 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Duplication reports (task quality:duplication / quality:report)
+jscpd-report/
+# Weekly quality report (task quality:report, JAN-270)
+quality-report/
+# Monthly structural review input and output (task quality:review-*, JAN-271)
+structural-review/
+
+# Dependency audit report (task audit:deps -- --json)
+dependency-audit.json
+
+# Semgrep scan (task security:semgrep): pinned rules checkout and reports
+.cache/
+semgrep.json
+semgrep.sarif
+
+# Virtual environments
+.venv
+site/
+janus.db
+.janus_key
+
+# Node.js
+node_modules/
+npm-debug.log
+.gemini/
+gha-creds-*.json
+
+*.log
+/.env
+frontend/dist
+modules/todo-chat/src-tauri/target/
+modules/todo-chat/src-tauri/gen/
+.task/
+.worktrees/
+.playwright-mcp/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcuserstate
+
+# Coverage reports (task coverage / coverage:diff / coverage:frontend)
+.coverage
+coverage.xml
+coverage.json
+htmlcov/
+diff-cover.html
+diff-cover.json
+frontend/coverage/
+frontend/.env*

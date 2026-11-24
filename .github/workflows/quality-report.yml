@@ -1,0 +1,131 @@
+name: Quality report
+
+# Weekly quality report (JAN-265, JAN-266, JAN-270): tests, coverage, complexity, module size,
+# duplication, type and security findings, and deployment metrics in one JSON report with a fixed
+# schema (scripts/quality_report.py), the change against the previous main report, the top-10
+# hotspots, and an append-only history on the quality-history branch. Plus what the dead-code
+# gates in ci.yml deliberately do not check, and the GitHub Actions cost and timing of the last
+# seven days against the frozen workload model (JAN-308). Policy and schema:
+# docs/docs/tech-spec/architecture-overview.md (Weekly quality report).
+
+on:
+  schedule:
+    - cron: "37 6 * * 1"
+  workflow_dispatch: {}
+
+# One run per ref at a time, queued and never cancelled: overlapping main runs (a manual dispatch
+# during the weekly schedule) would otherwise finalize against the same history tip and append
+# stale deltas and baselines. `publish` also recomputes them against the tip it appends to.
+concurrency:
+  group: quality-report-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Read-only run and job history for the Actions cost report.
+  actions: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+          npm ci --no-audit --no-fund --prefix frontend
+      # Every check runs here, even when one fails; a failed or missing tool is marked in the
+      # report (error / unavailable) instead of stopping the run.
+      - name: Collect the quality report
+        run: python3 scripts/quality_report.py collect --out quality-report/raw.json --work-dir quality-report/work
+      - name: Compare with the previous main report
+        run: |
+          set -euo pipefail
+          python3 scripts/quality_report.py finalize quality-report/raw.json \
+            --out quality-report/quality-report.json --markdown quality-report/summary.md > /dev/null
+          cat quality-report/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Unused exports and types (report only)
+        # `knip:ci` excludes these; see the Quality Gates section for why.
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: |
+          {
+            echo "## knip: unused exports and types (not gated)"
+            echo
+            npx knip --reporter markdown || true
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Low-confidence dead code (report only)
+        # `task lint:dead:backend` gates at 80% confidence; this lists 60-79% candidates.
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "## vulture at 60% confidence (not gated)"
+            echo
+            echo '```'
+            uv run vulture --min-confidence 60 || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: GitHub Actions cost and timing (report only)
+        # Estimates, not invoice usage; see scripts/actions_cost_report.py.
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          since=$(date -u -d '7 days ago' +%F)
+          python3 scripts/actions_cost_report.py collect --repo "$GITHUB_REPOSITORY" --since "$since" --out actions-cost-snapshot.json
+          python3 scripts/actions_cost_report.py report actions-cost-snapshot.json \
+            --workload .github/ci-cost/workload.json \
+            --json actions-cost.json --markdown actions-cost.md > /dev/null
+          cat actions-cost.md >> "$GITHUB_STEP_SUMMARY"
+      # Artifacts expire after 90 days; the durable record is the quality-history branch.
+      - name: Upload the quality report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-report
+          retention-days: 90
+          path: |
+            quality-report/
+            actions-cost.json
+          if-no-files-found: ignore
+      - name: Fail on failed or errored gated checks
+        run: python3 scripts/quality_report.py gate quality-report/quality-report.json
+
+  # Appends main reports to the quality-history branch. Runs even when a gated check failed,
+  # so the history also records bad weeks.
+  history:
+    needs: report
+    if: ${{ !cancelled() && needs.report.result != 'skipped' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      # Push to the quality-history branch only; main is never written.
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Download the quality report
+        uses: actions/download-artifact@v8
+        with:
+          name: quality-report
+      - name: Append to the quality history
+        run: python3 scripts/quality_report.py publish quality-report/quality-report.json

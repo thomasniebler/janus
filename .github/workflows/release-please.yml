@@ -1,0 +1,70 @@
+name: release-please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      # Manifest mode: release-please-config.json and .release-please-manifest.json
+      # at the repo root. The config also bumps the janus entry in uv.lock (JAN-290),
+      # which the plain `release-type: python` mode cannot do.
+      - uses: googleapis/release-please-action@v5
+        id: release
+
+  build-and-release-artifacts:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Build artifacts
+        run: uv build
+      # Self-hosted auto-update (services/update_service.py) installs this prebuilt frontend,
+      # so a self-hosted machine needs no Node.js. The updater checks the SHA-256 digest
+      # GitHub records for the asset, and waits for the next check while it is missing.
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+          tar -C dist -czf ../dist/janus-frontend-dist.tar.gz .
+      - name: Upload artifacts to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ needs.release-please.outputs.tag_name }} dist/*
+
+  deploy-release:
+    needs:
+      - release-please
+      - build-and-release-artifacts
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    uses: ./.github/workflows/deploy-uberspace.yml
+    with:
+      ref: ${{ needs.release-please.outputs.tag_name }}
+    secrets: inherit

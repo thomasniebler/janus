@@ -1,0 +1,9 @@
+# Files the Semgrep scan (scripts/semgrep_scan.py, JAN-267) skips: test code, Storybook
+# stories, fixtures, and generated clients are not shipped request-handling code.
+:include .gitignore
+*.test.ts
+*.test.tsx
+*.stories.tsx
+*Fixtures.ts
+frontend/src/test/
+frontend/src/generated/

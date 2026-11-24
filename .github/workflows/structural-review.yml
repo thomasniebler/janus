@@ -1,0 +1,59 @@
+name: Structural review
+
+# Monthly agent-assisted structural review (JAN-271), fed by the weekly quality report (JAN-270).
+# This workflow only prepares the review input with scripts/structural_review.py: the window of
+# main since the last recorded review, the newest main quality reports from the quality-history
+# branch, the main diff, the CODEMAPs, and router metrics. The review itself is a read-only run of
+# a coding agent in a Claude Code or Codex session; GitHub Actions has no agent
+# integration here, so the job summary reports that step as blocked. No secrets, no LLM, no
+# issue tracker, no writes. Policy: docs/docs/tech-spec/architecture-overview.md (Monthly
+# structural review).
+
+on:
+  schedule:
+    # The 2nd of each month, after the weekly quality report of most first weeks.
+    - cron: "41 7 2 * *"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Review from this commit sha instead of the last recorded review (optional)"
+        required: false
+        default: ""
+
+concurrency:
+  group: structural-review-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The window's diff and commit list need main's history.
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Prepare the review input
+        env:
+          # Passed through the environment, never interpolated into the script;
+          # structural_review.py accepts only a hex commit sha.
+          BASE: ${{ inputs.base }}
+        run: |
+          set -euo pipefail
+          args=(bundle --out-dir structural-review)
+          if [ -n "${BASE:-}" ]; then args+=(--base "$BASE"); fi
+          python3 scripts/structural_review.py "${args[@]}" > /dev/null
+          cat structural-review/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the review input
+        uses: actions/upload-artifact@v7
+        with:
+          name: structural-review
+          retention-days: 90
+          path: structural-review/

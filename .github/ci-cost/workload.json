@@ -1,0 +1,367 @@
+{
+ "schema": 1,
+ "frozen_at": "2026-10-05T17:25:20Z",
+ "repository": "thomasniebler/janus",
+ "updates": [
+  {
+   "run_id": 37345351218,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37345351218",
+   "created_at": "2026-10-05T17:01:54Z",
+   "head_branch": "claude/jan-253-image-generation",
+   "head_sha": "c3839c1acbd89e73b3a297a73695f518e42493b3",
+   "changed_paths": 63,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep"
+  },
+  {
+   "run_id": 37340857628,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37340857628",
+   "created_at": "2026-10-05T16:26:31Z",
+   "head_branch": "claude/jan-253-image-generation",
+   "head_sha": "1b243091435582bbba6442c50097b5cd752fc7ea",
+   "changed_paths": 58,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep"
+  },
+  {
+   "run_id": 37280596101,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37280596101",
+   "created_at": "2026-10-05T07:56:38Z",
+   "head_branch": "claude/jan-252-generative-ui",
+   "head_sha": "e7cdab1e92c0a92323908e69229cef2aaa7ac38b",
+   "changed_paths": 58,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep"
+  },
+  {
+   "run_id": 37269825087,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37269825087",
+   "created_at": "2026-10-05T05:54:08Z",
+   "head_branch": "release-please--branches--main",
+   "head_sha": "44fcee0a4093a20762193d3e715258b029a611b3",
+   "changed_paths": 4,
+   "selected_jobs": [
+    "backend"
+   ],
+   "category": "backend"
+  },
+  {
+   "run_id": 37269064310,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37269064310",
+   "created_at": "2026-10-05T05:43:47Z",
+   "head_branch": "claude/jan-251-page-actions",
+   "head_sha": "e725da020ad13f972bb48521460156f40e90a72a",
+   "changed_paths": 58,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep"
+  },
+  {
+   "run_id": 37268328271,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37268328271",
+   "created_at": "2026-10-05T05:33:41Z",
+   "head_branch": "claude/jan-251-page-actions",
+   "head_sha": "865ebce66479ce928260492c7065de7eafb61cdc",
+   "changed_paths": 57,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep"
+  },
+  {
+   "run_id": 37229592991,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37229592991",
+   "created_at": "2026-10-04T19:47:08Z",
+   "head_branch": "claude/jan-250-page-context",
+   "head_sha": "b229307f289a784a6217e50f1d050b19c8b0cdba",
+   "changed_paths": 38,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "e2e",
+    "frontend",
+    "semgrep"
+   ],
+   "category": "backend+frontend+e2e+docs+semgrep"
+  },
+  {
+   "run_id": 37218673823,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37218673823",
+   "created_at": "2026-10-04T16:57:22Z",
+   "head_branch": "feature/jan-305-post-release-validation",
+   "head_sha": "bc43ba68e05dc84cedae372773d06dc3fe7fc712",
+   "changed_paths": 15,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "semgrep"
+   ],
+   "category": "backend+docs+semgrep"
+  },
+  {
+   "run_id": 37216242601,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37216242601",
+   "created_at": "2026-10-04T16:17:50Z",
+   "head_branch": "feature/jan-305-post-release-validation",
+   "head_sha": "09cfcabe8b698ec8270f64e157f2ed39fa9ed26c",
+   "changed_paths": 15,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "semgrep"
+   ],
+   "category": "backend+docs+semgrep"
+  },
+  {
+   "run_id": 37216097519,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37216097519",
+   "created_at": "2026-10-04T16:15:30Z",
+   "head_branch": "ci/jan-265-266-quality-report",
+   "head_sha": "1d26f6953e3cdaac3fd070e594ebe6b0d6a34515",
+   "changed_paths": 11,
+   "selected_jobs": [
+    "backend",
+    "dependency_audit",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep+dependency_audit"
+  },
+  {
+   "run_id": 37215816969,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37215816969",
+   "created_at": "2026-10-04T16:10:57Z",
+   "head_branch": "ci/jan-265-266-quality-report",
+   "head_sha": "cbbf6b54d87a7710d75c7a60a459d8757937572b",
+   "changed_paths": 11,
+   "selected_jobs": [
+    "backend",
+    "dependency_audit",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep+dependency_audit"
+  },
+  {
+   "run_id": 37214429474,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37214429474",
+   "created_at": "2026-10-04T15:49:10Z",
+   "head_branch": "ci/jan-267-semgrep",
+   "head_sha": "0206bffa308d04bb5d0c1c672162320e1e7c5a3c",
+   "changed_paths": 17,
+   "selected_jobs": [
+    "backend",
+    "dependency_audit",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep+dependency_audit"
+  },
+  {
+   "run_id": 37213389699,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37213389699",
+   "created_at": "2026-10-04T15:32:30Z",
+   "head_branch": "fix/agent-calendar-tasks-tenant-scope",
+   "head_sha": "3a688ce47cfa73d0af99eb21024e1ef4835b7735",
+   "changed_paths": 6,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "e2e",
+    "semgrep"
+   ],
+   "category": "backend+e2e+docs+semgrep"
+  },
+  {
+   "run_id": 37212714301,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37212714301",
+   "created_at": "2026-10-04T15:21:54Z",
+   "head_branch": "ci/jan-267-semgrep",
+   "head_sha": "4505b2885f14c7bb53a956f7c0a92db33d368089",
+   "changed_paths": 17,
+   "selected_jobs": [
+    "backend",
+    "dependency_audit",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep+dependency_audit"
+  },
+  {
+   "run_id": 37212655650,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37212655650",
+   "created_at": "2026-10-04T15:20:58Z",
+   "head_branch": "ci/jan-268-dependency-audit",
+   "head_sha": "f858cbf4a023eaf8ea024cfea1fae351d1a0a8ba",
+   "changed_paths": 14,
+   "selected_jobs": [
+    "backend",
+    "dependency_audit",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep+dependency_audit"
+  },
+  {
+   "run_id": 37212069033,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37212069033",
+   "created_at": "2026-10-04T15:11:25Z",
+   "head_branch": "ci/jan-260-mypy",
+   "head_sha": "76dcd84055f1c0d93b86ceec67e9bf0d8ba13ef8",
+   "changed_paths": 16,
+   "selected_jobs": [
+    "backend",
+    "dependency_audit",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep+dependency_audit"
+  },
+  {
+   "run_id": 37211320671,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37211320671",
+   "created_at": "2026-10-04T14:59:43Z",
+   "head_branch": "ci/jan-263-import-linter",
+   "head_sha": "f837cd3a407d0be4f256e245a801afaff448c408",
+   "changed_paths": 12,
+   "selected_jobs": [
+    "backend",
+    "dependency_audit",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep+dependency_audit"
+  },
+  {
+   "run_id": 37210795400,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37210795400",
+   "created_at": "2026-10-04T14:51:15Z",
+   "head_branch": "ci/jan-259-264-lint-size-budgets-v2",
+   "head_sha": "8e11eaf5d49613534ab47f8a8f597a3ab4ac5761",
+   "changed_paths": 45,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep"
+  },
+  {
+   "run_id": 37210088247,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37210088247",
+   "created_at": "2026-10-04T14:39:50Z",
+   "head_branch": "ci/jan-259-264-lint-size-budgets-v2",
+   "head_sha": "0506f3ad50c87b76d2c59c28297041cd6f65745d",
+   "changed_paths": 140,
+   "selected_jobs": [
+    "backend",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep"
+  },
+  {
+   "run_id": 37209931144,
+   "url": "https://github.com/thomasniebler/janus/actions/runs/37209931144",
+   "created_at": "2026-10-04T14:37:18Z",
+   "head_branch": "ci/jan-267-semgrep",
+   "head_sha": "5596d305bc6ba7d1edfbdc0f2187f76d1570ba57",
+   "changed_paths": 17,
+   "selected_jobs": [
+    "backend",
+    "dependency_audit",
+    "docs",
+    "e2e",
+    "frontend",
+    "migrations",
+    "semgrep"
+   ],
+   "category": "backend+migrations+frontend+e2e+docs+semgrep+dependency_audit"
+  }
+ ],
+ "categories": {
+  "backend": {
+   "updates": 1,
+   "weight": 0.05
+  },
+  "backend+docs+semgrep": {
+   "updates": 2,
+   "weight": 0.1
+  },
+  "backend+e2e+docs+semgrep": {
+   "updates": 1,
+   "weight": 0.05
+  },
+  "backend+frontend+e2e+docs+semgrep": {
+   "updates": 1,
+   "weight": 0.05
+  },
+  "backend+migrations+frontend+e2e+docs+semgrep": {
+   "updates": 7,
+   "weight": 0.35
+  },
+  "backend+migrations+frontend+e2e+docs+semgrep+dependency_audit": {
+   "updates": 8,
+   "weight": 0.4
+  }
+ }
+}

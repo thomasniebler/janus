@@ -1,0 +1,108 @@
+{
+  "src/App.tsx": {
+    "complexity": 19
+  },
+  "src/api.ts": {
+    "max-lines": 512
+  },
+  "src/components/features/AccountManager.tsx": {
+    "max-lines-per-function": 193
+  },
+  "src/components/features/BriefingChat.tsx": {
+    "complexity": 23,
+    "max-lines": 436,
+    "max-lines-per-function": 413
+  },
+  "src/components/features/BriefingSettings.tsx": {
+    "max-lines-per-function": 159
+  },
+  "src/components/features/CharacterProfileManager.tsx": {
+    "max-lines-per-function": 234
+  },
+  "src/components/features/EmbeddingConfig.tsx": {
+    "complexity": 22
+  },
+  "src/components/features/GitHubConfig.tsx": {
+    "complexity": 19,
+    "max-lines-per-function": 199
+  },
+  "src/components/features/GoogleCalendarConfig.tsx": {
+    "complexity": 41,
+    "max-lines-per-function": 351
+  },
+  "src/components/features/LLMConfig.tsx": {
+    "complexity": 19,
+    "max-lines": 412,
+    "max-lines-per-function": 274
+  },
+  "src/components/features/LinearConfig.tsx": {
+    "complexity": 19,
+    "max-lines-per-function": 188
+  },
+  "src/components/features/MemoryManager.tsx": {
+    "max-lines-per-function": 208
+  },
+  "src/components/features/SkillManager.tsx": {
+    "complexity": 26,
+    "max-lines": 472,
+    "max-lines-per-function": 446
+  },
+  "src/components/features/TopicManager.tsx": {
+    "complexity": 29,
+    "max-lines": 540,
+    "max-lines-per-function": 432
+  },
+  "src/components/features/WebSearchConfig.tsx": {
+    "complexity": 26
+  },
+  "src/components/features/WhatsAppAccountManager.tsx": {
+    "complexity": 38,
+    "max-lines": 569,
+    "max-lines-per-function": 524
+  },
+  "src/components/features/triggers/SuggestedAutomations.tsx": {
+    "complexity": 17
+  },
+  "src/components/features/triggers/TriggerDefinitionManager.tsx": {
+    "complexity": 23,
+    "max-lines": 487,
+    "max-lines-per-function": 190
+  },
+  "src/components/features/triggers/TriggerRunHistory.tsx": {
+    "complexity": 25
+  },
+  "src/components/layout/Layout.tsx": {
+    "max-lines-per-function": 167
+  },
+  "src/contexts/ChatSessionContext.tsx": {
+    "max-lines-per-function": 318,
+    "complexity": 16
+  },
+  "src/pages/Dashboard.tsx": {
+    "complexity": 48,
+    "max-lines": 876,
+    "max-lines-per-function": 671
+  },
+  "src/pages/ErrorsPage.tsx": {
+    "max-lines-per-function": 166
+  },
+  "src/pages/Events.tsx": {
+    "complexity": 19,
+    "max-lines-per-function": 182
+  },
+  "src/pages/MemoryPage.tsx": {
+    "complexity": 18,
+    "max-lines-per-function": 149
+  },
+  "src/pages/Settings.tsx": {
+    "complexity": 45,
+    "max-lines": 490,
+    "max-lines-per-function": 419
+  },
+  "src/pages/documentationRoutes.ts": {
+    "complexity": 16
+  },
+  "src/types.ts": {
+    "max-lines": 1052
+  }
+}

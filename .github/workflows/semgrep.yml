@@ -1,0 +1,45 @@
+name: Semgrep
+
+# Static security scan of the backend and frontend (JAN-267) with pinned Semgrep and pinned
+# community rules plus the Janus rules in .semgrep/. It never probes a running Janus.
+# Weekly and on dispatch it scans all of main. On pull requests ci.yml calls it when the
+# changed paths can affect the scan (scripts/ci_paths.py, JAN-313).
+# Policy: docs/docs/tech-spec/auth-security.md.
+
+on:
+  workflow_call: {}
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Set up Task
+        uses: go-task/setup-task@v2
+      - name: Run Semgrep
+        run: task security:semgrep
+      - name: Upload Semgrep reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: semgrep
+          path: |
+            semgrep.sarif
+            semgrep.json
+          if-no-files-found: ignore
+          retention-days: 14

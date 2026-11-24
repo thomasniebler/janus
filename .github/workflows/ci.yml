@@ -1,0 +1,384 @@
+name: CI
+
+# Pull requests run a small `changes` job first, which selects the jobs the changed paths can
+# affect (scripts/ci_paths.py, JAN-309); the others are skipped on purpose. A draft PR runs only
+# the cheap checks (lint, type checks, builds, docs, drift checks); the test suites run once it is
+# marked ready for review. Merges to main are not re-run per push: a nightly run validates main
+# with every job, and skips itself when main has not moved since the last nightly run. The Semgrep
+# and dependency-audit PR scans are called from here so they share that selection (JAN-313);
+# their scheduled full scans stay in semgrep.yml and dependency-audit.yml. The PR title check is
+# pr-title.yml. A newer push to the same PR cancels its older run (JAN-310).
+# Policy: docs/docs/tech-spec/architecture-overview.md.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "7 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('{0}-{1}', github.ref, github.sha) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.select.outputs.backend }}
+      migrations: ${{ steps.select.outputs.migrations }}
+      frontend: ${{ steps.select.outputs.frontend }}
+      e2e: ${{ steps.select.outputs.e2e }}
+      docs: ${{ steps.select.outputs.docs }}
+      openapi: ${{ steps.select.outputs.openapi }}
+      semgrep: ${{ steps.select.outputs.semgrep }}
+      dependency_audit: ${{ steps.select.outputs.dependency_audit }}
+      full: ${{ steps.select.outputs.full }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/ci_paths.py
+          sparse-checkout-cone-mode: false
+      - name: Skip the nightly run when main has not moved
+        id: nightly
+        # Compares with the newest completed scheduled run; with no selection every job skips.
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=schedule&status=completed&per_page=1" \
+            --jq '.workflow_runs[0].head_sha // ""')
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "main is still at $GITHUB_SHA, validated by the last nightly run; nothing to do." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Select jobs from the changed paths
+        id: select
+        if: steps.nightly.outputs.skip != 'true'
+        # Fails, and with it the run, when the changed files cannot be listed completely.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_DRAFT: ${{ github.event.pull_request.draft || false }}
+        run: >
+          python3 scripts/ci_paths.py select --event "$EVENT_NAME" --pr "${PR_NUMBER:-0}" --draft "$PR_DRAFT"
+          --repo "$GITHUB_REPOSITORY" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+
+  backend-quality:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history so diff-cover can find the merge base with the PR's base branch.
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Set up Task
+        uses: go-task/setup-task@v2
+      - name: Check uv.lock matches pyproject.toml
+        # Catches a lockfile that drifted from pyproject (JAN-290: the release bumped the
+        # version in pyproject but not the janus entry in uv.lock).
+        run: uv lock --check
+      - name: Sync dependencies
+        # The optional extras, so the PDF/Office parsing (`documents`), WhatsApp/Neonize
+        # (`whatsapp`) and tray icon (`desktop`) tests run instead of being skipped.
+        run: uv sync --frozen --extra documents --extra whatsapp --extra desktop
+      - name: Check production dependencies install on the Uberspace host
+        # The host is glibc 2.17 (manylinux_2_17); a dependency without a wheel or
+        # sdist for it fails `uv sync` on deploy (v1.2.0: onnxruntime via markitdown).
+        # The dev group is included because a plain `uv run` on the host syncs it (v1.2.1).
+        run: |
+          set -euo pipefail
+          uv export --frozen --no-emit-project --no-hashes --quiet -o "$RUNNER_TEMP/prod-requirements.txt"
+          uv pip install --dry-run --no-deps --python-version 3.12 \
+            --python-platform x86_64-manylinux_2_17 \
+            --target "$RUNNER_TEMP/prod-platform-check" \
+            -r "$RUNNER_TEMP/prod-requirements.txt"
+      - name: Run backend lint
+        run: task lint
+      - name: Check backend formatting
+        run: uv run ruff format --check .
+      - name: Type-check the strict mypy scope
+        # [tool.mypy] in pyproject.toml (JAN-260).
+        run: task typecheck
+      - name: Check import boundaries
+        # import-linter contracts in pyproject.toml (JAN-263).
+        run: task lint:imports
+      - name: Run backend dead-code scan
+        run: task lint:dead:backend
+      - name: Run backend tests with coverage
+        # Statement and branch coverage, gated separately against the floors in pyproject.toml.
+        # Not on a draft PR (`full` is false); it runs once the PR is ready for review.
+        if: needs.changes.outputs.full == 'true'
+        run: task coverage
+      - name: Check coverage of changed lines
+        # At least 80% of the backend lines this PR changes must be covered (JAN-262).
+        if: github.event_name == 'pull_request' && needs.changes.outputs.full == 'true'
+        run: task coverage:diff COMPARE=origin/${{ github.base_ref }}
+      - name: Upload backend coverage reports
+        # Not for a superseded (cancelled) run; kept 14 days (JAN-310, JAN-314).
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage
+          path: |
+            coverage.xml
+            coverage.json
+            htmlcov/
+            diff-cover.html
+            diff-cover.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  migration-tests:
+    needs: changes
+    if: needs.changes.outputs.migrations == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: janus
+          POSTGRES_PASSWORD: janus
+          POSTGRES_DB: janus_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U janus -d janus_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      JANUS_TEST_POSTGRES_URL: postgresql://janus:janus@localhost:5432/janus_test
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Sync dependencies
+        run: uv sync --frozen
+      - name: Run PostgreSQL migration tests
+        # The SQLite migration tests run in backend-quality, which is selected whenever this job is.
+        run: uv run pytest tests/test_postgres_migrations.py -rs --tb=short
+
+  frontend-quality:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Set up Task
+        uses: go-task/setup-task@v2
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Run frontend tests with coverage
+        # V8 coverage over every production file, gated against the floors in vitest.config.ts.
+        # Not on a draft PR (`full` is false); it runs once the PR is ready for review.
+        if: needs.changes.outputs.full == 'true'
+        run: task coverage:frontend
+      - name: Upload frontend coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Run frontend lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Run frontend dead-code scan
+        run: task lint:dead:frontend
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  e2e-tests:
+    # The suite (203 tests, about 13 min on one worker in 2026-11) is split into shards that
+    # each start their own backend on a fresh database (JAN-345); `e2e-report` merges them.
+    name: e2e-tests (${{ matrix.shard }}/${{ strategy.job-total }})
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Set up Task
+        uses: go-task/setup-task@v2
+      - name: Sync backend dependencies
+        # The `whatsapp` extra for segno (the pairing QR code), as playwright.config.ts starts it.
+        run: uv sync --frozen --extra whatsapp
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        # Headless runs use chromium-headless-shell, so the full browser is not needed (JAN-314).
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Run end-to-end tests
+        run: task test:e2e:frontend -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      - name: Upload the shard's blob report
+        # Not for a superseded (cancelled) run; kept 14 days (JAN-310, JAN-314).
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-blob-report-${{ matrix.shard }}
+          path: frontend/blob-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  e2e-report:
+    # One HTML report from the shards' blob reports (JAN-345); it runs after failed shards too.
+    needs: [changes, e2e-tests]
+    if: ${{ !cancelled() && needs.changes.outputs.e2e == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Download the shards' blob reports
+        uses: actions/download-artifact@v8
+        with:
+          path: frontend/all-blob-reports
+          pattern: e2e-blob-report-*
+          merge-multiple: true
+      - name: Merge into one HTML report
+        working-directory: frontend
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+      - name: Upload the merged report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: frontend/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  docs-build:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Set up Task
+        uses: go-task/setup-task@v2
+      - name: Sync dependencies
+        run: uv sync --frozen
+      - name: Build documentation
+        run: task docs
+      - name: Run the backend tests that read the docs
+        # Part of backend-quality whenever that job runs (DOCS_TESTS in scripts/ci_paths.py).
+        if: needs.changes.outputs.backend != 'true'
+        run: uv run pytest tests/test_docs_links.py tests/test_docs_tools.py tests/test_api.py -k "docs or technical_spec" --tb=short
+
+  openapi-check:
+    # The committed OpenAPI schema and the generated frontend API types must match the
+    # backend (JAN-139). The export runs offline: no server, no workers, API docs may be off.
+    needs: changes
+    if: needs.changes.outputs.openapi == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Set up Task
+        uses: go-task/setup-task@v2
+      - name: Sync backend dependencies
+        run: uv sync --frozen
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Check the OpenAPI schema and generated API types for drift
+        # Fix a failure with `task openapi:generate` and commit the result.
+        run: task openapi:check
+
+  semgrep:
+    needs: changes
+    if: needs.changes.outputs.semgrep == 'true'
+    uses: ./.github/workflows/semgrep.yml
+
+  dependency-audit:
+    needs: changes
+    if: needs.changes.outputs.dependency_audit == 'true'
+    uses: ./.github/workflows/dependency-audit.yml

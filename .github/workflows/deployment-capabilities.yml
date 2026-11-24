@@ -1,0 +1,56 @@
+name: Deployment capability checks
+
+# Runs scripts/deployment_capabilities.py on the Uberspace production host, inside the same uv
+# project environment that runs Janus. Read-only: the script only inspects the host. Add checks
+# to the script, not free-form commands here, so every probe is reviewed.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  # Shares the deploy workflow's group so a probe never runs mid-deploy.
+  group: deploy-uberspace-production
+  cancel-in-progress: false
+
+env:
+  # As in deploy-uberspace.yml: the target is a secret, and the probe runs only when DEPLOY_ENABLED is 'true'.
+  DEPLOY_SSH_TARGET: ${{ secrets.DEPLOY_SSH_TARGET }}
+  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'janus' }}
+
+jobs:
+  probe:
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.UBERSPACE_SSH_PRIVATE_KEY }}
+
+      - name: Trust Uberspace host key
+        env:
+          UBERSPACE_KNOWN_HOSTS: ${{ secrets.UBERSPACE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$UBERSPACE_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Run capability checks on the host
+        # The script is streamed over stdin, so it tests the checked-out version against the
+        # deployed runtime without syncing files. --no-sync keeps uv from syncing the live .venv
+        # to uv.lock (which --frozen alone would still do); sqlite-vec is overlaid for this run
+        # only, in uv's cache.
+        run: >
+          ssh "$DEPLOY_SSH_TARGET"
+          "cd $DEPLOY_PATH && PATH=\"\$HOME/.local/bin:/usr/bin:/bin\" uv run --no-sync --with sqlite-vec==0.1.9 python -"
+          < scripts/deployment_capabilities.py

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/jscpd.json",
+  "path": [
+    "tests",
+    "frontend/src",
+    "frontend/e2e"
+  ],
+  "pattern": "**/{*.py,*.test.ts,*.test.tsx,*.spec.ts,*.stories.tsx,*Fixtures.ts,test/**/*.{ts,tsx},e2e/**/*.ts}",
+  "format": [
+    "python",
+    "typescript",
+    "tsx"
+  ],
+  "ignore": [
+    "**/node_modules/**",
+    "**/__pycache__/**"
+  ],
+  "minLines": 8,
+  "minTokens": 70,
+  "reporters": [
+    "console",
+    "json",
+    "html"
+  ],
+  "output": "jscpd-report/tests",
+  "gitignore": true,
+  "absolute": false
+}

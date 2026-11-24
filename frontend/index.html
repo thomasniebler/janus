@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+    <!--
+      Applies the cached UI shell before the React bundle loads, so the page never flashes the
+      wrong chrome. A blocking same-origin file, not an inline script: the backend's
+      Content-Security-Policy (`script-src 'self'`) blocks inline scripts (JAN-225).
+    -->
+    <script src="/ui-shell-bootstrap.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

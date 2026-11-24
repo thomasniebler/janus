@@ -1,0 +1,114 @@
+# Janus-specific Semgrep rules (JAN-267), run next to the pinned community rules by
+# `task security:semgrep`. Policy and triage: docs/docs/tech-spec/auth-security.md.
+rules:
+  - id: janus-route-without-auth-dependency
+    message: >-
+      This route has no `Depends(security.get_current_user)` or `Depends(security.admin_required)`
+      parameter and its router declares no auth dependency. Add one, or, for a deliberately public
+      route, add a `[[tool.janus.semgrep.exceptions]]` entry saying why it is public.
+    severity: ERROR
+    languages: [python]
+    paths:
+      include: ["src/janus/api/"]
+    patterns:
+      - pattern-either:
+          - pattern: |
+              @router.$METHOD(...)
+              def $ROUTE(...): ...
+          - pattern: |
+              @router.$METHOD(...)
+              async def $ROUTE(...): ...
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(get|post|put|patch|delete|websocket)$
+      - pattern-not: |
+          @router.$METHOD(...)
+          def $ROUTE(..., $USER = Depends(security.get_current_user), ...): ...
+      - pattern-not: |
+          @router.$METHOD(...)
+          def $ROUTE(..., $USER: $TYPE = Depends(security.get_current_user), ...): ...
+      - pattern-not: |
+          @router.$METHOD(...)
+          async def $ROUTE(..., $USER = Depends(security.get_current_user), ...): ...
+      - pattern-not: |
+          @router.$METHOD(...)
+          async def $ROUTE(..., $USER: $TYPE = Depends(security.get_current_user), ...): ...
+      - pattern-not: |
+          @router.$METHOD(...)
+          def $ROUTE(..., $USER = Depends(security.admin_required), ...): ...
+      - pattern-not: |
+          @router.$METHOD(...)
+          def $ROUTE(..., $USER: $TYPE = Depends(security.admin_required), ...): ...
+      - pattern-not: |
+          @router.$METHOD(...)
+          async def $ROUTE(..., $USER = Depends(security.admin_required), ...): ...
+      - pattern-not: |
+          @router.$METHOD(...)
+          async def $ROUTE(..., $USER: $TYPE = Depends(security.admin_required), ...): ...
+      - pattern-not-inside: |
+          router = APIRouter(..., dependencies=[..., Depends(security.get_current_user), ...], ...)
+          ...
+      - pattern-not-inside: |
+          router = APIRouter(..., dependencies=[..., Depends(security.admin_required), ...], ...)
+          ...
+    metadata:
+      category: security
+      subcategory: [auth]
+
+  - id: janus-websocket-without-auth-dependency
+    message: >-
+      WebSocket handler `$HANDLER` is registered with `$API.websocket(...)` but has no
+      `Depends(security.get_websocket_user_or_none)`, `Depends(security.get_user_or_none)` or
+      `Depends(security.get_current_user)` parameter, so it cannot reject an unauthenticated connection. Add one, or add a `[[tool.janus.semgrep.exceptions]]`
+      entry saying why the socket is public.
+    severity: ERROR
+    languages: [python]
+    paths:
+      include: ["src/janus/websocket/", "src/janus/api/"]
+    patterns:
+      - pattern: |
+          async def $HANDLER(...): ...
+      # Handlers are registered by name inside a register function: api.websocket("/ws/x")(ws_x).
+      - pattern-inside: |
+          async def $HANDLER(...): ...
+          ...
+          def $REGISTER(...):
+              ...
+              $API.websocket(...)($HANDLER)
+      - pattern-not: |
+          async def $HANDLER(..., $USER: $TYPE = Depends(security.get_websocket_user_or_none), ...): ...
+      - pattern-not: |
+          async def $HANDLER(..., $USER = Depends(security.get_websocket_user_or_none), ...): ...
+      - pattern-not: |
+          async def $HANDLER(..., $USER: $TYPE = Depends(security.get_user_or_none), ...): ...
+      - pattern-not: |
+          async def $HANDLER(..., $USER = Depends(security.get_user_or_none), ...): ...
+      - pattern-not: |
+          async def $HANDLER(..., $USER: $TYPE = Depends(security.get_current_user), ...): ...
+      - pattern-not: |
+          async def $HANDLER(..., $USER = Depends(security.get_current_user), ...): ...
+    metadata:
+      category: security
+      subcategory: [auth]
+
+  - id: janus-unscoped-owned-row-lookup
+    message: >-
+      `$DB.get(models.$MODEL, ...)` fetches a user-owned row by id without checking its owner, so a
+      foreign id would be readable. Load it through the owner-scoped `*_for_user` service method, or
+      filter on the owner (directly or through its account) in the same query.
+    severity: ERROR
+    languages: [python]
+    paths:
+      include: ["src/janus/api/", "src/janus/agent_toolboxes/", "src/janus/websocket/"]
+    patterns:
+      - pattern-either:
+          - pattern: $DB.get(models.$MODEL, ...)
+          - pattern: $DB.query(models.$MODEL).get(...)
+      - metavariable-regex:
+          metavariable: $MODEL
+          # Rows owned by a user directly (user_id) or through an account (account_id,
+          # planner_account_id). Global tables (User, AgentSkill, ...) are not listed.
+          regex: ^(AgentMemoryFact|CalendarEvent|CharacterProfile|Conversation|EmailAccount|EmailClarificationRequest|EmailRecord|KnowledgeChunk|KnowledgeEntity|KnowledgeRelation|KnowledgeSource|MCPCredential|MCPServer|PlannerAccount|PlannerEvent|PlannerTask|ReminderMemory|Rule|RuntimeDelegation|RuntimeTrigger|TaskRecord|TrackedTopic|TriggerDefinition|WhatsAppAccount|WhatsAppConversation|WhatsAppMessage|WikiPage)$
+    metadata:
+      category: security
+      subcategory: [tenant-isolation]

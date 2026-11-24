@@ -1,0 +1,277 @@
+version: "3"
+
+tasks:
+  run:
+    desc: Start the Janus agent in the foreground.
+    deps: [build]
+    cmds:
+      - uv run janus start
+
+  up:
+    desc: Run diagnostic and start Janus in the background.
+    cmds:
+      - bash scripts/janus-up.sh
+
+  test:
+    desc: Run unit tests.
+    sources:
+      - src/**/*.py
+      - tests/**/*.py
+      - pyproject.toml
+      - uv.lock
+    cmds:
+      - uv run pytest
+
+  test:frontend:
+    desc: Run frontend unit tests.
+    dir: frontend
+    sources:
+      - src/**/*
+      - package.json
+      - package-lock.json
+      - vitest.config.ts
+      - tsconfig.json
+      - tsconfig.app.json
+      - tsconfig.node.json
+    cmds:
+      - npm run test
+
+  test:e2e:frontend:
+    desc: Run frontend end-to-end tests (Playwright) against a real backend on a throwaway database (per-checkout data dir and port; override with E2E_PORT / E2E_DATA_DIR).
+    dir: frontend
+    deps: [build]
+    cmds:
+      # Extra Playwright arguments after `--`, e.g. CI's `--shard=1/3` (JAN-345).
+      - npm run test:e2e -- {{.CLI_ARGS}}
+
+  coverage:
+    desc: Run backend tests with statement and branch coverage, write coverage.xml/.json and htmlcov/, and enforce the floors in pyproject.toml.
+    cmds:
+      # -rs lists every skipped test with its reason; --durations=30 the slowest setup, call and
+      # teardown phases, so CI logs show where the suite spends its time (JAN-311).
+      - uv run pytest -rs --durations=30 --cov=src/janus --cov-branch --cov-report=term-missing:skip-covered --cov-report=xml --cov-report=json --cov-report=html
+      - uv run python scripts/coverage_gate.py coverage.json
+
+  coverage:diff:
+    desc: Fail when less than 80% of the changed backend lines are covered (diff-cover against COMPARE, default origin/main; run `task coverage` first).
+    vars:
+      COMPARE: '{{.COMPARE | default "origin/main"}}'
+    cmds:
+      - uv run diff-cover coverage.xml --compare-branch={{.COMPARE}} --fail-under=80 --html-report diff-cover.html --json-report diff-cover.json
+
+  coverage:frontend:
+    desc: Run frontend tests with V8 coverage (frontend/coverage/) and enforce the floors in vitest.config.ts.
+    dir: frontend
+    cmds:
+      - npm run test:coverage
+
+  build:
+    desc: Build the React frontend.
+    dir: frontend
+    sources:
+      - src/**/*
+      - public/**/*
+      - package.json
+      - vite.config.ts
+      - postcss.config.js
+      - tailwind.config.js
+    generates:
+      - dist/**/*
+    cmds:
+      - npm run build
+
+  openapi:export:
+    desc: Export the OpenAPI schema offline (no server, no workers, API docs may be off) to frontend/src/generated/openapi.json.
+    cmds:
+      - uv run python scripts/export_openapi.py
+
+  openapi:types:
+    desc: Regenerate frontend/src/generated/api.d.ts from the exported schema (openapi-typescript, no backend needed).
+    dir: frontend
+    cmds:
+      - npm run generate:types
+
+  openapi:generate:
+    desc: Export the OpenAPI schema and regenerate the frontend API types from it.
+    cmds:
+      - task: openapi:export
+      - task: openapi:types
+
+  openapi:check:
+    desc: Fail when the committed OpenAPI schema or the generated frontend API types drift from the backend (fix with `task openapi:generate`).
+    cmds:
+      - uv run python scripts/export_openapi.py --check
+      - cd frontend && npm run generate:types:check
+
+  lint:
+    desc: Run linters (Ruff).
+    cmds:
+      - uv run ruff check .
+
+  typecheck:
+    desc: Type-check the strict mypy scope (the `files` in [tool.mypy] of pyproject.toml).
+    cmds:
+      - uv run mypy
+
+  lint:imports:
+    desc: Check the import boundaries (import-linter contracts in pyproject.toml).
+    cmds:
+      - uv run lint-imports
+
+  lint:dead:
+    desc: Find dead code and unused dependencies (backend + frontend).
+    deps: [lint:dead:backend, lint:dead:frontend]
+
+  lint:dead:backend:
+    desc: Find unused backend code (Vulture) and unused dependencies (deptry).
+    cmds:
+      - uv run vulture
+      - uv run deptry .
+
+  lint:dead:frontend:
+    desc: Find unused frontend files and dependencies (knip).
+    dir: frontend
+    cmds:
+      - npm run knip:ci
+
+  audit:deps:
+    desc: Audit the Python (uv.lock) and npm lockfiles for known vulnerabilities (pip-audit, npm audit).
+    cmds:
+      - uv run --no-project python scripts/dependency_audit.py {{.CLI_ARGS}}
+
+  security:semgrep:
+    desc: Semgrep security scan with pinned rules (community rules at a fixed commit + .semgrep/).
+    cmds:
+      - uv run --no-project python scripts/semgrep_scan.py {{.CLI_ARGS}}
+
+  ops:verify-version:
+    desc: Check that the hosted Janus health endpoint answers HTTP 200 with the expected version (JAN-269; default pyproject.toml's, override with EXPECTED=; BASE_URL= or $JANUS_PUBLIC_URL).
+    vars:
+      BASE_URL: "{{.BASE_URL | default .JANUS_PUBLIC_URL}}"
+      EXPECTED:
+        sh: uv run --no-project python scripts/ops_metrics.py expected-version --ref local
+    preconditions:
+      - sh: test -n "{{.BASE_URL}}"
+        msg: "Set BASE_URL=... or export JANUS_PUBLIC_URL to the hosted Janus URL."
+    cmds:
+      - uv run --no-project python scripts/ops_metrics.py verify-version --base-url {{.BASE_URL}} --expected {{.EXPECTED}} --attempts 3 --delay 5
+
+  ops:probe:
+    desc: Take availability samples of the hosted Janus health endpoint (JAN-269; SAMPLES=, INTERVAL= seconds, BASE_URL= or $JANUS_PUBLIC_URL). Nothing is published.
+    vars:
+      BASE_URL: "{{.BASE_URL | default .JANUS_PUBLIC_URL}}"
+      SAMPLES: '{{.SAMPLES | default "3"}}'
+      INTERVAL: '{{.INTERVAL | default "10"}}'
+    preconditions:
+      - sh: test -n "{{.BASE_URL}}"
+        msg: "Set BASE_URL=... or export JANUS_PUBLIC_URL to the hosted Janus URL."
+    cmds:
+      - uv run --no-project python scripts/ops_metrics.py probe --base-url {{.BASE_URL}} --samples {{.SAMPLES}} --interval {{.INTERVAL}}
+
+  ops:metrics:
+    desc: Summarize the deploy and availability history from the ops-metrics branch (JAN-269; DAYS=, default 30).
+    vars:
+      DAYS: '{{.DAYS | default "30"}}'
+    cmds:
+      - uv run --no-project python scripts/ops_metrics.py summary --dataset deploys --days {{.DAYS}}
+      - uv run --no-project python scripts/ops_metrics.py summary --dataset availability --days {{.DAYS}}
+
+  ops:export:
+    desc: Export one ops-metrics dataset (DATASET=deploys|availability) as CSV or JSON Lines (FORMAT=csv|jsonl) to stdout or OUT=.
+    vars:
+      DATASET: '{{.DATASET | default "deploys"}}'
+      FORMAT: '{{.FORMAT | default "csv"}}'
+      OUT: '{{.OUT | default ""}}'
+    cmds:
+      - uv run --no-project python scripts/ops_metrics.py export --dataset {{.DATASET}} --format {{.FORMAT}} {{if .OUT}}--out {{.OUT}}{{end}}
+
+  quality:duplication:
+    desc: Duplicated production code (jscpd, .jscpd.json); fails above the 1% threshold.
+    cmds:
+      - npx --yes jscpd@5.4.0 --config .jscpd.json
+
+  quality:report:
+    desc: Weekly quality report (JAN-265/266/270) - every check in one JSON report (quality-report/), compared with the last main report on the quality-history branch, plus what the dead-code gates do not check; fails when a gated check failed or errored. ONLY=complexity,size,... limits the checks.
+    vars:
+      ONLY: '{{.ONLY | default "tests,coverage,complexity,size,duplication,types,semgrep,dependencies,deployment"}}'
+    cmds:
+      - uv run --no-project python scripts/quality_report.py collect --out quality-report/raw.json --work-dir quality-report/work --only {{.ONLY}}
+      - uv run --no-project python scripts/quality_report.py finalize quality-report/raw.json --out quality-report/quality-report.json --markdown quality-report/summary.md
+      - cd frontend && npx knip --reporter markdown || true
+      - uv run vulture --min-confidence 60 || true
+      # Last, like the workflow: the report and the ungated listings are written first.
+      - uv run --no-project python scripts/quality_report.py gate quality-report/quality-report.json
+
+  quality:history:
+    desc: Print the newest COUNT (default 1) main quality reports from the quality-history branch as JSON Lines, oldest first (JAN-270; input for the monthly structural review, JAN-271).
+    vars:
+      COUNT: '{{.COUNT | default "1"}}'
+    cmds:
+      - uv run --no-project python scripts/quality_report.py latest --count {{.COUNT}}
+
+  quality:review-bundle:
+    desc: Monthly structural review input (JAN-271) in structural-review/ - main since the last recorded review (BASE=<sha> overrides), the newest main quality reports, the diff, the CODEMAPs and router metrics; prints the bundle digest the review must cite.
+    cmds:
+      - uv run --no-project python scripts/structural_review.py bundle --out-dir structural-review {{if .BASE}}--base {{.BASE}}{{end}}
+
+  quality:review-check:
+    desc: Validate a structural review (FILE=review.json, janus.structural-review/1) against the bundle (BUNDLE, default structural-review/bundle.json) and render it to structural-review/review.md; writes nothing else.
+    requires:
+      vars: [FILE]
+    vars:
+      BUNDLE: '{{.BUNDLE | default "structural-review/bundle.json"}}'
+    cmds:
+      - uv run --no-project python scripts/structural_review.py check {{.FILE}} --bundle {{.BUNDLE}} --markdown structural-review/review.md
+
+  quality:review-record:
+    desc: Append a checked structural review of a main window (FILE=review.json) to the quality-history branch, so the next window starts at its head; refuses a window already recorded.
+    requires:
+      vars: [FILE]
+    vars:
+      BUNDLE: '{{.BUNDLE | default "structural-review/bundle.json"}}'
+    cmds:
+      - uv run --no-project python scripts/structural_review.py record {{.FILE}} --bundle {{.BUNDLE}}
+
+  format:
+    desc: Format code with black and ruff.
+    cmds:
+      - uv run ruff check --fix .
+      - uv run ruff format .
+
+  build-css:
+    desc: Build Tailwind CSS.
+    cmds:
+      - npm run build:css
+
+  docs:
+    desc: Build documentation with Zensical.
+    dir: docs
+    cmds:
+      - uv run zensical build
+
+  docs:serve:
+    desc: Serve documentation with Zensical.
+    dir: docs
+    cmds:
+      - uv run zensical serve
+
+  digest:
+    desc: Generate the Afternoon Digest.
+    cmds:
+      - uv run janus digest
+
+  setup:
+    desc: Initialize user configuration file at ~/.config/janus/settings.toml.
+    cmds:
+      - uv run janus config init
+      - echo "👉  Remember to edit ~/.config/janus/settings.toml before starting Janus."
+
+  todo-chat:install:
+    desc: Build and install the Todo Chat Janus Companion, then configure Hyprland Super+T.
+    cmds:
+      - bash scripts/install-todo-chat.sh
+
+  tunnel:db:
+    desc: Open SSH tunnel to the Uberspace PostgreSQL (localhost:15432 -> thoni:5432). Runs in foreground; Ctrl+C to stop.
+    cmds:
+      - ssh -N -L 15432:localhost:5432 thoni

@@ -1,0 +1,33 @@
+name: PR title
+
+# Conventional-commit titles for squash merges. Its own workflow so that editing a title
+# re-runs only this check, never the CI suites (JAN-314); a newer event for the same PR
+# cancels an older check.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate PR title for squash merge
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|chore|docs|refactor|perf|test|build|ci|style|revert)(\([[:alnum:]_.\/-]+\))?(!)?: .+$'
+          if ! printf '%s\n' "$PR_TITLE" | grep -Eq "$pattern"; then
+            echo "Pull request title must use conventional-commit format."
+            echo "Example: feat(ui): add planner widget"
+            echo "Got: $PR_TITLE"
+            exit 1
+          fi

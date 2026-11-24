@@ -1,0 +1,530 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap");
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-primary: #3498db;
+  --color-secondary: #2c3e50;
+  --color-accent: #e74c3c;
+  --color-light-bg: #f4f7f9;
+  --color-light-card: #ffffff;
+  --color-light-text: #2c3e50;
+  --color-dark-bg: #1a1a1a;
+  --color-dark-card: #2b2b2b;
+  --color-dark-text: #ecf0f1;
+
+  /* UIv2 ("terminal") design tokens — near-black phosphor HUD, acid-lime accent. */
+  --color-v2-bg: #04070a;
+  --color-v2-bg-deep: #010304;
+  --color-v2-surface: #0a0f14;
+  --color-v2-surface-muted: #111a22;
+  --color-v2-text: #dde8e2;
+  --color-v2-text-muted: #7d9490;
+  --color-v2-accent: #c6f24a;
+  --color-v2-accent-dim: #8aab2e;
+  --color-v2-accent-soft: rgba(198, 242, 74, 0.1);
+  --color-v2-cyan: #3ee0d4;
+  --color-v2-border: #1b2730;
+  --color-v2-border-bright: #33474f;
+
+  /* UIv3 ("rusty console") design tokens — warm near-black, oxidised rust-red accent. */
+  --color-v3-bg: #0d0605;
+  --color-v3-bg-deep: #070302;
+  --color-v3-surface: #170c09;
+  --color-v3-surface-muted: #21110c;
+  --color-v3-text: #e6d7ce;
+  --color-v3-text-muted: #a08376;
+  --color-v3-accent: #c1451f;
+  --color-v3-accent-bright: #e35c33;
+  --color-v3-accent-dim: #8e3316;
+  --color-v3-accent-soft: rgba(193, 69, 31, 0.13);
+  --color-v3-ember: #d9873f;
+  --color-v3-border: #5a2618;
+  --color-v3-border-bright: #8c3a24;
+
+  --font-terminal: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Genuine typewriter faces, kept distinct from UIv2's JetBrains Mono. */
+  --font-typewriter: "Courier Prime", "Courier New", ui-monospace, monospace;
+  --font-typewriter-worn: "Special Elite", "Courier Prime", "Courier New", monospace;
+}
+
+/* Enable class-based dark mode in Tailwind v4 */
+@variant dark (&:where(.dark, .dark *));
+
+/* UIv2 shell variant — mirrors the dark variant so shared components can opt into
+   UIv2-specific styling without being forked. */
+@variant uiv2 (&:where(.ui-v2, .ui-v2 *));
+
+/* UIv3 shell variant — same mechanism as `uiv2`, so shared primitives carry a
+   `uiv3:` treatment alongside their `uiv2:` one instead of being forked. */
+@variant uiv3 (&:where(.ui-v3, .ui-v3 *));
+
+/* Surface tokens consumed by the shared `components/ui` primitives. The primitives
+   set these through inline styles (which no class can override), so the UIv1 and
+   UIv2 looks are swapped by redefining the variables rather than by forking. */
+:root {
+  --janus-card-bg: rgba(8, 20, 56, 0.55);
+  --janus-card-border: rgba(99, 160, 255, 0.14);
+  --janus-card-blur: blur(14px);
+  --janus-card-footer-bg: rgba(59, 130, 246, 0.04);
+}
+
+.ui-v2 {
+  --janus-card-bg: linear-gradient(180deg, #0c131a 0%, #070c11 100%);
+  --janus-card-border: var(--color-v2-border);
+  --janus-card-blur: none;
+  --janus-card-footer-bg: rgba(198, 242, 74, 0.035);
+  color-scheme: dark;
+}
+
+.ui-v3 {
+  --janus-card-bg: linear-gradient(180deg, #170c09 0%, #0f0705 100%);
+  --janus-card-border: var(--color-v3-border);
+  --janus-card-blur: none;
+  --janus-card-footer-bg: rgba(193, 69, 31, 0.05);
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply antialiased;
+    background: #04091c;
+    color: #e8f0ff;
+  }
+
+  .ui-v2 body {
+    background: var(--color-v2-bg-deep);
+    color: var(--color-v2-text);
+  }
+
+  .ui-v3 body {
+    background: var(--color-v3-bg-deep);
+    color: var(--color-v3-text);
+    font-family: var(--font-typewriter);
+  }
+}
+
+/* Janus wallpaper glass design */
+.janus-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(180, 210, 255, 0.65);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.janus-icon-btn:hover {
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+}
+.janus-icon-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.10);
+  color: #f87171;
+}
+
+.janus-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: rgba(180, 210, 255, 0.65);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  border-left: 2px solid transparent;
+}
+.janus-nav-link:hover {
+  background: rgba(59, 130, 246, 0.10);
+  color: #93c5fd;
+}
+.janus-nav-link.active {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+  border-left-color: #3b82f6;
+}
+
+/* ===================================================================== *
+ * UIv2 — "Terminal" phosphor HUD.
+ *
+ * Everything below is scoped to `.ui-v2` and never applies to the classic
+ * shell. The identity is: near-black CRT ground, a faint lime grid and
+ * scanline wash, hard-edged panels (no rounded corners), acid-lime phosphor
+ * accents with glow, and monospaced chrome typography. Long-form content
+ * keeps the shared dark palette so reading stays comfortable.
+ * ===================================================================== */
+
+/* Hard-edged geometry: the terminal look has no soft corners. Pills that rely
+   on `rounded-full` (status dots, avatars, toggles) keep their shape. */
+.ui-v2 [class*="rounded"]:not([class*="rounded-full"]) {
+  border-radius: 0;
+}
+
+/* Retint the shared components' blue brand accent to phosphor lime. */
+.ui-v2 .text-primary {
+  color: var(--color-v2-accent);
+}
+.ui-v2 .bg-primary {
+  background-color: var(--color-v2-accent);
+  color: var(--color-v2-bg);
+}
+.ui-v2 .border-primary {
+  border-color: var(--color-v2-accent);
+}
+
+/* Monospaced chrome typography: headings read as console output. */
+.ui-v2 h1,
+.ui-v2 h2,
+.ui-v2 h3 {
+  font-family: var(--font-terminal);
+  letter-spacing: -0.015em;
+}
+
+/* Form fields read as terminal input slots. */
+.ui-v2 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.ui-v2 select,
+.ui-v2 textarea {
+  background-color: #070c11;
+  border-color: var(--color-v2-border);
+  color: var(--color-v2-text);
+  font-family: var(--font-terminal);
+}
+.ui-v2 input:focus,
+.ui-v2 select:focus,
+.ui-v2 textarea:focus {
+  border-color: var(--color-v2-accent);
+}
+/* Labels keep whatever tracking their utility classes set; only the face changes. */
+.ui-v2 label {
+  font-family: var(--font-terminal);
+}
+
+.ui-v2 ::selection {
+  background: var(--color-v2-accent);
+  color: var(--color-v2-bg);
+}
+
+.ui-v2 :focus-visible {
+  outline: 2px solid var(--color-v2-accent);
+  outline-offset: 2px;
+}
+
+.ui-v2 ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.ui-v2 ::-webkit-scrollbar-track {
+  background: #06090c;
+}
+.ui-v2 ::-webkit-scrollbar-thumb {
+  background: #23323c;
+  border: 2px solid #06090c;
+}
+.ui-v2 ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-v2-accent-dim);
+}
+
+/* --- Backdrop layers (rendered by LayoutV2) -------------------------- */
+
+.uiv2-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.uiv2-grid {
+  background-image:
+    linear-gradient(to right, rgba(198, 242, 74, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(198, 242, 74, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 100% 75% at 50% 0%, #000 0%, transparent 82%);
+  mask-image: radial-gradient(ellipse 100% 75% at 50% 0%, #000 0%, transparent 82%);
+}
+
+.uiv2-scanlines {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(222, 255, 235, 0.022) 0px,
+    rgba(222, 255, 235, 0.022) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.uiv2-bloom {
+  position: fixed;
+  left: 50%;
+  top: -24rem;
+  width: 78rem;
+  height: 44rem;
+  transform: translateX(-50%);
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(closest-side, rgba(198, 242, 74, 0.18), rgba(62, 224, 212, 0.07) 55%, transparent 100%);
+  filter: blur(24px);
+}
+
+/* --- Chrome helpers -------------------------------------------------- */
+
+.uiv2-meta {
+  font-family: var(--font-terminal);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.uiv2-caret {
+  animation: uiv2-blink 1.15s steps(1, end) infinite;
+}
+
+.uiv2-beacon {
+  animation: uiv2-beacon 2.4s ease-in-out infinite;
+}
+
+@keyframes uiv2-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes uiv2-beacon {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(62, 224, 212, 0.55);
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 4px rgba(62, 224, 212, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uiv2-caret,
+  .uiv2-beacon {
+    animation: none;
+  }
+}
+
+/* ===================================================================== *
+ * UIv3 — "Rusty Console".
+ *
+ * Everything below is scoped to `.ui-v3`. The identity is: a warm, almost
+ * black-red ground; visible oxidised rust-red rules around every panel and
+ * nav slot; genuine typewriter type (Courier Prime for body, Special Elite
+ * for the chrome); and old-machine texture — film grain, corrosion stains, a
+ * heavy warm vignette and a slow roll band, rather than UIv2's crisp
+ * scanlines. The machine is older and dirtier, not brighter.
+ * ===================================================================== */
+
+/* Hard-edged geometry: a machine from before rounded corners existed. Pills
+   that rely on `rounded-full` (status dots, avatars, toggles) keep their shape. */
+.ui-v3 [class*="rounded"]:not([class*="rounded-full"]) {
+  border-radius: 0;
+}
+
+/* Retint the shared components' blue brand accent to rust. */
+.ui-v3 .text-primary {
+  color: var(--color-v3-accent-bright);
+}
+.ui-v3 .bg-primary {
+  background-color: var(--color-v3-accent);
+  color: #1a0b07;
+}
+.ui-v3 .border-primary {
+  border-color: var(--color-v3-accent);
+}
+
+/* Typewriter typography. Headings use the worn face; body copy stays on the
+   cleaner Courier Prime so long-form reading survives the character. */
+.ui-v3 h1,
+.ui-v3 h2,
+.ui-v3 h3 {
+  font-family: var(--font-typewriter-worn);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Input slots read as paper struck through a worn ribbon: inset, warm, and
+   underlined in rust. */
+.ui-v3 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.ui-v3 select,
+.ui-v3 textarea {
+  background-color: #100705;
+  border-color: var(--color-v3-border);
+  border-bottom-color: var(--color-v3-border-bright);
+  color: var(--color-v3-text);
+  font-family: var(--font-typewriter);
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.75);
+}
+.ui-v3 input:focus,
+.ui-v3 select:focus,
+.ui-v3 textarea:focus {
+  border-color: var(--color-v3-accent);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(193, 69, 31, 0.35);
+}
+.ui-v3 label {
+  font-family: var(--font-typewriter);
+}
+
+.ui-v3 ::selection {
+  background: var(--color-v3-accent);
+  color: #1a0b07;
+}
+
+.ui-v3 :focus-visible {
+  outline: 2px solid var(--color-v3-accent-bright);
+  outline-offset: 2px;
+}
+
+.ui-v3 ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.ui-v3 ::-webkit-scrollbar-track {
+  background: #0b0504;
+}
+.ui-v3 ::-webkit-scrollbar-thumb {
+  background: #4a2018;
+  border: 2px solid #0b0504;
+}
+.ui-v3 ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-v3-accent-dim);
+}
+
+/* --- Backdrop layers (rendered by LayoutV3) -------------------------- */
+
+.uiv3-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Corrosion: uneven rust blooms bleeding in from the edges. */
+.uiv3-corrosion {
+  background:
+    radial-gradient(60rem 34rem at 8% -6%, rgba(193, 69, 31, 0.2), transparent 70%),
+    radial-gradient(44rem 30rem at 104% 22%, rgba(140, 58, 36, 0.16), transparent 72%),
+    radial-gradient(52rem 32rem at 46% 108%, rgba(217, 135, 63, 0.09), transparent 74%);
+}
+
+/* Film grain: a static dust layer that sells "old" without motion sickness. */
+.uiv3-grain {
+  opacity: 0.32;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* A heavy warm vignette — the tube is dim and the edges have burned in. */
+.uiv3-vignette {
+  background: radial-gradient(ellipse 120% 96% at 50% 42%, transparent 38%, rgba(6, 2, 1, 0.82) 100%);
+}
+
+/* One soft band drifting down the screen: the vertical hold slipping, which is
+   a different artefact from UIv2's fixed scanline wash. It is its own short,
+   fixed element moved with `transform` (not a full-viewport
+   `background-position` animation) so the browser composites it instead of
+   repainting the whole backdrop every frame. */
+.uiv3-roll {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 22rem;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(224, 150, 110, 0.05) 45%,
+    rgba(224, 150, 110, 0.07) 50%,
+    rgba(224, 150, 110, 0.05) 55%,
+    transparent 100%
+  );
+  animation: uiv3-roll 9s linear infinite;
+}
+
+/* --- Chrome helpers -------------------------------------------------- */
+
+.uiv3-stamp {
+  font-family: var(--font-typewriter-worn);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
+
+/* A worn, hazy plate behind the header and footer bars. */
+.uiv3-plate {
+  background: linear-gradient(180deg, rgba(28, 14, 10, 0.96) 0%, rgba(13, 6, 5, 0.96) 100%);
+}
+
+/* The key never fully lifts — a lazier, dimmer blink than UIv2's hard caret. */
+.uiv3-strike {
+  animation: uiv3-strike 1.5s steps(1, end) infinite;
+}
+
+.uiv3-ember {
+  animation: uiv3-ember 3.6s ease-in-out infinite;
+}
+
+@keyframes uiv3-roll {
+  0% {
+    transform: translateY(-24rem);
+  }
+  100% {
+    transform: translateY(130vh);
+  }
+}
+
+@keyframes uiv3-strike {
+  0%,
+  59% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0.12;
+  }
+}
+
+@keyframes uiv3-ember {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 6px 0 rgba(217, 135, 63, 0.6);
+  }
+  50% {
+    opacity: 0.45;
+    box-shadow: 0 0 2px 0 rgba(217, 135, 63, 0.1);
+  }
+}
+
+/* Page actions (JAN-251): the item Janus highlighted for the user, for a few seconds. */
+.ui-action-highlight {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uiv3-strike,
+  .uiv3-ember,
+  .uiv3-roll {
+    animation: none;
+  }
+}

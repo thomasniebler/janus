@@ -1,0 +1,535 @@
+[dependency-groups]
+dev = [
+  "deptry>=0.25.1",
+  "diff-cover>=10.6.0",
+  "graphql-core>=3.2.12",
+  "import-linter>=2.5",
+  "mypy>=2.4.0",
+  "prek>=0.5.3",
+  "pytest-cov>=7.1.0",
+  "pytest>=9.1.1",
+  "ruff>=0.17.0",
+  "vulture>=2.16"
+]
+
+[project]
+dependencies = [
+  "Jinja2>=3.1.4",
+  "PyYAML>=6.0.3",
+  "SQLAlchemy>=2.0.28",
+  "alembic>=1.20.0",
+  "atlassian-python-api>=5.0.5",
+  "azure-devops>=7.1.0b4",
+  "azure-identity>=1.27.0",
+  "bcrypt>=5.0.0",
+  "cryptography>=48.0.1",
+  "email-validator>=2.3.0",
+  "fastapi>=0.141.1",
+  "google-api-python-client>=2.191.0",
+  "google-auth-httplib2>=0.4.4",
+  "google-auth-oauthlib>=1.5.0",
+  "google-re2==1.1",
+  "greenlet==3.2.5",
+  "httpx>=0.28.1",
+  "imapclient>=4.1.0",
+  "langchain-anthropic>=1.7.4",
+  "langchain-classic>=1.0.8",
+  "langchain-core>=1.6.6",
+  "langchain-google-genai>=2.1.12",
+  "langchain-ollama>=1.1.0",
+  "langchain-openai>=1.6.6",
+  "lxml>=6.1.3",
+  # Parses the Markdown of a Janus-started conversation to vet its link destinations (JAN-319).
+  "markdown-it-py>=4.0.0",
+  "markdown>=3.10.3",
+  "msal>=1.39.0",
+  "protobuf>=7.36.2,<8",
+  "psycopg2-binary>=2.9.13",
+  "pydantic-settings>=2.15.0",
+  # Imported directly, so declared directly rather than relied on through fastapi
+  # (pydantic, starlette) and atlassian-python-api (requests); JAN-266.
+  "pydantic>=2.12.5",
+  "pyjwt>=2.15.1",
+  "python-multipart>=0.0.32",
+  "requests>=2.34.2",
+  "sqlite-vec>=0.1.9",
+  "starlette>=1.3.1",
+  "typer>=0.27.2",
+  "uvicorn>=0.41.0",
+  "websockets>=17.2",
+  "zensical>=0.0.69"
+]
+description = "Personal AI Assistant for filtering noise and surfacing signal."
+license = "MIT"
+license-files = ["LICENSE"]
+name = "janus"
+readme = "README.md"
+requires-python = ">=3.12"
+version = "1.15.0"
+
+[project.optional-dependencies]
+# WhatsApp connector (Neonize) and the system tray icon. Optional because neither runs on the
+# glibc 2.17 production host (Neonize's Go library needs glibc 2.34, and the host is
+# headless) and both pull in Pillow, which then cannot be kept up to date there. segno draws
+# the pairing QR code. Without `whatsapp`, WhatsApp accounts report that the extra is missing;
+# without `desktop`, `janus start --tray` logs a warning and runs without the icon. Install
+# with `uv sync --extra whatsapp --extra desktop`; keep them out of the dev group for the same
+# reason as `documents`.
+desktop = ["Pillow>=13.0.0", "pystray>=0.19.0"]
+# Knowledge document parsing (JAN-242). Optional because markitdown pulls in onnxruntime,
+# which has no wheels for the glibc 2.17 production host; without it, only plain-text
+# formats are ingested. Install with `uv sync --extra documents`. Keep it out of the dev
+# group: a plain `uv run` on the host syncs dev, which would try to install onnxruntime.
+documents = ["markitdown[docx,pdf,pptx,xlsx]>=0.1.8"]
+whatsapp = ["neonize==0.5.2", "segno>=1.6.6"]
+
+[project.scripts]
+janus = "janus.main:app"
+
+[tool.coverage.report]
+skip_empty = true
+
+[tool.coverage.run]
+# Branch coverage next to statement coverage (JAN-261).
+branch = true
+source = ["src/janus"]
+
+[tool.deptry]
+# All rules are on (JAN-266). DEP003 (imported but only a transitive dependency) used to be
+# ignored; the four packages it flagged (pydantic, starlette, requests, segno) are now
+# declared, so a new undeclared import fails `task lint:dead:backend`.
+known_first_party = ["janus"]
+
+[tool.deptry.per_rule_ignores]
+# DEP002: declared but not directly imported - either implicit runtime deps pulled in by
+# frameworks (Jinja2/email-validator/greenlet/psycopg2-binary/python-multipart/
+# websockets via FastAPI+SQLAlchemy, google-auth-httplib2 via
+# google-api-python-client) or docs-only/build-time tools (zensical). azure-devops has no
+# current call site either; tracked for a follow-up decision on whether to drop it or wire
+# up the Azure DevOps planner connector the docs describe.
+DEP002 = [
+  "Jinja2",
+  "azure-devops",
+  "email-validator",
+  "google-auth-httplib2",
+  "greenlet",
+  "lxml",
+  "psycopg2-binary",
+  "python-multipart",
+  "websockets",
+  "zensical"
+]
+
+[tool.importlinter]
+include_external_packages = false
+# Import boundaries (JAN-263), checked by `task lint:imports` and CI. Described in
+# docs/docs/tech-spec/architecture-overview.md (Cross-Cutting Architecture Rules) and src/janus/CODEMAP.md.
+root_package = "janus"
+
+[[tool.importlinter.contracts]]
+forbidden_modules = ["janus.api", "janus.app_factory", "janus.main", "janus.websocket"]
+name = "Only the composition roots wire the HTTP and WebSocket layers"
+source_modules = [
+  "janus.agent_runtime",
+  "janus.agent_task_runner",
+  "janus.agent_toolboxes",
+  "janus.agent_tools",
+  "janus.background_tasks",
+  "janus.builtin_triggers",
+  "janus.capability_profile",
+  "janus.character",
+  "janus.cli_client",
+  "janus.cli_microsoft",
+  "janus.cli_update",
+  "janus.config",
+  "janus.connectors",
+  "janus.database",
+  "janus.delegation_runtime",
+  "janus.delegation_service",
+  "janus.delegation_wait",
+  "janus.desktop",
+  "janus.domain_changes",
+  "janus.event_logger",
+  "janus.graph_mail_service",
+  "janus.imap_service",
+  "janus.llm_service",
+  "janus.models",
+  "janus.models_character",
+  "janus.models_images",
+  "janus.models_knowledge",
+  "janus.models_safety",
+  "janus.models_self_evolution",
+  "janus.models_toolsets",
+  "janus.notifications",
+  "janus.plan_graph",
+  "janus.plan_state",
+  "janus.planner_service",
+  "janus.planner_trigger_events",
+  "janus.processor",
+  "janus.prompt_injection",
+  "janus.reminder_service",
+  "janus.request_origin",
+  "janus.runtime",
+  "janus.runtime_adapter",
+  "janus.runtime_trigger_handler",
+  "janus.schemas",
+  "janus.security",
+  "janus.services",
+  "janus.startup",
+  "janus.status_service",
+  "janus.time_utils",
+  "janus.tool_policy",
+  "janus.tool_registry",
+  "janus.toolset_selection",
+  "janus.trigger_adapters",
+  "janus.trigger_approval",
+  "janus.trigger_definition_service",
+  "janus.trigger_event_filters",
+  "janus.trigger_events",
+  "janus.trigger_proposal_service",
+  "janus.trigger_runtime",
+  "janus.trigger_service",
+  "janus.triggers",
+  "janus.unattended_execution",
+  "janus.whatsapp_neonize",
+  "janus.whatsapp_trigger_events",
+  "janus.worker_manager",
+  "janus.workers"
+]
+# The roots are janus.main, janus.app_factory and janus.cli (which builds the app to
+# serve it); every other module must not reach the routers, directly or indirectly.
+type = "forbidden"
+
+[[tool.importlinter.contracts]]
+forbidden_modules = [
+  "janus.agent_runtime",
+  "janus.agent_task_runner",
+  "janus.agent_toolboxes",
+  "janus.agent_tools",
+  "janus.connectors",
+  "janus.delegation_runtime",
+  "janus.llm_service",
+  "janus.runtime_adapter",
+  "janus.runtime_trigger_handler",
+  "janus.services",
+  "janus.trigger_runtime",
+  "janus.unattended_execution",
+  "janus.workers"
+]
+name = "The data layer does not depend on behavior"
+source_modules = [
+  "janus.database",
+  "janus.models",
+  "janus.models_character",
+  "janus.models_images",
+  "janus.models_knowledge",
+  "janus.models_safety",
+  "janus.models_self_evolution",
+  "janus.models_toolsets",
+  "janus.schemas"
+]
+type = "forbidden"
+
+[[tool.importlinter.contracts]]
+# Direct imports only: a service may call another core service (e.g.
+# trigger_definition_service) that itself uses the tool registry.
+allow_indirect_imports = true
+forbidden_modules = [
+  "janus.agent_runtime",
+  "janus.agent_task_runner",
+  "janus.agent_toolboxes",
+  "janus.agent_tools",
+  "janus.delegation_runtime",
+  "janus.runtime_adapter",
+  "janus.runtime_trigger_handler",
+  "janus.trigger_runtime",
+  "janus.unattended_execution"
+]
+ignore_imports = [
+  # Records the authorized (tool-less) runtime step behind briefing and digest
+  # generation through the shared adapter (JAN-164). Imported lazily to avoid the
+  # agent_tools -> toolboxes -> dashboard_service cycle.
+  "janus.services.dashboard_service -> janus.runtime_adapter",
+  "janus.services.tool_approval -> janus.agent_toolboxes.shared",
+  # The chat approval gate (JAN-254) wraps confirmation-required tools inside the
+  # runtime's step and records refusals in its ToolCallLog, so it builds runtime types.
+  # It is chat-runtime wiring that lives under services/; moving it out would drop this.
+  "janus.services.tool_approval -> janus.runtime_adapter"
+]
+name = "Services do not reach into the agent toolboxes or the runtime"
+source_modules = ["janus.services"]
+type = "forbidden"
+
+[[tool.importlinter.contracts]]
+forbidden_modules = [
+  "janus.agent_runtime",
+  "janus.agent_task_runner",
+  "janus.agent_toolboxes",
+  "janus.agent_tools",
+  "janus.delegation_runtime",
+  "janus.runtime_adapter",
+  "janus.runtime_trigger_handler",
+  "janus.services",
+  "janus.tool_registry",
+  "janus.trigger_runtime",
+  "janus.unattended_execution",
+  "janus.workers"
+]
+name = "Planner connectors are leaf adapters"
+source_modules = ["janus.connectors"]
+type = "forbidden"
+
+[tool.janus.coverage]
+branches = 72.0
+# Floors for `task coverage` (scripts/coverage_gate.py, JAN-261): the measured main
+# baseline rounded down, gated separately. Raise them when coverage improves; never lower
+# them to make a PR pass.
+statements = 88.0
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.post(\"/login\")"
+path = "src/janus/api/auth.py"
+reason = "Login is the unauthenticated entry point; throttled and audited per auth-security.md."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.get(\"/setup\""
+path = "src/janus/api/auth.py"
+reason = "First-run setup status must be readable before any account exists; gated by _require_public_setup_enabled."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.post(\"/setup\""
+path = "src/janus/api/auth.py"
+reason = "First-run setup creates the first admin; requires the one-time setup token and is disabled once setup is done."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.post(\"/logout\")"
+path = "src/janus/api/auth.py"
+reason = "Logout must work with an expired or missing session; it only revokes the token it is given."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.get(\"/google\")"
+path = "src/janus/api/auth.py"
+reason = "Starts Google sign-in for a user who is not logged in yet; issues a single-use OAuth state."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.get(\"/health\")"
+path = "src/janus/api/status.py"
+reason = "Uptime probe used by the nightly health check; returns only a healthy/unhealthy status."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.get(\"/oauth/callback\")"
+path = "src/janus/api/tools.py"
+reason = "MCP OAuth callback; bound to its user by the single-use OAuth state."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "db.get(models.TriggerDefinition, definition_id)"
+path = "src/janus/agent_toolboxes/triggers.py"
+reason = "Deletes the follow-up definition this run created a moment earlier; the id never comes from the model."
+rule = "janus-unscoped-owned-row-lookup"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+path = "src/janus/services/database_copy_service.py"
+reason = "Table and column names come from the ORM metadata; all values are bound parameters."
+rule = "avoid-sqlalchemy-text"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+path = "src/janus/services/vector_index.py"
+reason = "FTS table names come from the fixed _FTS_BACKFILL_SQL owner types (table_name rejects others); all values are bound parameters."
+rule = "avoid-sqlalchemy-text"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+path = "src/janus/services/auth_service.py"
+reason = "Dummy hash verified for unknown users so login timing does not reveal which usernames exist."
+rule = "detected-bcrypt-hash"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+path = "scripts/deployment_capabilities.py"
+reason = "Fixed argument list for the quota binary found by shutil.which; no external input."
+rule = "dangerous-subprocess-use-audit"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+path = "scripts/dependency_audit.py"
+reason = "Runs only the fixed uv export, uvx pip-audit, and npm audit argument lists built in the script; no external input."
+rule = "dangerous-subprocess-use-audit"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+path = "scripts/quality_report.py"
+reason = "Runs only the fixed tool argument lists built in the script (uv, npx jscpd@5.4.0, node, npm, git); no external input. The second match builds a CompletedProcess for a timeout, it runs nothing (JAN-270)."
+rule = "dangerous-subprocess-use-audit"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+path = "scripts/quality_report.py"
+reason = "Parses only the JUnit XML that the report's own pytest run just wrote; no untrusted XML (JAN-270)."
+rule = "use-defused-xml"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+path = "scripts/release_validation.py"
+reason = "Fetches only paths under the --base-url the deploy workflow passes (the public Janus URL); main() rejects any scheme but http(s), so file:// cannot be reached."
+rule = "dynamic-urllib-use-detected"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+path = "scripts/ops_metrics.py"
+reason = "Fetches only /api/status/health under the --base-url the deploy and nightly workflows pass (the public Janus URL); fetch_health rejects any scheme but http(s), so file:// cannot be reached (JAN-269)."
+rule = "dynamic-urllib-use-detected"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "href={url}"
+path = "frontend/src/components/features/ui-blocks/ImageBlock.tsx"
+reason = "The download link's url is null unless it matches IMAGE_URL_PATTERN (^/api/images/[A-Za-z0-9_-]{1,64}$), so no javascript: or external URI can reach it (JAN-253)."
+rule = "react-href-var"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-05-10
+line = "subprocess.Popen("
+path = "src/janus/services/shell_service.py"
+reason = "The shell tool's purpose is to run a command (JAN-353): off unless the operator sets shell_tool_enabled, admin-only, each call approved in chat with an exact preview (control/invisible characters refused); shlex argv without a shell by default, scrubbed env, timeout and output cap."
+rule = "dangerous-subprocess-use-audit"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-05-10
+line = "subprocess.run("
+path = "src/janus/services/update_service.py"
+reason = "Self-hosted auto-update's fixed install steps (uv sync --frozen --inexact, the venv Python running a constant -c snippet or scripts/pre_release_snapshot.py), argv lists without a shell; no value from GitHub reaches this call."
+rule = "dangerous-subprocess-use-audit"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-05-10
+line = "os.execv("
+path = "src/janus/services/update_service.py"
+reason = "janus start re-executes itself after an installed update with its own interpreter and original argv (the operator's command line); nothing from GitHub or a request reaches it."
+rule = "dangerous-os-exec-audit"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-05-10
+line = "os.execv("
+path = "src/janus/services/update_service.py"
+reason = "The tainted 'args' are sys.argv, the operator's own janus start command line, re-used unchanged for the restart after an update."
+rule = "dangerous-os-exec-tainted-env-args"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.get(\"/{provider}/callback\")"
+path = "src/janus/api/connections.py"
+reason = "Provider connect callback (Google and Microsoft, also Google Sign-In); bound to its user by the single-use OAuth state, not a session."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.get(\"\", response_model=inbox_schemas.InboxResponse)"
+path = "src/janus/api/inbox.py"
+reason = "Action inbox read: authenticated by get_inbox_user (a web session, or a scoped device token that every other route refuses); owner-scoped."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-04-04
+line = "@router.post(\"/{kind}/{item_id}/{action}\""
+path = "src/janus/api/inbox.py"
+reason = "Action inbox actions: authenticated by get_inbox_user; a device token may only mark read or dismiss an open, owned item."
+rule = "janus-route-without-auth-dependency"
+
+[tool.mypy]
+files = [
+  "src/janus/capability_profile.py",
+  "src/janus/plan_graph.py",
+  "src/janus/prompt_injection.py",
+  "src/janus/request_origin.py",
+  "src/janus/schemas",
+  "src/janus/services/image_generation.py",
+  "src/janus/services/page_context.py",
+  "src/janus/services/ui_actions.py",
+  "src/janus/services/ui_blocks.py",
+  "src/janus/services/ui_introspection.py",
+  "src/janus/time_utils.py",
+  "src/janus/tool_registry.py",
+  "src/janus/trigger_adapters.py",
+  "src/janus/trigger_events.py"
+]
+follow_imports = "silent"
+plugins = ["pydantic.mypy"]
+# Type checking (JAN-260), `task typecheck` and CI. Strict, but only on the modules in
+# `files`: schemas, pure helpers, and runtime contracts. Modules that read ORM
+# attributes wait for the janus.models package to move from Column(...) to Mapped[...]:
+# until then mypy types every attribute as Column[...] rather than its value.
+# Grow `files` one module at a time; never add ignore_errors or blanket Any casts.
+python_version = "3.12"
+strict = true
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+# google-re2 ships no type stubs; prompt_injection.py describes the part it uses
+# with a Protocol.
+module = ["re2"]
+
+[tool.ruff]
+# Semgrep rule fixtures are deliberately incomplete snippets (JAN-267).
+extend-exclude = [".semgrep"]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = [
+  # `class X(str, Enum)` -> `StrEnum` changes str()/format() of every member (the
+  # value instead of "X.MEMBER"); the stored and serialized values depend on the
+  # current behavior, so this is not a mechanical upgrade.
+  "UP042"
+]
+# E = pycodestyle, F = Pyflakes, I = isort, D = pydocstyle, plus (JAN-259) B = bugbear,
+# UP = pyupgrade, SIM = simplify, C901 = cyclomatic complexity.
+select = ["B", "C901", "D", "E", "F", "I", "SIM", "UP"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency markers are meant to be called in defaults.
+extend-immutable-calls = [
+  "fastapi.Body",
+  "fastapi.Cookie",
+  "fastapi.Depends",
+  "fastapi.File",
+  "fastapi.Form",
+  "fastapi.Header",
+  "fastapi.Path",
+  "fastapi.Query",
+  "fastapi.Security",
+  "typer.Argument",
+  "typer.Option"
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.uv]
+package = true
+
+[tool.vulture]
+# Scoped to src/janus only: fixtures/mocks in tests/ trip vulture's unused-argument and
+# unused-variable heuristics constantly and aren't worth the noise.
+ignore_names = ["exc_tb", "exc_type", "exc_val"]
+min_confidence = 80
+paths = ["src/janus"]

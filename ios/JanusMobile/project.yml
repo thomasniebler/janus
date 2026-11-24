@@ -1,0 +1,23 @@
+name: JanusMobile
+options:
+  minimumXcodeGenVersion: 2.38.0
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  JanusMobile:
+    type: application
+    platform: iOS
+    sources:
+      - JanusMobile
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.janus.mobile
+        PRODUCT_NAME: JanusMobile
+        SWIFT_VERSION: 5.10
+    info:
+      path: JanusMobile/Info.plist
+      properties:
+        CFBundleDisplayName: Janus
+        UILaunchScreen: {}
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true

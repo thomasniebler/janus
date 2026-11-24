@@ -1,0 +1,418 @@
+name: Deploy to Uberspace
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Git ref to deploy (defaults to main)"
+        required: false
+        type: string
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy (defaults to main)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# The deploy target comes from repository secrets (DEPLOY_SSH_TARGET, JANUS_PUBLIC_URL), so nothing
+# host-specific lives in the repository or shows up unmasked in the public run logs. Jobs run only
+# when the DEPLOY_ENABLED repository variable is 'true', so a fork or a fresh clone never tries to
+# deploy. See docs/docs/tech-spec/deployment-operations.md#deploy-target-configuration.
+env:
+  JANUS_PUBLIC_URL: ${{ secrets.JANUS_PUBLIC_URL }}
+  DEPLOY_SSH_TARGET: ${{ secrets.DEPLOY_SSH_TARGET }}
+  # Relative to the SSH user's home directory (or absolute); no spaces.
+  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'janus' }}
+  # The supervisord program that runs Janus.
+  DEPLOY_SERVICE: ${{ vars.DEPLOY_SERVICE || 'janus' }}
+
+concurrency:
+  group: deploy-uberspace-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    outputs:
+      ref: ${{ steps.deploy-ref.outputs.ref }}
+      version: ${{ steps.version.outputs.version }}
+      restarted_at: ${{ steps.restart-time.outputs.restarted_at }}
+      started_at: ${{ steps.deploy-start.outputs.started_at }}
+      commit: ${{ steps.deploy-commit.outputs.commit }}
+      version_check: ${{ steps.verify-version.outputs.version_check }}
+    steps:
+      # Start of the deploy duration (JAN-269): the job's first step on the runner, after queueing
+      # and the wait for the concurrency group. scripts/ops_metrics.py documents the definition.
+      - name: Record deploy start
+        id: deploy-start
+        run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve deploy ref
+        id: deploy-ref
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "release" ] && [ -n "$RELEASE_TAG" ]; then
+            echo "ref=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          elif [ -n "$INPUT_REF" ]; then
+            echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out deploy ref
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.deploy-ref.outputs.ref }}
+
+      # The commit actually deployed (JAN-269), which differs from GITHUB_SHA on a rollback.
+      - name: Resolve deployed commit
+        id: deploy-commit
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # scripts/ops_metrics.py from the workflow's own revision, so redeploying an older tag
+      # (a rollback) still verifies and measures the same way. Excluded from the sync below.
+      - name: Check out deploy tooling
+        uses: actions/checkout@v7
+        with:
+          path: .deploy-tools
+          sparse-checkout: scripts
+
+      # pyproject.toml's version; a release tag (vX.Y.Z) that disagrees with it fails here.
+      - name: Read release version
+        id: version
+        env:
+          DEPLOY_REF: ${{ steps.deploy-ref.outputs.ref }}
+        run: |
+          set -euo pipefail
+          version=$(python3 .deploy-tools/scripts/ops_metrics.py expected-version --ref "$DEPLOY_REF")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # Build everything on the runner so the Uberspace host never installs
+      # frontend devDependencies (node_modules blew the disk quota and left a
+      # truncated TypeScript compiler behind). Only the built output is synced.
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend and Storybook
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+          npm run build-storybook
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Verify backend installs and imports
+        run: |
+          set -euo pipefail
+          uv sync --frozen --no-dev
+          uv run --no-dev python -c "import janus.main"
+          # Fail before syncing anything to the glibc 2.17 host if a dependency
+          # cannot be installed there (same check as CI's backend-quality job). It
+          # includes the dev group, which a plain `uv run` on the host would sync.
+          uv export --frozen --no-emit-project --no-hashes --quiet -o "$RUNNER_TEMP/prod-requirements.txt"
+          uv pip install --dry-run --no-deps --python-version 3.12 \
+            --python-platform x86_64-manylinux_2_17 \
+            --target "$RUNNER_TEMP/prod-platform-check" \
+            -r "$RUNNER_TEMP/prod-requirements.txt"
+
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.UBERSPACE_SSH_PRIVATE_KEY }}
+
+      - name: Trust Uberspace host key
+        env:
+          UBERSPACE_KNOWN_HOSTS: ${{ secrets.UBERSPACE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$UBERSPACE_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # frontend/dist and storybook-static arrive prebuilt; drop any
+      # node_modules left over from the old on-host build before syncing or
+      # installing anything, so a nearly full quota can't fail those steps.
+      - name: Free quota on Uberspace
+        run: ssh "$DEPLOY_SSH_TARGET" "rm -rf $DEPLOY_PATH/frontend/node_modules"
+
+      - name: Sync release to the host
+        run: |
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.deploy-tools/' \
+            --exclude '.venv/' \
+            --exclude '.pytest_cache/' \
+            --exclude '.mypy_cache/' \
+            --exclude '__pycache__/' \
+            --exclude '.playwright-mcp/' \
+            --exclude 'node_modules/' \
+            --exclude 'frontend/node_modules/' \
+            --exclude '.env' \
+            --exclude '.janus_key' \
+            --exclude 'janus.db' \
+            ./ "$DEPLOY_SSH_TARGET:$DEPLOY_PATH/"
+
+      - name: Sync dependencies on the host
+        run: |
+          ssh "$DEPLOY_SSH_TARGET" bash -s -- "$DEPLOY_PATH" <<'EOF'
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:/usr/bin:/bin"
+          cd "$1"
+          uv sync --frozen --no-dev
+          EOF
+
+      # One snapshot of the database as it was before this release's migrations, overwritten by
+      # the next release (janus.pre-release.db next to janus.db). A failed snapshot stops the
+      # deploy before anything is migrated.
+      - name: Snapshot database before migrating
+        run: >
+          ssh "$DEPLOY_SSH_TARGET"
+          "cd $DEPLOY_PATH && PATH=\"\$HOME/.local/bin:/usr/bin:/bin\" uv run --no-sync python -"
+          < scripts/pre_release_snapshot.py
+
+      - name: Migrate database and check configuration
+        run: |
+          ssh "$DEPLOY_SSH_TARGET" bash -s -- "$DEPLOY_PATH" <<'EOF'
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:/usr/bin:/bin"
+          cd "$1"
+          # --no-sync: a plain `uv run` would re-sync the dev group into production.
+          uv run --no-sync alembic upgrade head
+          uv run --no-sync janus config doctor
+          EOF
+
+      # The host checks only count log records after this moment and expect a younger process.
+      - name: Record restart time
+        id: restart-time
+        run: echo "restarted_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Restart remote Janus
+        run: |
+          ssh "$DEPLOY_SSH_TARGET" bash -s -- "$DEPLOY_SERVICE" <<'EOF'
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:/usr/bin:/bin"
+          if ! supervisorctl restart "$1"; then
+            supervisorctl status "$1" || true
+            supervisorctl tail -100 "$1" stderr || true
+            supervisorctl tail -100 "$1" stdout || true
+            exit 1
+          fi
+          supervisorctl status "$1"
+          EOF
+
+      # HTTP 200 alone is not enough: the health endpoint must report the expected version
+      # (bounded: 12 attempts, 10 s apart). Its success is the end of the deploy duration.
+      - name: Verify release version
+        id: verify-version
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          status=0
+          python3 .deploy-tools/scripts/ops_metrics.py verify-version --base-url "$JANUS_PUBLIC_URL" \
+            --expected "$EXPECTED_VERSION" --attempts 12 --delay 10 \
+            --json "$RUNNER_TEMP/version-check.json" --summary "$GITHUB_STEP_SUMMARY" || status=$?
+          if [ -f "$RUNNER_TEMP/version-check.json" ]; then
+            echo "version_check=$(tr -d '\n' < "$RUNNER_TEMP/version-check.json")" >> "$GITHUB_OUTPUT"
+          fi
+          exit "$status"
+
+  # Post-release validation: the release is live, at the right version and schema, and healthy.
+  # docs/docs/tech-spec/deployment-operations.md#post-release-validation
+  validate:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Check out deployed ref
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.deploy.outputs.ref }}
+
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.UBERSPACE_SSH_PRIVATE_KEY }}
+
+      - name: Trust Uberspace host key
+        env:
+          UBERSPACE_KNOWN_HOSTS: ${{ secrets.UBERSPACE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$UBERSPACE_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          mkdir -p release-check-reports
+
+      - name: Public and signed-in checks
+        env:
+          JANUS_SMOKE_USERNAME: ${{ secrets.JANUS_SMOKE_USERNAME }}
+          JANUS_SMOKE_PASSWORD: ${{ secrets.JANUS_SMOKE_PASSWORD }}
+          EXPECTED_VERSION: ${{ needs.deploy.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release_validation.py --base-url "$JANUS_PUBLIC_URL" --expected-version "$EXPECTED_VERSION" \
+            | tee release-check-reports/validate-public.txt
+
+      - name: Host checks
+        if: ${{ !cancelled() }}
+        env:
+          EXPECTED_VERSION: ${{ needs.deploy.outputs.version }}
+          RESTARTED_AT: ${{ needs.deploy.outputs.restarted_at }}
+        run: |
+          set -euo pipefail
+          # Retries only a dropped SSH session (exit 255); see scripts/release_host_checks.sh.
+          scripts/release_host_checks.sh release-check-reports/validate-host.txt
+
+      - name: Write job summary
+        if: ${{ !cancelled() }}
+        run: |
+          for report in release-check-reports/*.txt; do
+            [ -f "$report" ] || continue
+            printf '### %s\n\n```\n%s\n```\n\n' "$(basename "$report")" "$(cat "$report")" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload check reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-check-validate
+          path: release-check-reports/
+
+  # The same checks again once the release has run for a while: scheduled work, the trigger
+  # queue and the log after the first minutes of real traffic.
+  soak:
+    needs: [deploy, validate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    steps:
+      - name: Wait for the soak period
+        run: sleep 900
+
+      - name: Check out deployed ref
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.deploy.outputs.ref }}
+
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.UBERSPACE_SSH_PRIVATE_KEY }}
+
+      - name: Trust Uberspace host key
+        env:
+          UBERSPACE_KNOWN_HOSTS: ${{ secrets.UBERSPACE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$UBERSPACE_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          mkdir -p release-check-reports
+
+      - name: Public and signed-in checks
+        env:
+          JANUS_SMOKE_USERNAME: ${{ secrets.JANUS_SMOKE_USERNAME }}
+          JANUS_SMOKE_PASSWORD: ${{ secrets.JANUS_SMOKE_PASSWORD }}
+          EXPECTED_VERSION: ${{ needs.deploy.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release_validation.py --base-url "$JANUS_PUBLIC_URL" --expected-version "$EXPECTED_VERSION" \
+            | tee release-check-reports/soak-public.txt
+
+      - name: Host checks
+        if: ${{ !cancelled() }}
+        env:
+          EXPECTED_VERSION: ${{ needs.deploy.outputs.version }}
+          RESTARTED_AT: ${{ needs.deploy.outputs.restarted_at }}
+        run: |
+          set -euo pipefail
+          # Retries only a dropped SSH session (exit 255); see scripts/release_host_checks.sh.
+          scripts/release_host_checks.sh release-check-reports/soak-host.txt
+
+      - name: Write job summary
+        if: ${{ !cancelled() }}
+        run: |
+          for report in release-check-reports/*.txt; do
+            [ -f "$report" ] || continue
+            printf '### %s\n\n```\n%s\n```\n\n' "$(basename "$report")" "$(cat "$report")" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload check reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-check-soak
+          path: release-check-reports/
+
+  # Deploy duration and outcome (JAN-269), appended to the ops-metrics branch so they outlive
+  # artifact retention. Runs for failed deploys too; not part of the release failure report.
+  # docs/docs/tech-spec/deployment-operations.md#deploy-and-availability-metrics
+  metrics:
+    needs: [deploy, validate]
+    if: ${{ !cancelled() && needs.deploy.outputs.started_at != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      # Push to the ops-metrics history branch only; main is never written.
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build deploy record
+        env:
+          STARTED_AT: ${{ needs.deploy.outputs.started_at }}
+          RESTARTED_AT: ${{ needs.deploy.outputs.restarted_at }}
+          VERSION_CHECK: ${{ needs.deploy.outputs.version_check }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+          DEPLOY_REF: ${{ needs.deploy.outputs.ref }}
+          DEPLOY_VERSION: ${{ needs.deploy.outputs.version }}
+          DEPLOY_COMMIT: ${{ needs.deploy.outputs.commit }}
+        run: |
+          set -euo pipefail
+          [ -z "$VERSION_CHECK" ] || printf '%s' "$VERSION_CHECK" > "$RUNNER_TEMP/version-check.json"
+          python3 scripts/ops_metrics.py deploy-record --started-at "$STARTED_AT" --restarted-at "$RESTARTED_AT" \
+            --verify-json "$RUNNER_TEMP/version-check.json" --deploy-result "$DEPLOY_RESULT" \
+            --validate-result "$VALIDATE_RESULT" --ref "${DEPLOY_REF:-unknown}" --version "${DEPLOY_VERSION:-unknown}" --commit "${DEPLOY_COMMIT:-}" \
+            --out deploy-metrics.json --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Append to the ops-metrics history
+        run: python3 scripts/ops_metrics.py publish --dataset deploys --record deploy-metrics.json
+
+      - name: Summarize deploy history
+        run: python3 scripts/ops_metrics.py summary --dataset deploys --days 90 --out "$GITHUB_STEP_SUMMARY"

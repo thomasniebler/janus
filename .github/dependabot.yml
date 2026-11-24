@@ -1,0 +1,94 @@
+version: 2
+
+# One combined version-update PR per week for the package ecosystems (uv,
+# npm at / and /frontend), instead of one PR per dependency. Each of those
+# `updates` entries joins this group (`multi-ecosystem-group` +
+# `patterns: ["*"]`) and takes its schedule from the group; per-entry
+# `ignore` rules still apply. GitHub Actions gets its own weekly group PR
+# (below): the self-evolution loop never merges a PR touching `.github/`
+# (SCOPE_FENCE), so an Actions bump must not ride along with the package
+# bumps. Security updates are not batched: Dependabot raises those as soon
+# as an advisory lands, independent of this schedule.
+multi-ecosystem-groups:
+  weekly-dependencies:
+    schedule:
+      interval: "weekly"
+      day: "monday"
+
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    multi-ecosystem-group: "weekly-dependencies"
+    patterns: ["*"]
+    ignore:
+      # Pillow used to be ignored here too (JAN-191: newer releases drop the
+      # glibc 2.17 wheels). It is no longer installed on the production host:
+      # only the optional `whatsapp` and `desktop` extras pull it in, and the
+      # deploy installs no extras, so Pillow updates flow normally again.
+      # The production host (Uberspace) runs glibc 2.17 / gcc 4.8.5
+      # (JAN-191): every google-re2 release after the plain "1.1" (starting
+      # with 1.1.20240501) dropped manylinux2014/manylinux_2_17 wheels
+      # entirely, so any bump away from
+      # "1.1" forces a source build that fails outright on Uberspace's
+      # ancient g++ 4.8.2 (no C++11 support). This is not a version-specific
+      # regression to bump past -- it is the project's current publishing
+      # policy, so ignore every update type rather than re-hitting this on
+      # the next dated release too.
+      - dependency-name: "google-re2"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      # Same class of problem (JAN-191, after google-re2 above): greenlet
+      # dropped its manylinux2014/manylinux_2_17 wheel after 3.2.5 -- every
+      # release from 3.3.0 onward only ships manylinux_2_24/2_28, forcing a
+      # source build that fails outright on
+      # Uberspace's ancient g++ (dependent C headers/toolchain too old).
+      - dependency-name: "greenlet"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      # Proactive, not yet hit (JAN-191 follow-up audit): lxml's 6.x line
+      # still ships manylinux2014/manylinux_2_17 wheels, but the 7.0.0
+      # prereleases already dropped them for x86_64/aarch64 -- 7.0.0a3 still
+      # has the glibc-2.17-tagged wheel, 7.0.0b1 only ships
+      # manylinux_2_26/2_28, exactly the wheel-availability regression that
+      # broke pillow, google-re2 and greenlet. Once 7.0.0 leaves prerelease,
+      # a bump would force a source build that fails on Uberspace's ancient
+      # toolchain. Only the major bump is blocked -- 6.x minor/patch releases
+      # have kept the compatible wheel tags so far.
+      - dependency-name: "lxml"
+        update-types:
+          - "version-update:semver-major"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    multi-ecosystem-group: "weekly-dependencies"
+    patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    multi-ecosystem-group: "weekly-dependencies"
+    patterns: ["*"]
+    ignore:
+      # TypeScript 7.x is the Go-based rewrite and is a semver-major jump
+      # from our 5.9.x line. openapi-typescript@7.13.0 (latest, used to
+      # generate src/generated/api.d.ts) still declares
+      # `peerDependencies: { typescript: "^5.x" }`, so `npm ci` fails
+      # outright with a peer conflict on TS7 (confirmed on PR #368).
+      # Forcing it through with --legacy-peer-deps would silently paper
+      # over a real incompatibility. Ignore the major bump until
+      # openapi-typescript ships TS7 support (or we replace it).
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      github-actions:
+        patterns: ["*"]

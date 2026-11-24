@@ -1,0 +1,88 @@
+name: Nightly Health Check
+
+# Public health probe and the sampled availability metric (JAN-269): five samples 30 s apart,
+# appended to the ops-metrics history branch. The probe job fails only
+# when no sample was healthy. docs/docs/tech-spec/deployment-operations.md#deploy-and-availability-metrics
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# The hosted Janus to probe comes from the JANUS_PUBLIC_URL repository secret; the probe runs only
+# when DEPLOY_ENABLED is 'true' (docs/docs/tech-spec/deployment-operations.md#deploy-target-configuration).
+env:
+  JANUS_PUBLIC_URL: ${{ secrets.JANUS_PUBLIC_URL }}
+
+jobs:
+  probe:
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Sample hosted Janus health
+        run: |
+          set -euo pipefail
+          mkdir -p release-check-reports
+          expected=$(python3 scripts/ops_metrics.py expected-version --ref main)
+          python3 scripts/ops_metrics.py probe --base-url "$JANUS_PUBLIC_URL" --samples 5 --interval 30 \
+            --expected "$expected" --json availability.json --summary "$GITHUB_STEP_SUMMARY" \
+            | tee release-check-reports/nightly-health.txt
+
+      - name: Hand the samples to the record job
+        if: ${{ !cancelled() && hashFiles('availability.json') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: availability-sample
+          path: availability.json
+          retention-days: 7
+
+      - name: Upload probe output
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-check-nightly
+          path: release-check-reports/
+
+  # Appends the samples to the ops-metrics history branch.
+  record:
+    needs: probe
+    if: ${{ !cancelled() && needs.probe.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      # Push to the ops-metrics history branch only; main is never written.
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Download the samples
+        uses: actions/download-artifact@v8
+        with:
+          name: availability-sample
+
+      - name: Append to the ops-metrics history
+        run: python3 scripts/ops_metrics.py publish --dataset availability --record availability.json
+
+      - name: Summarize sampled availability
+        run: |
+          set -euo pipefail
+          python3 scripts/ops_metrics.py summary --dataset availability --days 7 --out "$GITHUB_STEP_SUMMARY"
+          python3 scripts/ops_metrics.py summary --dataset availability --days 30 --out "$GITHUB_STEP_SUMMARY"
