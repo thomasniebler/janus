@@ -56,6 +56,11 @@ jobs:
         id: deploy-start
         run: echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
 
+      # Host paths in the output (e.g. /home/<user>/...) would otherwise show the SSH user in the
+      # public log; DEPLOY_SSH_TARGET itself is already masked as a secret.
+      - name: Mask the deploy user
+        run: echo "::add-mask::${DEPLOY_SSH_TARGET%%@*}"
+
       - name: Resolve deploy ref
         id: deploy-ref
         env:
@@ -250,6 +255,11 @@ jobs:
     timeout-minutes: 10
     environment: production
     steps:
+      # Host paths in the output (e.g. /home/<user>/...) would otherwise show the SSH user in the
+      # public log; DEPLOY_SSH_TARGET itself is already masked as a secret.
+      - name: Mask the deploy user
+        run: echo "::add-mask::${DEPLOY_SSH_TARGET%%@*}"
+
       - name: Check out deployed ref
         uses: actions/checkout@v7
         with:
@@ -314,6 +324,11 @@ jobs:
     timeout-minutes: 25
     environment: production
     steps:
+      # Host paths in the output (e.g. /home/<user>/...) would otherwise show the SSH user in the
+      # public log; DEPLOY_SSH_TARGET itself is already masked as a secret.
+      - name: Mask the deploy user
+        run: echo "::add-mask::${DEPLOY_SSH_TARGET%%@*}"
+
       - name: Wait for the soak period
         run: sleep 900
 
