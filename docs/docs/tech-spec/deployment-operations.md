@@ -50,7 +50,8 @@
 Nothing host-specific is committed. `deploy-uberspace.yml`, `deployment-capabilities.yml`,
 `nightly-health-check.yml`, and `scripts/release_host_checks.sh` read the target from GitHub
 repository secrets and variables (Settings → Secrets and variables → Actions). The host and the
-public URL are secrets, so the public run logs mask them:
+public URL are secrets, so the public run logs mask them; each job that reaches the host also masks
+the SSH user, which would otherwise show in host paths such as `/home/<user>/...`:
 
 | Name | Kind | Required | Default | Meaning |
 |---|---|---|---|---|

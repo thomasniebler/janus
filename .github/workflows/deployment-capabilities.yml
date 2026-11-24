@@ -27,6 +27,11 @@ jobs:
     timeout-minutes: 10
     environment: production
     steps:
+      # Host paths in the output (e.g. /home/<user>/...) would otherwise show the SSH user in the
+      # public log; DEPLOY_SSH_TARGET itself is already masked as a secret.
+      - name: Mask the deploy user
+        run: echo "::add-mask::${DEPLOY_SSH_TARGET%%@*}"
+
       - name: Check out repository
         uses: actions/checkout@v7
 
