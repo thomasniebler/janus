@@ -65,6 +65,16 @@ A trigger definition is three things:
           today's and tomorrow's calendar, so *New calendar event* fires when
           an event first enters that window, which for an event booked weeks
           ahead is the day before. Deleted or cancelled items fire nothing.
+        - **Webhooks → Webhook received** (`webhook.received`) — one of your
+          webhook URLs (created under **Webhooks** on this page) received a
+          correctly signed JSON request from an outside service. The run
+          receives `webhook` (its name), `webhook_id`, `event_header` (the
+          sender's event type, such as GitHub's `push`), `received_at`, and
+          the first 4,000 characters of the JSON `body`. Sign requests
+          GitHub-style (`X-Hub-Signature-256`) or with `X-Janus-Timestamp`
+          and `X-Janus-Signature`; see [Inbound
+          Webhooks](feature-specs/inbound-webhooks.md). New triggers start
+          with a limit of 30 runs an hour.
 
       Two optional settings narrow an event trigger:
 

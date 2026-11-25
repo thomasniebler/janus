@@ -266,6 +266,26 @@ export const a2aAgentSchema = z.looseObject({
 
 export const a2aAgentListSchema = z.array(a2aAgentSchema);
 
+// --- Inbound webhooks (JAN-406) ----------------------------------------------
+
+export const webhookSchema = z.looseObject({
+  id: z.number().int(),
+  name: z.string(),
+  key_prefix: z.string(),
+  enabled: z.boolean(),
+  received_count: z.number().int(),
+  last_received_at: z.string().nullable().optional(),
+  created_at: z.string(),
+});
+
+export const webhookListSchema = z.array(webhookSchema);
+
+export const webhookSecretSchema = z.looseObject({
+  webhook: webhookSchema,
+  path: z.string().nullable().optional(),
+  secret: z.string(),
+});
+
 // --- Agent Tasks (JAN-204) and delegated tasks (JAN-208) ---------------------
 
 const runtimeTaskSummarySchema = z.looseObject({

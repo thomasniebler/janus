@@ -29,6 +29,7 @@ Scope: the `janus.models` package under `src/janus/models/`, the SQLAlchemy ORM 
 | `auth.py` | `RevokedSession`, `OAuthState`, `OAuthConnection`, `DeviceToken` (hashed, revocable inbox tokens) |
 | `settings.py` | `Settings` (`settings`, per-user system and LLM settings) |
 | `mcp.py` | `MCPServer`, `MCPDiscoveredTool`, `MCPCredential` |
+| `webhooks.py` | `WebhookEndpoint` (`webhook_endpoints`, JAN-406): inbound webhook URLs with the SHA-256 of their key, a display prefix, the Fernet-encrypted HMAC secret, and a delivery counter |
 | `a2a.py` | `A2AAgent` (`a2a_agents`, JAN-404): the user's remote A2A agents with the bounded card, JSON-RPC URL and Fernet-encrypted bearer token |
 
 ## Rules

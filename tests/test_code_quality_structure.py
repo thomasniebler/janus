@@ -133,6 +133,8 @@ API_HELPER_BASELINE = {
     "src/janus/api/topics.py": {"_parse_status"},
     "src/janus/api/tools.py": {"_get_server_or_404", "_server_response"},
     "src/janus/api/trigger_definitions.py": {"_get_or_404", "_unprocessable", "with_outcomes"},
+    # JAN-406: inbound webhooks (serialize without the secret; owner-scoped 404).
+    "src/janus/api/webhooks.py": {"_get_or_404", "_response"},
 }
 
 

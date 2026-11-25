@@ -7,6 +7,7 @@ import type { RuntimeTriggerWorkerStatus } from '../../types';
 import { CollapsibleCard } from '../ui/CollapsibleCard';
 import { SuggestedAutomations } from './triggers/SuggestedAutomations';
 import { TriggerDefinitionManager } from './triggers/TriggerDefinitionManager';
+import { WebhookManager } from './triggers/WebhookManager';
 import { TriggerRunHistory } from './triggers/TriggerRunHistory';
 
 const runtimeTriggerWorkerQueryKey = ['runtime-trigger-worker'] as const;
@@ -92,6 +93,8 @@ export const RuntimeTriggerManager: React.FC = () => {
       <SuggestedAutomations />
 
       <TriggerDefinitionManager highlightedId={highlightedDefinitionId} />
+
+      <WebhookManager />
 
       <TriggerRunHistory onSelectDefinition={setHighlightedDefinitionId} />
     </div>

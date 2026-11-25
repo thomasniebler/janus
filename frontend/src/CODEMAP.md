@@ -24,6 +24,7 @@ Scope: React application source under `frontend/src/`.
 | `test/` | Vitest setup, the shared API-mock factory, a `matchMedia` stub, the shared shell chat-placement contract (`shellChatPlacement.tsx`), the shared shell navigation-badge contract (`shellNavBadge.tsx`, JAN-235), and Storybook test utilities (query-data, fake WebSocket and chat-session decorators, and `storybookLongTranscript.tsx`, the `/chat` page with an overlong transcript for the shells' layout stories) used by component tests | Read directly |
 | `types.ts` | Hand-authored shared frontend type definitions | Read directly |
 | `connectionTypes.ts` | The Google/Microsoft connection and planner sync types, re-exported by `types.ts` (kept out of the size-held `types.ts`) | Read directly |
+| `webhooksApi.ts` | `webhooksApi` (inbound webhooks: list, create, update, rotateSecret, remove; JAN-406), imported directly by `WebhookManager` |
 | `a2aApi.ts` | `a2aApi` (remote A2A agents: list, create, update, refresh, remove; JAN-404), imported directly by `A2AAgentManager` (kept out of `api.ts` for its line cap) | Read directly |
 | `connectionsApi.ts` | `connectionsApi` (connections, calendar selection, mailbox), re-exported by `api.ts` | Read directly |
 | `statsTypes.ts` | The `GET /api/stats` summary types, re-exported by `types.ts` and kept out of the size-held `types.ts` (JAN-371) | Read directly |

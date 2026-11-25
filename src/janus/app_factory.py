@@ -44,6 +44,7 @@ from janus.api import (
     topics,
     trigger_definitions,
     web_search,
+    webhooks,
     whatsapp,
     wiki,
 )
@@ -170,6 +171,8 @@ def create_fastapi_app() -> FastAPI:
     api.include_router(web_search.router, dependencies=csrf_dependencies)
     api.include_router(self_evolution.router, dependencies=csrf_dependencies)
     api.include_router(whatsapp.router, dependencies=csrf_dependencies)
+    # Its public delivery URL sends no session cookie, so the cookie-only CSRF check never applies to it.
+    api.include_router(webhooks.router, dependencies=csrf_dependencies)
     api.include_router(docs.router, dependencies=csrf_dependencies)
     api.include_router(status_api.router, dependencies=csrf_dependencies)
 

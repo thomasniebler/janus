@@ -2007,6 +2007,16 @@ Authorization", narrowed by a selection the brain makes per task.
   occurrence and fires again. Known limits: the calendar window is today and
   tomorrow, so `calendar_event_created` means "first seen in that window";
   the sync never deletes rows, so deletions and cancellations emit nothing.
+- **Webhooks (JAN-406).** `services/webhook_service.receive` verifies a
+  delivery to `POST /api/webhooks/in/<key>` and emits `webhook.received`
+  for the endpoint's owner, all within the request.
+  - Verification: the key is looked up by its SHA-256 hash; the signature is
+    either Janus style (timestamped, within 5 minutes) or GitHub style
+    (`X-Hub-Signature-256`). The body must be JSON, at most 64 KB, and an
+    endpoint takes at most 60 deliveries a minute.
+  - Event id: `<endpoint id>:<hash of the signed material>`, so a redelivery
+    starts no second run.
+  - See [Inbound Webhooks](../feature-specs/inbound-webhooks.md).
 
 ## WhatsApp Connector Runtime
 

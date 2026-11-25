@@ -276,7 +276,7 @@ test.describe('Settings page: per-user settings', () => {
     // Only catalogued values are offered: the subsystem first, then its events.
     const subsystem = editor.getByLabel('Subsystem');
     const event = editor.getByLabel('Event', { exact: true });
-    await expect(subsystem.locator('option:not([disabled])')).toHaveText(['Mail', 'WhatsApp', 'Planner']);
+    await expect(subsystem.locator('option:not([disabled])')).toHaveText(['Mail', 'WhatsApp', 'Planner', 'Webhooks']);
     await subsystem.selectOption('whatsapp');
     await expect(event.locator('option:not([disabled])')).toHaveText([
       'New direct message',

@@ -37,6 +37,9 @@ CSRF_EXEMPT_PATHS = {
     "/api/auth/setup",
     "/api/auth/google",
 }
+#: Path prefixes authenticated by something other than the session cookie: inbound webhook deliveries
+#: carry an HMAC signature (JAN-406), so a stray Janus cookie on the sender must not turn them into 403s.
+CSRF_EXEMPT_PREFIXES = ("/api/webhooks/in/",)
 
 
 @dataclass
@@ -337,7 +340,7 @@ async def enforce_csrf_for_cookie_auth(
         return
     if connection.method.upper() in SAFE_HTTP_METHODS:
         return
-    if connection.url.path in CSRF_EXEMPT_PATHS:
+    if connection.url.path in CSRF_EXEMPT_PATHS or connection.url.path.startswith(CSRF_EXEMPT_PREFIXES):
         return
     if not access_token:
         return

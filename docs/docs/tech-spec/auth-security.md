@@ -41,7 +41,12 @@
 - **Production cookie policy:** For HTTPS deployments, dashboard auth cookies must always be `Secure` and `HttpOnly`, with the secure decision based on the effective external/public request scheme after trusted proxy headers are applied.
 - **Host allowlist:** Janus validates incoming `Host` headers against an explicit configured allowlist after applying trusted forwarded-host reconstruction, and rejects unexpected hosts before normal route handling.
 - **Origin allowlist:** Browser-facing deployments must set `allowed_origins` to the exact public dashboard origins. Janus uses that allowlist for both HTTP CORS responses and WebSocket `Origin` validation.
-- **CSRF protection:** Mutating HTTP routes that rely on dashboard cookie sessions must require a valid CSRF signal bound to that authenticated session, while header-based API clients remain exempt.
+- **CSRF protection:** Mutating HTTP routes that rely on dashboard cookie sessions must require a valid CSRF signal bound to that authenticated session, while header-based API clients remain exempt. Inbound webhook deliveries (`/api/webhooks/in/`, `security.CSRF_EXEMPT_PREFIXES`, JAN-406) are exempt by path: they are authenticated by the endpoint's HMAC signature, never by the session, so a stray cookie on the sender must not refuse them.
+- **Inbound webhooks (JAN-406):** `POST /api/webhooks/in/<key>` is public and authenticated by an HMAC-SHA256 signature with the endpoint's secret.
+  - Signature styles: timestamped `X-Janus-Signature` (5-minute window), or GitHub's `X-Hub-Signature-256`; both compared in constant time.
+  - Storage: the URL key is stored only as its SHA-256 hash, and the secret Fernet-encrypted; both are shown once.
+  - Limits: 64 KB JSON bodies and 60 deliveries a minute per endpoint.
+  - The route is a triaged Semgrep `janus-route-without-auth-dependency` exception. See [Inbound Webhooks](../feature-specs/inbound-webhooks.md).
 - **WebSocket origin checks:** WebSocket handshakes must validate the `Origin` header against configured allowed origins before accepting dashboard sessions.
 
 ## Public Surface and Headers
