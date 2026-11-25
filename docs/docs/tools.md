@@ -21,7 +21,8 @@ delegated tasks don't write them: their output is a result, not a conversation.
 - **Chat** offers every built-in tool below except *Mail processing* (that one
   is only for the Mail processing trigger) and *Start conversations* (that one
   is only for trigger runs; in chat Janus is already talking to you), plus the
-  *Remote MCP tools* of your enabled MCP servers. A tool
+  *Remote MCP tools* of your enabled MCP servers and your switched-on
+  [*Remote agents*](#remote-agents). A tool
   is offered only when its own condition is met:
     - *Read mail*, *Relabel mail*, *Send mail*, *Read mail rules*, and *Manage
       mail rules* need a connected mail account, and *Read WhatsApp* and *Send
@@ -160,7 +161,8 @@ delegated tasks don't write them: their output is a result, not a conversation.
   **Unattended: Allow everything**, above the list on Settings → Tools &
   Connections, overrides every switch at once: every tool runs in triggers,
   automations, and background tasks, *Off* ones included, with nobody asked.
-  It also opens *Image generation* and your *Remote MCP tools* to those runs.
+  It also opens *Image generation*, your *Remote MCP tools*, and your
+  *Remote agents* to those runs.
   It does not open *Page actions*, *Page introspection*, *UI blocks*,
   *Propose automations*, or *Propose character changes* (they need you in
   the chat), the *Self-evolution tools* (they keep their own switch), or
@@ -951,3 +953,41 @@ A server signs Janus in one of two ways:
   rejects the token (during **Discover** or when Janus calls one of its
   tools), the server shows **Token rejected**: save a new token and run
   **Discover** again.
+
+## Remote agents
+
+Agents outside Janus that speak the
+[Agent2Agent (A2A) protocol](https://a2a-protocol.org/), added on Settings →
+Tools & Connections under **Remote agents**. Janus stays one assistant: a
+remote agent is a tool it can call, `ask_agent_<number>`, much like a remote
+MCP tool. Use it for services you trust that are better at something than
+Janus, for example a company's support agent or a research agent.
+
+- **Adding one.** Give it a name and the agent's URL (the address that serves
+  `/.well-known/agent-card.json`), plus a bearer token if the agent needs
+  one. Janus fetches the agent card and shows what the agent says about
+  itself (its skills are the agent's own, unverified description). Only
+  public HTTPS addresses are accepted, or `http://` on this machine for local
+  experiments.
+- **Off until you switch it on.** A new agent is offered to Janus only after
+  its card was fetched and you clicked **Switch on**. If the card cannot be
+  fetched later (**Refresh card**), the agent is switched off.
+- **Janus asks before every message** in chat: the approval card shows the
+  exact prompt, which leaves this machine for a service you do not control.
+  The agent sees only that prompt, never your conversation. Prompts longer
+  than 1,000 characters or with invisible characters are refused.
+- **Its answer is untrusted.** Janus treats it as information, never as
+  instructions. After something in the same step looked like a prompt
+  injection, remote agents answer `BLOCKED`. An agent that keeps working on
+  a task is asked for the result for up to two minutes; after that Janus
+  reports how far it got.
+- **Chat only**, unless you chose **Unattended: Allow everything**, like
+  remote MCP tools. Delegated background tasks never get them.
+- **Bearer token.** Stored encrypted, sent as `Authorization: Bearer ...`
+  only to the host of the URL you entered (if the agent card names another
+  host, Janus refuses instead of sending it), never shown again. Changing the agent's URL removes the token and switches
+  the agent off. Removing an agent also removes its **In chat** setting.
+
+See the [External Agents feature spec](feature-specs/external-agents.md) for
+the protocol details and every gate.
+

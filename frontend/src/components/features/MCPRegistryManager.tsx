@@ -6,6 +6,7 @@ import type { MCPServer } from '../../types';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Input } from '../ui/Input';
+import { A2AAgentManager } from './A2AAgentManager';
 import { InjectionClassifierCard } from './InjectionClassifierCard';
 import { ToolPermissions } from './ToolPermissions';
 
@@ -185,6 +186,7 @@ export const MCPRegistryManager: React.FC = () => {
           {(discoverMutation.isError || updateMutation.isError || disconnectMutation.isError || oauthMutation.isError) && <p className="text-sm text-red-400">{errorMessage(discoverMutation.error || updateMutation.error || disconnectMutation.error || oauthMutation.error)}</p>}
         </CardContent>
       </Card>
+      <A2AAgentManager />
     </div>
   );
 };

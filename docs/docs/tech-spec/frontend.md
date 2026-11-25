@@ -108,7 +108,11 @@ OAuth authorization redirects, and per-server/per-tool enablement controls.
 The panel states that enablement is eligibility for future runtime selection,
 not approval of consequential actions. It does not render credentials or
 provider response bodies and provides explicit unavailable/error states for
-missing migrations and safe upstream failures.
+missing migrations and safe upstream failures. Below it, `A2AAgentManager`
+(JAN-404, API client in `a2aApi.ts`) lists the user's remote A2A agents: add
+(name, URL, write-only bearer token), switch on (only with a fetched card),
+refresh the card, remove. An agent's advertised skills are shown as its own,
+unverified description.
 
 The built-in tools are listed by `ToolPermissions` (JAN-255): one row per
 registry entry with an **Unattended** select (*Allowed* / *Off*) and, for a

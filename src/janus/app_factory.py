@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 
 from janus import security
 from janus.api import (
+    a2a,
     auth,
     character,
     connections,
@@ -150,6 +151,8 @@ def create_fastapi_app() -> FastAPI:
     api.include_router(images.router, dependencies=csrf_dependencies)
     api.include_router(linear.router, dependencies=csrf_dependencies)
     api.include_router(memory.router, dependencies=csrf_dependencies)
+    # Before tools.router: its /api/tools prefix must not shadow /api/tools/a2a-agents.
+    api.include_router(a2a.router, dependencies=csrf_dependencies)
     api.include_router(tools.router, dependencies=csrf_dependencies)
     api.include_router(connections.router, dependencies=csrf_dependencies)
     api.include_router(planner.router, dependencies=csrf_dependencies)

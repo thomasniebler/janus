@@ -245,6 +245,27 @@ export const mcpRegistrySchema = z.looseObject({
   remote_servers: z.array(mcpServerSchema),
 });
 
+// --- Remote A2A agents (JAN-404) ---------------------------------------------
+
+export const a2aAgentSchema = z.looseObject({
+  id: z.number().int(),
+  name: z.string(),
+  base_url: z.string(),
+  enabled: z.boolean(),
+  card_name: z.string().nullable().optional(),
+  card_description: z.string().nullable().optional(),
+  protocol_version: z.string().nullable().optional(),
+  skills: z.array(z.looseObject({ name: z.string(), description: z.string() })),
+  rpc_url: z.string().nullable().optional(),
+  token_configured: z.boolean(),
+  last_error: z.string().nullable().optional(),
+  last_checked_at: z.string().nullable().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const a2aAgentListSchema = z.array(a2aAgentSchema);
+
 // --- Agent Tasks (JAN-204) and delegated tasks (JAN-208) ---------------------
 
 const runtimeTaskSummarySchema = z.looseObject({

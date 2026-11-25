@@ -1,7 +1,7 @@
 # External Agents
 
-**Status:** Shipped (phase 1: local coding agents; remote A2A agents, JAN-404, are planned, not built)
-**Linear:** JAN-403 (coding agents tool, shipped); JAN-404 (A2A client, planned)
+**Status:** Shipped (local coding agents and remote A2A agents; Janus as an A2A server is out of scope)
+**Linear:** JAN-403 (coding agents tool); JAN-404 (A2A client)
 **Depends on:** [Tool Permissions](tool-permissions.md), [MCP Tool Registry](mcp-tool-registry/feature-description.md) (registry pattern for JAN-404), the shell tool's process fences (`services/shell_service.py`, JAN-353), [LLM and agent safety](../tech-spec/llm-agent-safety.md)
 
 ## Idea
@@ -19,7 +19,7 @@ Two transports:
 | Transport | Example agents | Where | Status |
 |---|---|---|---|
 | Local coding-agent CLI | Claude Code (`claude -p`), OpenAI Codex CLI (`codex exec`) | The Janus host, with the user's own CLI logins | Shipped (JAN-403) |
-| Agent2Agent (A2A) protocol | Any remote agent that publishes an agent card | Over HTTPS | Planned (JAN-404) |
+| Agent2Agent (A2A) protocol | Any remote agent that publishes an agent card | Over HTTPS | Shipped (JAN-404) |
 
 ## Acknowledgement
 
@@ -89,24 +89,76 @@ One admin-only, operator-opt-in toolbox, `coding_agents`, with one tool,
   inner fence; approving each prompt is the outer one. There is no container
   sandbox.
 
-## Remote A2A agents (JAN-404, planned)
+## Remote A2A agents (JAN-404, shipped)
 
-- A per-user registry, like the MCP registry: base URL, the fetched agent
-  card, and a Fernet-encrypted credential the model never sees. The A2A
-  client in the inspiring project takes the bearer token as a model argument;
-  we will not do that.
-- One chat tool per registered agent, `ask_agent_<name>(prompt)`, using the
-  current A2A protocol (`message/send`) through the official SDK.
-  Long-running remote tasks run asynchronously through the delegation runtime.
-- Same tier as the coding agents: sending a prompt sends data to a third
-  party, so `confirmation="required"`, *Off* unattended by default, and
-  refusal after a suspected prompt injection.
-- Settings UI next to the MCP servers; local coding agents may be listed
-  there too.
+- **Registry** (`models/a2a.py`, `A2AAgent`, table `a2a_agents`;
+  `services/a2a_service.py`; `api/a2a.py` at `/api/tools/a2a-agents`;
+  Settings → Tools & Connections → **Remote agents**,
+  `A2AAgentManager.tsx`). The record is owner-scoped: name (the user's
+  label), base URL, `enabled` (default off), the bounded card, the JSON-RPC
+  URL, a Fernet-encrypted bearer token (write-only), and the last error.
+  - Creating an agent fetches its card right away; a failed fetch is
+    recorded in `last_error` instead of failing the request.
+  - The agent can be switched on only once a card was fetched. A failed
+    **Refresh card** switches it off again.
+  - A new base URL forgets the card and the token and switches the agent
+    off, so a token never follows the URL to another host.
+  - The token is sent only when the card's JSON-RPC URL is on the base URL's
+    own origin (scheme, host, port). A card that points elsewhere gets an
+    error instead of the token; without a token the agent can still be asked.
+  - Deleting an agent drops its tool policy row.
+- **Protocol** (`services/a2a_client.py`). The card is fetched from
+  `/.well-known/agent-card.json`, falling back to the pre-0.3
+  `/.well-known/agent.json`. The client speaks both revisions, chosen by the
+  card's protocol version:
+
+  | Card version | JSON-RPC URL | Methods | Message shape | Task states |
+  |---|---|---|---|---|
+  | 1.x (current) | first `JSONRPC` entry in `supportedInterfaces` | `SendMessage` with `returnImmediately`, then `GetTask` | `ROLE_USER`, `{"text": ...}` parts | `TASK_STATE_*` |
+  | 0.x | the card's `url` | `message/send` with `blocking: false`, then `tasks/get` | `kind` discriminators | lowercase states |
+
+  - Requests carry `A2A-Version` and the bearer token. The first request
+    asks for an immediate return, so a task longer than the 30 s HTTP read
+    timeout still hands back its id for polling.
+  - A message result is the answer. Otherwise the task is polled every 2 s
+    until it reaches a terminal state (`completed`, `failed`, `canceled`,
+    `rejected`) or an interrupted one (`input-required`, `auth-required`),
+    for at most 120 s. Past that, the tool reports the state it was still in.
+  - The answer is built from the text parts (and JSON data parts) of the
+    task's artifacts, else of its status message, capped at 20,000 characters.
+- **Outbound safety.**
+  - Both the base URL and the JSON-RPC URL the card names pass the MCP
+    registry's SSRF check (`mcp_service.validate_mcp_endpoint`): public
+    addresses over HTTPS, or HTTP on loopback only, with no credentials,
+    query or fragment.
+  - Redirects are not followed, and responses are capped at 1 MB.
+  - HTTP 401/403 reads as a rejected token. A JSON-RPC `error` is reported
+    with its message cut to 300 characters.
+- **Chat tool** (`agent_toolboxes/remote_agents.py`). Each offered agent is
+  one entry `a2a.<id>` with one tool `ask_agent_<id>(prompt)`.
+  - Tier: `operation="mixed"`, `risk_level="high"`,
+    `confirmation="required"`, `reads_untrusted_content`.
+  - `enabled_when` admits the owner's `chat` steps, or their unattended runs
+    under *Allow everything* (JAN-359).
+  - `mcp_metadata.is_remote_tool_id` now covers `a2a.` as well as `mcp.`.
+    So these ids get the remote-tool lock for unattended runs, the
+    confirmation and injection escalation in `runtime_adapter`, and chat's
+    widened allowlist.
+  - The prompt follows the exact-preview rule (`validate_approvable_text`;
+    refused if the approval preview would be cut or redacted).
+  - The tool description names only the user's own label. The remote card's
+    description and skills are shown in the UI as untrusted text and never
+    reach the model, so a hostile card cannot steer Janus before it is called.
+  - The answer comes back inside an escaped `<remote_agent_output>` block.
+- **Not built:** streaming (`SendStreamingMessage`), push notifications,
+  continuing a task that asked for input, file parts, and OAuth/OpenID or
+  mTLS security schemes. Only a static bearer token is supported.
 
 ## Out of scope
 
-- Janus as an A2A **server** (other agents calling Janus).
+- Janus as an A2A **server** (other agents calling Janus). Ask in a
+  [feature request](https://github.com/thomasniebler/janus/issues/new) if
+  you need it.
 - Streaming a coding agent's progress into chat; the answer arrives when the
   agent finishes.
 - Multi-agent swarms or boards: Janus stays a single agent.

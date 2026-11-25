@@ -106,7 +106,7 @@ LOCKED_UNATTENDED: dict[str, str] = {
 
 #: Every remote MCP tool (registry id ``mcp.<server>.<tool>``) is locked for unattended runs in the first slice
 #: (JAN-343): chat offers them, nothing unattended does. Opening them up is JAN-344.
-REMOTE_MCP_LOCK_REASON = "Chat only for now: remote MCP tools are not offered to unattended runs."
+REMOTE_MCP_LOCK_REASON = "Chat only for now: remote MCP tools and remote agents are not offered to unattended runs."
 
 
 def locked_reason(tool_id: str) -> str | None:

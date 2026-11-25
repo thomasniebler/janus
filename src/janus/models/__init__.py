@@ -7,6 +7,7 @@ Every model, enum and helper is re-exported here, so ``from janus import models`
 """
 
 from janus import database
+from janus.models.a2a import A2AAgent
 from janus.models.agents import (
     AgentSkill,
     CharacterProfile,
@@ -217,6 +218,7 @@ __all__ = [
     "KnowledgeSourceStatus",
     "KnowledgeSourceType",
     "LLMProvider",
+    "A2AAgent",
     "MCPCredential",
     "MCPDiscoveredTool",
     "MCPDiscoveryStatus",
