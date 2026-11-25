@@ -279,6 +279,36 @@ All routes are authenticated and owner-scoped under `/api/runtime/definitions`
   only a Settings redirect. Token material is encrypted and omitted from API
   responses and event details. See the [focused MCP registry spec](../feature-specs/mcp-tool-registry/tech-spec.md).
 
+## Remote A2A Agents API (JAN-404)
+
+- `/api/tools/a2a-agents` (`api/a2a.py`, owner-scoped, cookie session with CSRF):
+  - `GET` lists the user's agents.
+  - `POST` creates one with `{name, base_url, token?}`, switched off. It fetches the card at once and records a failed fetch in `last_error` (still 201). An unsafe URL is 422.
+  - `PATCH /{id}` takes `name`, `base_url`, `enabled`, `token` or `clear_token`. A new URL forgets the card and the token. Switching on without a fetched card is 422.
+  - `POST /{id}/refresh` fetches the card again; a failure switches the agent off.
+  - `DELETE /{id}` removes the agent and its tool policy.
+- The token is write-only (`token_configured` only). Another user's agent is 404.
+- The router is mounted before `tools.py`. See [External Agents](../feature-specs/external-agents.md).
+
+## Webhooks API (JAN-406)
+
+- **Management.** `/api/webhooks` (`api/webhooks.py`, owner-scoped, cookie session with CSRF):
+  - `GET` lists the user's endpoints (`key_prefix`, counters; never the key or secret).
+  - `POST` with `{name}` returns `{webhook, path, secret}`, the only time the URL path and secret are shown. At most 20 per user.
+  - `PATCH /{id}` takes `name` and `enabled`.
+  - `POST /{id}/rotate-secret` returns the new secret once.
+  - `DELETE /{id}`.
+- **Delivery.** `POST /api/webhooks/in/{key}` is public, authenticated by its HMAC signature, and exempt from the cookie CSRF check by path prefix.
+  - Success: `202 {"accepted": true, "runs": n}`.
+  - Errors: 401 unsigned, wrong or stale; 404 unknown or off; 413 over 64 KB; 400 not JSON; 429 over 60 a minute.
+  - See [Inbound Webhooks](../feature-specs/inbound-webhooks.md).
+
+## Skill Suggestions API (JAN-407)
+
+- `GET /api/skills/suggestions` (`api/skill_suggestions.py`) returns the signed-in user's suggestions, computed on request without a model call. Each has `key`, `tools`, `turns`, `examples` (chat titles) and `brief`, the goal for `POST /api/skills/design-assist`.
+- `POST /api/skills/suggestions/dismiss` with `{key}` hides one for 30 days (204).
+- The router is mounted before `skills.py`, so `/api/skills/{skill_id}` does not capture `suggestions`. See [Skill Suggestions](../feature-specs/skill-suggestions.md).
+
 ## Character API
 
 - `GET /api/character` and `PUT /api/character` require the authenticated user and
