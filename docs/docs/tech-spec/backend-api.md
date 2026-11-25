@@ -415,8 +415,8 @@ All routes are owner-scoped; a foreign or unknown page or revision answers `404`
 - `llm` (JAN-408) reports the user's model calls and tokens from
   `llm_usage_days`. It has `per_day`, `by_surface` (chat, trigger, delegated,
   other), `by_model`, and `totals`, which include `unreported_calls`, the
-  calls whose provider returned no token counts. Rows are per UTC day, so day
-  edges follow UTC. See [LLM Usage Tracking](../feature-specs/llm-usage-tracking.md).
+  calls whose provider returned no token counts. Rows are per UTC day, so the
+  window is the last `days` UTC days, not the local calendar. See [LLM Usage Tracking](../feature-specs/llm-usage-tracking.md).
 
 ## Domain-Change WebSocket (JAN-104)
 

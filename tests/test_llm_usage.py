@@ -138,3 +138,43 @@ def test_stats_summary_reports_usage_by_day_surface_and_model(usage_db):
     assert [m["model"] for m in llm["by_model"]] == ["b/y", "a/x"]
     assert {s["surface"]: s["calls"] for s in llm["by_surface"]} == {"chat": 2, "trigger": 1}
     assert llm["per_day"][-1] == {"date": today.isoformat(), "calls": 3, "input_tokens": 600, "output_tokens": 60}
+
+
+def test_stats_window_follows_utc_days_not_the_local_calendar(usage_db):
+    """Regression: west of UTC the local date lags, but today's UTC usage must still be in the window."""
+    now = datetime(2026, 11, 25, 1, 0, tzinfo=UTC)  # still Nov 24 in Los Angeles
+    usage_db.add(
+        models.LlmUsageDay(
+            user_id=3,
+            day=now.date(),
+            surface="chat",
+            model="a/x",
+            calls=1,
+            input_tokens=5,
+            output_tokens=1,
+            unreported_calls=0,
+        )
+    )
+    usage_db.commit()
+    llm = StatsService(usage_db).summary(3, days=7, tz_name="America/Los_Angeles", now=now)["llm"]
+    assert llm["totals"]["calls"] == 1
+    assert llm["per_day"][-1]["date"] == "2026-11-25"
+
+
+def test_owner_and_surface_follow_the_toolset_selection_thread(usage_db):
+    """Regression: a model called on toolset selection's worker thread is still counted for the owner."""
+    from janus import toolset_selection
+
+    model = FakeMessagesListChatModel(
+        responses=[AIMessage(content="ok", usage_metadata={"input_tokens": 3, "output_tokens": 1, "total_tokens": 4})]
+    )
+    llm_usage.attach(model, "fake/selector")
+
+    def selector(objective, candidates):
+        model.invoke(objective)
+        return (), "picked nothing"
+
+    with event_logger.owned_by(11), llm_usage.usage_surface("chat"):
+        toolset_selection._call_bounded(selector, "pick tools", (), 5)
+    (row,) = _rows(usage_db)
+    assert (row.user_id, row.surface) == (11, "chat")

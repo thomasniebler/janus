@@ -97,11 +97,16 @@ class StatsService(BaseService):
             "memory": self._memory(user_id, start, end, dates, day_of),
             "messaging": self._messaging(user_id, start, end, dates, day_of),
             "approvals": self._approvals(user_id, start, end),
-            "llm": self._llm(user_id, dates),
+            "llm": self._llm(user_id, days, now),
         }
 
-    def _llm(self, user_id: int, dates: list[date]) -> dict[str, Any]:
-        """LLM calls and tokens (JAN-408); rows are kept per UTC day, so day edges follow UTC."""
+    def _llm(self, user_id: int, days: int, now: datetime | None) -> dict[str, Any]:
+        """LLM calls and tokens (JAN-408) over the last ``days`` UTC days, the days the rows are kept in.
+
+        Not the local-calendar ``dates``: west of UTC they would end a day early and hide today's calls.
+        """
+        utc_today = _as_utc(now or datetime.now(UTC)).date()
+        dates = [utc_today - timedelta(days=days - 1 - offset) for offset in range(days)]
         table = models.LlmUsageDay
         rows = self.db.execute(
             select(
