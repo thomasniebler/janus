@@ -38,10 +38,9 @@ The plan has to touch all of these.
 
 **In the delivery process**
 
-- Ten agent definitions each in `.claude/agents/` and `.codex/agents/`, plus `.gemini/skills/linear-pr-workflow/`.
-- `scripts/linear_release_issue.py` and `.github/workflows/report-release-failure.yml`: failed releases file a Linear issue.
+- The agent definitions, the Gemini skills and the release-failure workflow that filed Linear issues were removed when the repository went public; failed releases now show only as failed workflow runs.
 - `scripts/structural_review.py`: the monthly review files findings in Linear.
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` and the "Linear" line in the planned-doc status block (`docs/docs/tech-spec/delivery-artifacts.md`).
+- The "Linear" line in the planned-doc status block (`docs/docs/tech-spec/delivery-artifacts.md`).
 
 **In history**
 
@@ -88,8 +87,8 @@ The plan has to touch all of these.
 
 Do this in separate PRs, smallest risk first:
 
-1. Delivery docs and agent definitions (`.claude/agents`, `.codex/agents`, skills, `CLAUDE.md`, `AGENTS.md`, status block convention).
-2. `report-release-failure.yml` and `scripts/linear_release_issue.py` → file a GitHub issue; same for `structural_review.py`.
+1. Delivery docs and skills (`CLAUDE.md`, `AGENTS.md`, status block convention).
+2. `structural_review.py` → file a GitHub issue.
 3. A `github_issues` agent toolbox (list, read, create, update, comment) with the same policy fences as the Linear toolbox, including the prompt-injection handling of issue text.
 4. Self-evolution intake, checks and provenance: replace the Linear issue as the source with a GitHub issue. This changes the stored provenance model, so it needs a migration and spec-first updates to `docs/docs/tech-spec/`.
 5. Remove the Linear settings, API router, toolbox and `LinearConfig` page. Update every `CODEMAP.md` and spec that mentions them.

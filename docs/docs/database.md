@@ -61,7 +61,14 @@ Use PostgreSQL when you want persistent storage that survives restarts, multiple
 
 ### 1. Install the driver
 
-`psycopg2-binary` is already included in Janus's standard dependencies, so it is available after a normal `uv sync`.
+The PostgreSQL driver (`psycopg2-binary`) is the optional `postgres` extra:
+
+```bash
+uv sync --extra postgres          # git checkout
+uv tool install "janus[postgres] @ <wheel URL>"   # tool install
+```
+
+Without it, `janus config doctor` reports that `DATABASE_URL` points to PostgreSQL but the driver is missing.
 
 ### 2. Set the connection URL
 

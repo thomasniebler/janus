@@ -119,6 +119,7 @@ RULES: tuple[Rule, ...] = (
     _rule("pyproject.toml", FULL, "Python dependencies and tool configuration"),
     _rule("uv.lock", FULL, "Python dependency lock"),
     _rule(".python-version", FULL, "Python version"),
+    _rule("hatch_build.py", (BACKEND,), "wheel build hook, checked by scripts/wheel_smoke.sh"),
     _rule(".gitignore", FULL, "ignore rules read by knip, jscpd and the docs build"),
     # Security scan definitions.
     _rule(".github/workflows/semgrep.yml", (SEMGREP, BACKEND), "Semgrep workflow"),
@@ -240,6 +241,8 @@ PYPROJECT_TABLES: dict[str, frozenset[str]] = {
     "tool.vulture": frozenset({BACKEND}),
     "tool.deptry": frozenset({BACKEND}),
     "tool.pytest": frozenset({BACKEND, MIGRATIONS}),
+    # Wheel contents; the backend job builds and smoke-tests the wheel.
+    "tool.hatch": frozenset({BACKEND}),
 }
 #: The project's own package in ``uv.lock``, whose version follows ``pyproject.toml``.
 PROJECT_NAME = "janus"

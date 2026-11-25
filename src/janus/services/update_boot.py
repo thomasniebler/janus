@@ -1,16 +1,17 @@
 """Confirm or undo an auto-update across its restart (see ``services/update_service.py``).
 
 Before the auto-update worker restarts Janus on a newly installed release, ``write_pending``
-records the release, the commit it replaced, and the process id in
-``.git/janus-update-pending.json``. ``os.execv`` keeps the process id, so only the re-executed
+records the release, what it replaced (the commit, or a tool install's previous wheel), and the
+process id in ``janus-update-pending.json`` (in ``.git``, or the state directory of a tool
+install; ``update_service.state_dir``). ``os.execv`` keeps the process id, so only the re-executed
 ``janus start`` acts on the record:
 
 - once its server has started, ``attach_server``'s watcher confirms the release: the record
   and the previous frontend build (``frontend/.dist-previous``) are removed;
 - if ``janus start`` ends before that (an exception, ``typer.Exit``, a server that never
   started), ``recover_on_failed_boot`` rolls the checkout, the virtualenv and the database
-  snapshot back, restores the previous frontend, remembers the tag in
-  ``.git/janus-update-skip`` so the worker does not install it again, and re-executes Janus on
+  snapshot back (a tool install reinstalls its previous wheel), restores the previous frontend,
+  remembers the tag in ``janus-update-skip`` so the worker does not install it again, and re-executes Janus on
   the previous release.
 
 The recovery runs on the new release's code, so a release that breaks this module itself cannot
@@ -41,11 +42,11 @@ _confirmed = threading.Event()
 
 
 def _pending_path(repo_root: Path) -> Path:
-    return repo_root / ".git" / "janus-update-pending.json"
+    return update_service.state_dir(repo_root) / "janus-update-pending.json"
 
 
 def _skip_path(repo_root: Path) -> Path:
-    return repo_root / ".git" / "janus-update-skip"
+    return update_service.state_dir(repo_root) / "janus-update-skip"
 
 
 def write_pending(installed: update_service.Installed, repo_root: Path = update_service.REPO_ROOT) -> None:
@@ -54,6 +55,8 @@ def write_pending(installed: update_service.Installed, repo_root: Path = update_
         "tag": installed.tag,
         "previous_commit": installed.previous_commit,
         "branch": installed.branch,
+        "kind": installed.kind,
+        "previous_wheel": installed.previous_wheel,
         "pid": os.getpid(),
     }
     _pending_path(repo_root).write_text(json.dumps(record))
@@ -103,9 +106,13 @@ def attach_server(server: Any, repo_root: Path = update_service.REPO_ROOT) -> No
 def recover(record: dict[str, Any], repo_root: Path = update_service.REPO_ROOT) -> None:
     """Return to the release ``record`` replaced, and never install its tag again here."""
     tag = str(record.get("tag"))
-    uv = update_service.find_uv() or "uv"
     db_path = update_service._sqlite_path()
-    update_service.rollback(repo_root, uv, str(record["previous_commit"]), record.get("branch"), db_path)
+    kind = record.get("kind") or update_service.CHECKOUT
+    if kind == update_service.CHECKOUT:
+        uv = update_service.find_uv() or "uv"
+        update_service.rollback(repo_root, uv, str(record["previous_commit"]), record.get("branch"), db_path)
+    else:
+        update_service.rollback_tool(kind, str(record["previous_wheel"]), db_path)
     previous = repo_root / "frontend" / ".dist-previous"
     if previous.is_dir():
         current = repo_root / "frontend" / "dist"

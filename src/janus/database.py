@@ -11,9 +11,9 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from alembic import command
-from janus import config, runtime
+from janus import config, resources, runtime
 
-ALEMBIC_INI_PATH = Path(__file__).resolve().parents[2] / "alembic.ini"
+ALEMBIC_INI_PATH = resources.alembic_ini_path()
 _INITIAL_REVISION = "318b4a706a6e"
 _REVISION_ALIASES = {
     "e4f6a7b8c9d0": "b1c2d3e4f5a6",

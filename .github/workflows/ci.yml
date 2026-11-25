@@ -100,8 +100,8 @@ jobs:
         run: uv lock --check
       - name: Sync dependencies
         # The optional extras, so the PDF/Office parsing (`documents`), WhatsApp/Neonize
-        # (`whatsapp`) and tray icon (`desktop`) tests run instead of being skipped.
-        run: uv sync --frozen --extra documents --extra whatsapp --extra desktop
+        # (`whatsapp`), tray icon (`desktop`) and PostgreSQL driver (`postgres`) code is tested.
+        run: uv sync --frozen --extra documents --extra whatsapp --extra desktop --extra postgres
       - name: Check production dependencies install on the Uberspace host
         # The host is glibc 2.17 (manylinux_2_17); a dependency without a wheel or
         # sdist for it fails `uv sync` on deploy (v1.2.0: onnxruntime via markitdown).
@@ -125,6 +125,9 @@ jobs:
         run: task lint:imports
       - name: Run backend dead-code scan
         run: task lint:dead:backend
+      - name: Build the wheel and smoke-test it as a uv tool install
+        # The frontend is not built here; the release workflow requires it in the wheel.
+        run: task package:smoke
       - name: Run backend tests with coverage
         # Statement and branch coverage, gated separately against the floors in pyproject.toml.
         # Not on a draft PR (`full` is false); it runs once the PR is ready for review.
@@ -181,7 +184,7 @@ jobs:
         with:
           enable-cache: true
       - name: Sync dependencies
-        run: uv sync --frozen
+        run: uv sync --frozen --extra postgres
       - name: Run PostgreSQL migration tests
         # The SQLite migration tests run in backend-quality, which is selected whenever this job is.
         run: uv run pytest tests/test_postgres_migrations.py -rs --tb=short

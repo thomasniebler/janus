@@ -1,5 +1,6 @@
 """Typer CLI commands for Janus."""
 
+import importlib.util
 import json
 import logging
 import sys
@@ -558,6 +559,12 @@ def config_doctor():  # noqa: C901
             f"The hostname from base_url ({base_host}) is not in allowed_hosts. "
             "Requests arriving with that Host header may be rejected with 400 Bad Request. "
             f'Add it: allowed_hosts = ["{base_host}"]'
+        )
+
+    if active_settings.database_url.startswith("postgres") and importlib.util.find_spec("psycopg2") is None:
+        errors_found.append(
+            "database_url points to PostgreSQL, but the driver is not installed. "
+            "Install the postgres extra: uv sync --extra postgres (or janus[postgres])."
         )
 
     if not active_settings.fernet_key_path.exists():

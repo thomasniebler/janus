@@ -35,11 +35,10 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-      - name: Build artifacts
-        run: uv build
-      # Self-hosted auto-update (services/update_service.py) installs this prebuilt frontend,
-      # so a self-hosted machine needs no Node.js. The updater checks the SHA-256 digest
-      # GitHub records for the asset, and waits for the next check while it is missing.
+      # The frontend is built first: the wheel carries it (hatch_build.py), and the self-hosted
+      # auto-update of a git checkout (services/update_service.py) installs it from the
+      # janus-frontend-dist.tar.gz asset, so no install needs Node.js. The updater checks the
+      # SHA-256 digest GitHub records for each asset.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
@@ -52,7 +51,13 @@ jobs:
           set -euo pipefail
           npm ci --no-audit --no-fund
           npm run build
-          tar -C dist -czf ../dist/janus-frontend-dist.tar.gz .
+      - name: Build artifacts
+        run: |
+          set -euo pipefail
+          uv build
+          tar -C frontend/dist -czf dist/janus-frontend-dist.tar.gz .
+      - name: Smoke-test the wheel as a uv tool install
+        run: scripts/wheel_smoke.sh --require-frontend --dist dist
       - name: Upload artifacts to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

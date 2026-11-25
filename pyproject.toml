@@ -1,3 +1,7 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling>=1.27"]
+
 [dependency-groups]
 dev = [
   "deptry>=0.25.1",
@@ -9,7 +13,9 @@ dev = [
   "pytest-cov>=7.1.0",
   "pytest>=9.1.1",
   "ruff>=0.17.0",
-  "vulture>=2.16"
+  "vulture>=2.16",
+  # Builds the documentation site (`task docs`); not needed at runtime.
+  "zensical>=0.0.69"
 ]
 
 [project]
@@ -19,7 +25,6 @@ dependencies = [
   "SQLAlchemy>=2.0.28",
   "alembic>=1.20.0",
   "atlassian-python-api>=5.0.5",
-  "azure-devops>=7.1.0b4",
   "azure-identity>=1.27.0",
   "bcrypt>=5.0.0",
   "cryptography>=48.0.1",
@@ -44,7 +49,6 @@ dependencies = [
   "markdown>=3.10.3",
   "msal>=1.39.0",
   "protobuf>=7.36.2,<8",
-  "psycopg2-binary>=2.9.13",
   "pydantic-settings>=2.15.0",
   # Imported directly, so declared directly rather than relied on through fastapi
   # (pydantic, starlette) and atlassian-python-api (requests); JAN-266.
@@ -56,8 +60,7 @@ dependencies = [
   "starlette>=1.3.1",
   "typer>=0.27.2",
   "uvicorn>=0.41.0",
-  "websockets>=17.2",
-  "zensical>=0.0.69"
+  "websockets>=17.2"
 ]
 description = "Personal AI Assistant for filtering noise and surfacing signal."
 license = "MIT"
@@ -81,6 +84,8 @@ desktop = ["Pillow>=13.0.0", "pystray>=0.19.0"]
 # formats are ingested. Install with `uv sync --extra documents`. Keep it out of the dev
 # group: a plain `uv run` on the host syncs dev, which would try to install onnxruntime.
 documents = ["markitdown[docx,pdf,pptx,xlsx]>=0.1.8"]
+# PostgreSQL driver, for a postgresql:// DATABASE_URL. SQLite (the default) needs nothing extra.
+postgres = ["psycopg2-binary>=2.9.13"]
 whatsapp = ["neonize==0.5.2", "segno>=1.6.6"]
 
 [project.scripts]
@@ -98,27 +103,37 @@ source = ["src/janus"]
 # All rules are on (JAN-266). DEP003 (imported but only a transitive dependency) used to be
 # ignored; the four packages it flagged (pydantic, starlette, requests, segno) are now
 # declared, so a new undeclared import fails `task lint:dead:backend`.
+# The wheel build hook runs inside hatchling's own build environment, not Janus's.
+extend_exclude = ["hatch_build.py"]
 known_first_party = ["janus"]
 
 [tool.deptry.per_rule_ignores]
-# DEP002: declared but not directly imported - either implicit runtime deps pulled in by
+# DEP002: declared but not directly imported - implicit runtime deps pulled in by
 # frameworks (Jinja2/email-validator/greenlet/psycopg2-binary/python-multipart/
 # websockets via FastAPI+SQLAlchemy, google-auth-httplib2 via
-# google-api-python-client) or docs-only/build-time tools (zensical). azure-devops has no
-# current call site either; tracked for a follow-up decision on whether to drop it or wire
-# up the Azure DevOps planner connector the docs describe.
+# google-api-python-client).
 DEP002 = [
   "Jinja2",
-  "azure-devops",
   "email-validator",
   "google-auth-httplib2",
   "greenlet",
   "lxml",
   "psycopg2-binary",
   "python-multipart",
-  "websockets",
-  "zensical"
+  "websockets"
 ]
+
+[tool.hatch.build.targets.sdist]
+# frontend/dist is gitignored; `artifacts` puts it in the sdist anyway, so a wheel built from the
+# sdist (what `uv build` does) still carries the UI.
+artifacts = ["frontend/dist"]
+include = ["/LICENSE", "/README.md", "/alembic", "/alembic.ini", "/frontend/dist", "/hatch_build.py", "/src/janus"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/janus"]
+
+# Copies alembic/ and frontend/dist/ into janus/_data (see src/janus/resources.py).
+[tool.hatch.build.targets.wheel.hooks.custom]
 
 [tool.importlinter]
 include_external_packages = false
@@ -169,6 +184,7 @@ source_modules = [
   "janus.prompt_injection",
   "janus.reminder_service",
   "janus.request_origin",
+  "janus.resources",
   "janus.runtime",
   "janus.runtime_adapter",
   "janus.runtime_trigger_handler",

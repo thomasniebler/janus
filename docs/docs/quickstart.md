@@ -10,7 +10,25 @@ Get Janus running on your machine in five minutes.
 | uv | latest | `curl -LsSf https://astral.sh/uv/install.sh | sh` |
 | Node.js | 18 + (optional, for dev frontend) | [nodejs.org](https://nodejs.org/) |
 
-## 1. Clone and install
+## 1. Install
+
+### As a command (uv tool or pipx)
+
+To run Janus without working on its code, install the release wheel. It contains the web
+dashboard and the database migrations, so neither Node.js nor the source tree is needed:
+
+```bash
+uv tool install https://github.com/thomasniebler/janus/releases/latest/download/janus-<version>-py3-none-any.whl
+# or: pipx install <the same URL>
+```
+
+Replace `<version>` with the latest release number from the
+[releases page](https://github.com/thomasniebler/janus/releases). Add optional extras (see below)
+as `"janus[whatsapp,desktop] @ <URL>"` with uv, or `"<URL>[whatsapp,desktop]"` with pipx. Then
+run `janus` directly wherever the steps below say `uv run janus`. `janus update` upgrades the
+install to each new release; see [Automatic updates](configuration.md#automatic-updates).
+
+### From a git checkout
 
 ```bash
 git clone https://github.com/thomasniebler/janus.git
@@ -30,6 +48,7 @@ pull in libraries it cannot use:
 | `whatsapp` | The WhatsApp connector (Neonize, which also installs Pillow) | WhatsApp accounts show "WhatsApp support is not installed" |
 | `desktop` | The system tray icon (`janus start --tray`; pystray and Pillow) | Janus logs a warning and runs without the icon |
 | `documents` | PDF, Word, Excel, and PowerPoint parsing for the knowledge store | Only TXT, Markdown, and CSV files are read |
+| `postgres` | The PostgreSQL driver (psycopg2) for a `postgresql://` database URL | Only SQLite (the default) works; `janus config doctor` says so |
 
 Install the ones you want, for example:
 

@@ -56,6 +56,7 @@ CI (`.github/workflows/ci.yml`) runs on every pull request to `main` (opened, pu
   - strict mypy on the typed scope (`task typecheck`);
   - the import-linter contracts (`task lint:imports`);
   - Vulture and deptry (`task lint:dead:backend`);
+  - building the wheel and installing it as a uv tool outside the repository (`task package:smoke`, `scripts/wheel_smoke.sh`);
   - the test suite with coverage (`task coverage`).
 - **Backend coverage (JAN-261):**
   - `task coverage` measures statement and branch coverage of `src/janus` and lists every skipped test with its reason (`-rs`).
@@ -150,6 +151,7 @@ On a pull request, the `changes` job runs `scripts/ci_paths.py` (JAN-309, JAN-31
 | `docs/**`, `TECH_SPEC.md` | docs |
 | `.semgrep/**`, `.semgrepignore`, `semgrep.yml` | semgrep (`.semgrep/**` and `semgrep.yml` also backend) |
 | `dependency-audit.yml` | dependency audit, backend |
+| `hatch_build.py` | backend (the wheel smoke test) |
 | `pyproject.toml`, `uv.lock` | everything, unless narrowed (below) |
 | `ci.yml`, `Taskfile.yml`, `.python-version`, `.gitignore` | everything |
 | other `.github/workflows/*.yml` | backend (`tests/test_workflows.py` checks timeouts, concurrency and selection wiring) |
@@ -160,7 +162,7 @@ The rules are ordered and the first match wins. `tests/test_ci_paths.py` checks 
 
 `pyproject.toml` and `uv.lock` are compared table by table at the merge base and the PR head:
 
-- **Narrowed:** a change confined to `[tool.*]` configuration selects only the jobs that read it. `tool.janus.semgrep` adds Semgrep, `tool.janus.dependency_audit` adds the dependency audit, and `tool.pytest` adds migrations. A change to `project.version` alone, or a lockfile change to Janus's own version alone (a release bump), selects backend.
+- **Narrowed:** a change confined to `[tool.*]` configuration selects only the jobs that read it. `tool.janus.semgrep` adds Semgrep, `tool.janus.dependency_audit` adds the dependency audit, `tool.pytest` adds migrations, and `tool.hatch` (wheel contents) selects backend. A change to `project.version` alone, or a lockfile change to Janus's own version alone (a release bump), selects backend.
 - **Not narrowed:** dependencies, dependency groups, `tool.uv`, new tables, and anything unreadable keep the full selection.
 
 Detection fails closed. An API error, a missing PR context, or a listing whose count does not match the PR's `changed_files` (including PRs at the API's 3000-file limit) fails the `changes` job and with it the run. A narrowing lookup that fails keeps the full selection.
