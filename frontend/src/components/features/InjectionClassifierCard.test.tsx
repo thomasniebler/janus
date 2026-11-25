@@ -6,6 +6,10 @@ import { injectionClassifierApi } from '../../lib/injectionClassifier';
 import type { InjectionClassifierStatus } from '../../lib/injectionClassifier';
 import { InjectionClassifierCard } from './InjectionClassifierCard';
 
+// The card's first render waits on its queries; under CI's coverage run that can exceed the
+// default 1 s of findBy*, so the first lookups get more time.
+const FIRST_RENDER = { timeout: 5000 };
+
 vi.mock('../../lib/injectionClassifier', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/injectionClassifier')>()),
   injectionClassifierApi: { getStatus: vi.fn(), update: vi.fn() },
@@ -41,7 +45,7 @@ describe('InjectionClassifierCard', () => {
     vi.mocked(injectionClassifierApi.update).mockResolvedValue({ data: status({ enabled: true }) } as never);
     renderCard();
 
-    const toggle = await screen.findByRole('checkbox', { name: 'Model-based prompt-injection check' });
+    const toggle = await screen.findByRole('checkbox', { name: 'Model-based prompt-injection check' }, FIRST_RENDER);
     expect(toggle).not.toBeChecked();
     expect(screen.getByText(/1,200 of 200,000/)).toBeInTheDocument();
 
@@ -56,7 +60,7 @@ describe('InjectionClassifierCard', () => {
     } as never);
     renderCard();
 
-    await userEvent.click(await screen.findByRole('checkbox', { name: 'Model-based prompt-injection check' }));
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Model-based prompt-injection check' }, FIRST_RENDER));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(injectionClassifierApi.update).not.toHaveBeenCalled();
