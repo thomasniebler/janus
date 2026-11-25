@@ -288,7 +288,7 @@ def test_every_semgrep_target_file_selects_the_scan():
 
 PYPROJECT = """
 [project]
-name = "janus"
+name = "janus-assistant"
 version = "1.6.0"
 dependencies = ["fastapi>=0.1"]
 
@@ -334,7 +334,7 @@ LOCK = """
 version = 1
 
 [[package]]
-name = "janus"
+name = "janus-assistant"
 version = "1.6.0"
 source = { editable = "." }
 

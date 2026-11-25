@@ -1,0 +1,60 @@
+name: Publish to PyPI
+
+# Uploads a GitHub release's wheel and sdist to PyPI as janus-assistant, with trusted publishing
+# (OIDC, no API token). release-please.yml calls it after each release once the repository
+# variable PYPI_ENABLED is "true"; run it by hand to publish an existing release (for example the
+# first upload, which claims the name). pypi.org must trust both workflows, release-please.yml
+# and publish-pypi.yml, for the `pypi` environment:
+# docs/docs/tech-spec/deployment-operations.md#publishing-to-pypi.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag (vX.Y.Z) whose assets are published.
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (vX.Y.Z) whose assets are published.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pypi-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/janus-assistant/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download the release's wheel and sdist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::$TAG is not a vX.Y.Z tag"; exit 1; }
+          version=${TAG#v}
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D dist \
+            -p "janus_assistant-$version-py3-none-any.whl" -p "janus_assistant-$version.tar.gz"
+          ls -l dist
+      - name: Check the wheel carries the web UI and the migrations
+        run: |
+          set -euo pipefail
+          listing=$(python3 -m zipfile -l dist/*.whl)
+          grep -q 'janus/_data/frontend/index.html' <<<"$listing"
+          grep -q 'janus/_data/alembic.ini' <<<"$listing"
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

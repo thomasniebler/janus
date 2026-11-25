@@ -69,9 +69,13 @@ The workflow still assumes a host with SSH, rsync, `uv` in `~/.local/bin`, and s
 
 ## Self-Hosted Auto-Update
 
-The hosted instance is updated by the push deploy above. A self-hosted install (a git clone run with
-`janus start`) instead pulls releases itself: `services/update_service.py`, run by the `auto-update`
-worker (`workers/update.py`) every `auto_update_interval_minutes` (default 60, at least 15).
+The hosted instance is updated by the push deploy above. A self-hosted install instead pulls
+releases itself: `services/update_service.py`, run by the `auto-update` worker (`workers/update.py`)
+every `auto_update_interval_minutes` (default 60, at least 15), or by hand with `janus update`.
+`install_kind` tells the two supported installs apart: a git clone run with `janus start` (a `.git`
+at the install root), and the release wheel installed with `uv tool install` (a `uv-receipt.toml`
+in the environment) or `pipx install` (a `pipx_metadata.json`). The bullets below describe the
+checkout; [Tool installs](#tool-installs) covers the wheel.
 
 - **Check:** `GET https://api.github.com/repos/<auto_update_repository>/releases/latest`
   (unauthenticated; drafts and prereleases are never "latest"). The tag must be `vX.Y.Z` and newer
@@ -117,6 +121,66 @@ worker (`workers/update.py`) every `auto_update_interval_minutes` (default 60, a
   common cases. `janus update` writes no record: whoever runs it restarts Janus and sees a failure.
 - **Manual:** `janus update --check` reports the latest release and whether this install is
   eligible; `janus update` installs it without restarting a running Janus.
+
+
+### Packaging
+
+`pyproject.toml` builds with hatchling. `hatch_build.py` copies `alembic.ini`, `alembic/`,
+`frontend/dist/` and the in-app docs (`docs/docs`, `docs/zensical.toml`, `TECH_SPEC.md`,
+`CHANGELOG.md`, under `docs_root/`) into the wheel under `janus/_data`, and
+`src/janus/resources.py` resolves them there first, falling back to the repository paths in a
+checkout. The
+sdist lists `frontend/dist` as an artifact, so the wheel `uv build` makes from it still carries the
+UI. `release-please.yml` builds the frontend before `uv build`, uploads the wheel, the sdist and
+`janus-frontend-dist.tar.gz`, and first runs `scripts/wheel_smoke.sh --require-frontend` on the
+wheel (install as a uv tool in a scratch location, migrate a fresh database, check `install_kind`).
+CI's backend job runs the same smoke test without a frontend (`task package:smoke`).
+
+The distribution is `janus-assistant` (`janus` and `janus-agent` are taken on PyPI); the
+import package and the command stay `janus`, and `update_service.DISTRIBUTION` names it for the
+version lookup and the wheel file name (`api/status.py` and `scripts/release_host_checks.py` read
+the same distribution).
+
+### Publishing to PyPI
+
+`.github/workflows/publish-pypi.yml` downloads a release's `janus_assistant-X.Y.Z` wheel and sdist
+from the GitHub release, checks that the wheel carries `janus/_data/frontend/index.html` and
+`janus/_data/alembic.ini`, and uploads both with PyPI trusted publishing (OIDC, no API token)
+from the `pypi` environment. `release-please.yml`'s `publish-pypi` job calls it after each
+release once the repository variable `PYPI_ENABLED` is `true`; a manual run (`workflow_dispatch`,
+input `tag`) publishes an existing release, for example the first upload that claims the name.
+
+One-time setup, done by the PyPI account owner:
+
+1. On <https://pypi.org/manage/account/publishing/>, add a pending trusted publisher for project
+   `janus-assistant`, owner `thomasniebler`, repository `janus`, workflow `publish-pypi.yml`,
+   environment `pypi`; once the project exists, add a second one with workflow
+   `release-please.yml` (PyPI checks the top-level workflow, which is the caller for releases).
+2. Publish the first release by hand (`gh workflow run publish-pypi.yml -f tag=vX.Y.Z`); until
+   that upload, anyone can register the name.
+3. Set `PYPI_ENABLED=true` (`gh variable set PYPI_ENABLED --body true`) so every later release
+   publishes itself.
+
+### Tool installs
+
+`services/update_tool_install.py`, called by `apply_update` under the same lock.
+
+- **Eligibility:** `auto_update_enabled` is on and the installer (`uv` or `pipx`) is on the PATH.
+  The installed version comes from the `janus` distribution metadata, not `pyproject.toml`.
+- **Install:** download the release's `janus_assistant-X.Y.Z-py3-none-any.whl` and check its SHA-256
+  `digest` (downloads go to a `.part` file renamed into place only after the digest matched);
+  keep the running release's wheel in `<state dir>/rollback/`, re-checked against its published
+  digest before reuse (refused if that is not possible, so a rollback never needs the network); take the pre-release snapshot in-process
+  with SQLite's backup API; `uv tool install --force --python X.Y "janus-assistant[extras] @ file://…"` or
+  `pipx install --force [--suffix=…] "…whl[extras]"` (keeping the `--suffix` from
+  `pipx_metadata.json`, so the running environment is the one replaced), with the extras detected the same way as in a checkout
+  (now including `postgres`); then the same import check and migration children.
+- **Rollback and boot recovery:** a failure reinstalls the kept wheel and, once migrations started,
+  restores the snapshot. Bookkeeping (`janus-update.lock`, `janus-update-pending.json`,
+  `janus-update-skip`) lives in the XDG state directory (`update_service.state_dir`) instead of
+  `.git`; the pending record carries `kind` and `previous_wheel`, so a release that does not start
+  reinstalls the kept wheel. The restart is the same `os.execv` of the `janus` entry point, whose
+  path does not change across a reinstall.
 
 ## Pre-Release Snapshot
 

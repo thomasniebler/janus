@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -168,18 +168,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/00/fe/5c7710bc611a4070d06ba801de9a935cc87c3d4b689c644958047bdf2cba/azure_core-1.38.2.tar.gz", hash = "sha256:67562857cb979217e48dc60980243b61ea115b77326fa93d83b729e7ff0482e7", size = 363734, upload-time = "2026-02-18T19:33:05.6Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/42/23/6371a551800d3812d6019cd813acd985f9fac0fedc1290129211a73da4ae/azure_core-1.38.2-py3-none-any.whl", hash = "sha256:074806c75cf239ea284a33a66827695ef7aeddac0b4e19dda266a93e4665ead9", size = 217957, upload-time = "2026-02-18T19:33:07.696Z" },
-]
-
-[[package]]
-name = "azure-devops"
-version = "7.1.0b4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "msrest" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e1/f9/495982345252dc7a15ac632e038be1f975ca0d2f25abfe8f8d908569141d/azure-devops-7.1.0b4.tar.gz", hash = "sha256:f04ba939112579f3d530cfecc044a74ef9e9339ba23c9ee1ece248241f07ff85", size = 1336261, upload-time = "2023-11-20T14:38:06.019Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/30/067b9aba3cb146f4334afb737eb86c4f66e2b645fbca770377253550a9b3/azure_devops-7.1.0b4-py3-none-any.whl", hash = "sha256:f827e9fbc7c77bc6f2aaee46e5717514e9fe7d676c87624eccd0ca640b54f122", size = 1554711, upload-time = "2023-11-20T14:38:02.811Z" },
 ]
 
 [[package]]
@@ -1241,22 +1229,12 @@ wheels = [
 ]
 
 [[package]]
-name = "isodate"
-version = "0.7.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/54/4d/e940025e2ce31a8ce1202635910747e5a87cc3a6a6bb2d00973375014749/isodate-0.7.2.tar.gz", hash = "sha256:4cd1aa0f43ca76f4a6c6c0292a85f40b35ec2e43e315b59f06e6d32171a953e6", size = 29705, upload-time = "2024-10-08T23:04:11.5Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/aa/0aca39a37d3c7eb941ba736ede56d689e7be91cab5d9ca846bde3999eba6/isodate-0.7.2-py3-none-any.whl", hash = "sha256:28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15", size = 22320, upload-time = "2024-10-08T23:04:09.501Z" },
-]
-
-[[package]]
-name = "janus"
+name = "janus-assistant"
 version = "1.15.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "atlassian-python-api" },
-    { name = "azure-devops" },
     { name = "azure-identity" },
     { name = "bcrypt" },
     { name = "cryptography" },
@@ -1281,7 +1259,6 @@ dependencies = [
     { name = "markdown-it-py" },
     { name = "msal" },
     { name = "protobuf" },
-    { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
@@ -1294,7 +1271,6 @@ dependencies = [
     { name = "typer" },
     { name = "uvicorn" },
     { name = "websockets" },
-    { name = "zensical" },
 ]
 
 [package.optional-dependencies]
@@ -1304,6 +1280,9 @@ desktop = [
 ]
 documents = [
     { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
+]
+postgres = [
+    { name = "psycopg2-binary" },
 ]
 whatsapp = [
     { name = "neonize" },
@@ -1322,13 +1301,13 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "vulture" },
+    { name = "zensical" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.20.0" },
     { name = "atlassian-python-api", specifier = ">=5.0.5" },
-    { name = "azure-devops", specifier = ">=7.1.0b4" },
     { name = "azure-identity", specifier = ">=1.27.0" },
     { name = "bcrypt", specifier = ">=5.0.0" },
     { name = "cryptography", specifier = ">=48.0.1" },
@@ -1356,7 +1335,7 @@ requires-dist = [
     { name = "neonize", marker = "extra == 'whatsapp'", specifier = "==0.5.2" },
     { name = "pillow", marker = "extra == 'desktop'", specifier = ">=13.0.0" },
     { name = "protobuf", specifier = ">=7.36.2,<8" },
-    { name = "psycopg2-binary", specifier = ">=2.9.13" },
+    { name = "psycopg2-binary", marker = "extra == 'postgres'", specifier = ">=2.9.13" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "pyjwt", specifier = ">=2.15.1" },
@@ -1371,9 +1350,8 @@ requires-dist = [
     { name = "typer", specifier = ">=0.27.2" },
     { name = "uvicorn", specifier = ">=0.41.0" },
     { name = "websockets", specifier = ">=17.2" },
-    { name = "zensical", specifier = ">=0.0.69" },
 ]
-provides-extras = ["documents", "desktop", "whatsapp"]
+provides-extras = ["desktop", "documents", "postgres", "whatsapp"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1387,6 +1365,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.17.0" },
     { name = "vulture", specifier = ">=2.16" },
+    { name = "zensical", specifier = ">=0.0.69" },
 ]
 
 [[package]]
@@ -2106,22 +2085,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/01/99/5d239b6156eddf761a636bded1118414d161bd6b7b37a9335549ed159396/msal_extensions-1.3.1.tar.gz", hash = "sha256:c5b0fd10f65ef62b5f1d62f4251d51cbcaf003fcedae8c91b040a488614be1a4", size = 23315, upload-time = "2025-03-14T23:51:03.902Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5e/75/bd9b7bb966668920f06b200e84454c8f3566b102183bc55c5473d96cb2b9/msal_extensions-1.3.1-py3-none-any.whl", hash = "sha256:96d3de4d034504e969ac5e85bae8106c8373b5c6568e4c8fa7af2eca9dbe6bca", size = 20583, upload-time = "2025-03-14T23:51:03.016Z" },
-]
-
-[[package]]
-name = "msrest"
-version = "0.7.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "azure-core" },
-    { name = "certifi" },
-    { name = "isodate" },
-    { name = "requests" },
-    { name = "requests-oauthlib" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/68/77/8397c8fb8fc257d8ea0fa66f8068e073278c65f05acb17dcb22a02bfdc42/msrest-0.7.1.zip", hash = "sha256:6e7661f46f3afd88b75667b7187a92829924446c7ea1d169be8c4bb7eeb788b9", size = 175332, upload-time = "2022-06-13T22:41:25.111Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/cf/f2966a2638144491f8696c27320d5219f48a072715075d168b31d3237720/msrest-0.7.1-py3-none-any.whl", hash = "sha256:21120a810e1233e5e6cc7fe40b474eeb4ec6f757a15d7cf86702c369f9567c32", size = 85384, upload-time = "2022-06-13T22:41:22.42Z" },
 ]
 
 [[package]]

@@ -56,6 +56,7 @@ CI (`.github/workflows/ci.yml`) runs on every pull request to `main` (opened, pu
   - strict mypy on the typed scope (`task typecheck`);
   - the import-linter contracts (`task lint:imports`);
   - Vulture and deptry (`task lint:dead:backend`);
+  - building the wheel and installing it as a uv tool outside the repository (`task package:smoke`, `scripts/wheel_smoke.sh`);
   - the test suite with coverage (`task coverage`).
 - **Backend coverage (JAN-261):**
   - `task coverage` measures statement and branch coverage of `src/janus` and lists every skipped test with its reason (`-rs`).
@@ -118,7 +119,7 @@ CI (`.github/workflows/ci.yml`) runs on every pull request to `main` (opened, pu
   - The weekly `Quality report` workflow runs both through `scripts/quality_report.py` ([Weekly quality report](#weekly-quality-report)) and uploads the JSON and HTML reports, which list every clone with its locations, in the `quality-report` artifact. Duplication is not checked on pull requests yet. Use the report to find candidates; do not merge clones where that costs readability.
 - **Dead-code and dependency exceptions (JAN-266):** Vulture, deptry, and knip (`task lint:dead`) gate in CI; their exceptions and blind spots are:
   - **Vulture:** scans `src/janus` only, at 80% confidence. `tests/` is out, because fixtures and mocks trip its unused-argument heuristics. The only ignored names are the `__exit__` parameters `exc_type`, `exc_val`, `exc_tb`. The weekly report lists the 60–79% candidates, mostly FastAPI routes and Pydantic fields found by reflection, without gating them.
-  - **deptry:** all rules are on. DEP003 (a transitive dependency imported directly) was ignored until JAN-266; the four packages it flagged (`pydantic`, `starlette`, `requests`, `segno`) are now declared. DEP002 (declared but not imported) lists, in `pyproject.toml`, the runtime extras frameworks load implicitly and the docs/build tools. `azure-devops` is the one open decision there: no call site, kept until the Azure DevOps connector is built or dropped.
+  - **deptry:** all rules are on. DEP003 (a transitive dependency imported directly) was ignored until JAN-266; the four packages it flagged (`pydantic`, `starlette`, `requests`, `segno`) are now declared. DEP002 (declared but not imported) lists, in `pyproject.toml`, the runtime packages frameworks load implicitly. `azure-devops`, which had no call site, was removed (JAN-397); an Azure DevOps connector would add it back with its first call site.
   - **knip:** `frontend/` only. `knip:ci` excludes unused exports and types: on 2026-10-04 that hides 5 files with unused exports and 3 with unused types, mostly `lib/schemas.ts` and `types.ts`, which a generated API client (JAN-139) would replace. The weekly report lists them. `src/generated/**` is ignored, and the `uv` binary that `package.json` scripts call is allowed.
   - **Not covered on purpose:** the root `package.json`, which only builds Tailwind CSS for the server-rendered pages and has no source to scan, and `modules/todo-chat/`, a separately installed companion module with its own toolchain. The dependency audit still checks both lockfiles.
 - **Baselined hotspots (follow-up):** the entries in `frontend/eslint.baseline.json`, the backend budget exceptions, and the `# noqa` lines are the cleanup list. Lower an entry when its code improves and delete it once the code is within the limit.
@@ -150,6 +151,7 @@ On a pull request, the `changes` job runs `scripts/ci_paths.py` (JAN-309, JAN-31
 | `docs/**`, `TECH_SPEC.md` | docs |
 | `.semgrep/**`, `.semgrepignore`, `semgrep.yml` | semgrep (`.semgrep/**` and `semgrep.yml` also backend) |
 | `dependency-audit.yml` | dependency audit, backend |
+| `hatch_build.py` | backend (the wheel smoke test) |
 | `pyproject.toml`, `uv.lock` | everything, unless narrowed (below) |
 | `ci.yml`, `Taskfile.yml`, `.python-version`, `.gitignore` | everything |
 | other `.github/workflows/*.yml` | backend (`tests/test_workflows.py` checks timeouts, concurrency and selection wiring) |
@@ -160,7 +162,7 @@ The rules are ordered and the first match wins. `tests/test_ci_paths.py` checks 
 
 `pyproject.toml` and `uv.lock` are compared table by table at the merge base and the PR head:
 
-- **Narrowed:** a change confined to `[tool.*]` configuration selects only the jobs that read it. `tool.janus.semgrep` adds Semgrep, `tool.janus.dependency_audit` adds the dependency audit, and `tool.pytest` adds migrations. A change to `project.version` alone, or a lockfile change to Janus's own version alone (a release bump), selects backend.
+- **Narrowed:** a change confined to `[tool.*]` configuration selects only the jobs that read it. `tool.janus.semgrep` adds Semgrep, `tool.janus.dependency_audit` adds the dependency audit, `tool.pytest` adds migrations, and `tool.hatch` (wheel contents) selects backend. A change to `project.version` alone, or a lockfile change to Janus's own version alone (a release bump), selects backend.
 - **Not narrowed:** dependencies, dependency groups, `tool.uv`, new tables, and anything unreadable keep the full selection.
 
 Detection fails closed. An API error, a missing PR context, or a listing whose count does not match the PR's `changed_files` (including PRs at the API's 3000-file limit) fails the `changes` job and with it the run. A narrowing lookup that fails keeps the full selection.

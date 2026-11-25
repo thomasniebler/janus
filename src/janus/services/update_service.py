@@ -1,8 +1,9 @@
-"""Self-hosted auto-update: install new GitHub releases into a git checkout and restart.
+"""Self-hosted auto-update: install new GitHub releases and restart.
 
-A self-hosted Janus is a git clone run from its own ``.venv``. ``check_for_update`` asks the
-GitHub Releases API for the latest release of ``settings.auto_update_repository``;
-``apply_update`` installs it:
+Janus updates itself in two kinds of install (``install_kind``): a git clone run from its own
+``.venv``, or the release wheel installed with ``uv tool install`` or ``pipx install``.
+``check_for_update`` asks the GitHub Releases API for the latest release of
+``settings.auto_update_repository``; in a checkout, ``apply_update`` installs it:
 
 1. download the release's prebuilt ``janus-frontend-dist.tar.gz`` and check its SHA-256 digest,
 2. snapshot the SQLite database (``scripts/pre_release_snapshot.py``),
@@ -12,12 +13,17 @@ GitHub Releases API for the latest release of ``settings.auto_update_repository`
 5. swap the new frontend into ``frontend/dist``.
 
 A failure in step 3 or later rolls the checkout, the virtualenv and (once migrations ran) the
-database back to where they were. After a successful install, ``request_restart`` asks the
-running server to shut down, and ``janus start`` re-executes itself on the new code.
+database back to where they were.
 
-Only an eligible checkout updates (``eligibility``): a git work tree with no tracked changes,
-on ``main`` or detached at a release tag, whose ``.venv`` is the running interpreter. Anything
-else (the Uberspace deploy has no ``.git``, a feature branch, a pip install) is left alone.
+A tool install is updated by ``update_tool_install.py`` instead.
+
+After a successful install, ``request_restart`` asks the running server to shut down, and
+``janus start`` re-executes itself on the new code.
+
+Only an eligible install updates (``eligibility``): a git work tree with no tracked changes,
+on ``main`` or detached at a release tag, whose ``.venv`` is the running interpreter; or a
+``uv tool`` / ``pipx`` install whose installer is on the PATH. Anything else (the Uberspace
+deploy has no ``.git``, a feature branch, a plain pip install) is left alone.
 """
 
 from __future__ import annotations
@@ -44,7 +50,7 @@ from pathlib import Path
 import httpx
 from sqlalchemy.engine import make_url
 
-from janus.config import settings
+from janus.config import get_state_dir, settings
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +63,13 @@ _MAX_ASSET_BYTES = 100 * 2**20
 _COMMAND_TIMEOUT_SECONDS = 900
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+#: The distribution name on PyPI and in wheel file names (the command and package are ``janus``).
+DISTRIBUTION = "janus-assistant"
+
+#: Install kinds (``install_kind``).
+CHECKOUT = "checkout"
+UV_TOOL = "uv tool"
+PIPX = "pipx"
 
 
 class UpdateError(Exception):
@@ -71,6 +84,13 @@ class Release:
     version: tuple[int, int, int]
     asset_url: str | None
     asset_digest: str | None
+    wheel_url: str | None = None
+    wheel_digest: str | None = None
+
+    @property
+    def wheel_name(self) -> str:
+        """File name of the release's wheel asset."""
+        return wheel_name(self.version)
 
 
 @dataclass(frozen=True)
@@ -80,6 +100,7 @@ class Eligibility:
     eligible: bool
     reason: str
     branch: str | None = None
+    kind: str | None = None
 
 
 # --- versions -----------------------------------------------------------------------------
@@ -92,9 +113,13 @@ def parse_tag(tag: str) -> tuple[int, int, int] | None:
 
 
 def installed_version(repo_root: Path = REPO_ROOT) -> tuple[int, int, int]:
-    """Return the version in the checkout's ``pyproject.toml``."""
-    with (repo_root / "pyproject.toml").open("rb") as handle:
-        raw = tomllib.load(handle)["project"]["version"]
+    """Return the checkout's ``pyproject.toml`` version, or the installed distribution's."""
+    pyproject = repo_root / "pyproject.toml"
+    if pyproject.is_file():
+        with pyproject.open("rb") as handle:
+            raw = tomllib.load(handle)["project"]["version"]
+    else:
+        raw = importlib.metadata.version(DISTRIBUTION)
     match = _VERSION_RE.match(raw)
     if not match:
         raise UpdateError(f"pyproject.toml version {raw!r} is not X.Y.Z")
@@ -106,13 +131,24 @@ def format_version(version: tuple[int, int, int]) -> str:
     return ".".join(str(part) for part in version)
 
 
+def wheel_name(version: tuple[int, int, int]) -> str:
+    """The release wheel's file name (``janus_assistant-X.Y.Z-py3-none-any.whl``)."""
+    return f"{DISTRIBUTION.replace('-', '_')}-{format_version(version)}-py3-none-any.whl"
+
+
 # --- GitHub -------------------------------------------------------------------------------
 
 
 def fetch_latest_release(repository: str | None = None, *, client: httpx.Client | None = None) -> Release:
     """Ask the GitHub Releases API for the latest published (non-draft, non-prerelease) release."""
+    return fetch_release("latest", repository, client=client)
+
+
+def fetch_release(tag: str, repository: str | None = None, *, client: httpx.Client | None = None) -> Release:
+    """Read one release from the GitHub Releases API: ``"latest"`` or a ``vX.Y.Z`` tag."""
     repository = repository or settings.auto_update_repository
-    url = f"https://api.github.com/repos/{repository}/releases/latest"
+    path = "latest" if tag == "latest" else f"tags/{tag}"
+    url = f"https://api.github.com/repos/{repository}/releases/{path}"
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "janus-auto-update"}
     try:
         if client is None:
@@ -123,18 +159,22 @@ def fetch_latest_release(repository: str | None = None, *, client: httpx.Client 
         response.raise_for_status()
         payload = response.json()
     except (httpx.HTTPError, ValueError) as exc:
-        raise UpdateError(f"could not read the latest release of {repository}: {exc}") from exc
+        raise UpdateError(f"could not read the {tag} release of {repository}: {exc}") from exc
 
     tag = str(payload.get("tag_name") or "")
     version = parse_tag(tag)
     if version is None:
-        raise UpdateError(f"latest release tag {tag!r} is not vX.Y.Z")
-    asset = next((a for a in payload.get("assets") or [] if a.get("name") == FRONTEND_ASSET_NAME), None)
+        raise UpdateError(f"release tag {tag!r} is not vX.Y.Z")
+    assets = {a.get("name"): a for a in payload.get("assets") or []}
+    frontend = assets.get(FRONTEND_ASSET_NAME) or {}
+    wheel = assets.get(wheel_name(version)) or {}
     return Release(
         tag=tag,
         version=version,
-        asset_url=asset.get("browser_download_url") if asset else None,
-        asset_digest=asset.get("digest") if asset else None,
+        asset_url=frontend.get("browser_download_url"),
+        asset_digest=frontend.get("digest"),
+        wheel_url=wheel.get("browser_download_url"),
+        wheel_digest=wheel.get("digest"),
     )
 
 
@@ -159,31 +199,63 @@ def find_uv() -> str | None:
     return str(candidate) if candidate.is_file() and os.access(candidate, os.X_OK) else None
 
 
+def install_kind(repo_root: Path = REPO_ROOT, prefix: str | None = None) -> str | None:
+    """How this Janus was installed: ``CHECKOUT``, ``UV_TOOL``, ``PIPX``, or None (unknown)."""
+    if (repo_root / ".git").exists():
+        return CHECKOUT
+    environment = Path(prefix or sys.prefix)
+    if (environment / "uv-receipt.toml").is_file():
+        return UV_TOOL
+    if (environment / "pipx_metadata.json").is_file():
+        return PIPX
+    return None
+
+
+def tool_executable(kind: str) -> str | None:
+    """The installer that manages a tool install: uv or pipx."""
+    return find_uv() if kind == UV_TOOL else shutil.which("pipx")
+
+
+def state_dir(repo_root: Path = REPO_ROOT) -> Path:
+    """Where update bookkeeping lives: ``.git`` in a checkout, else the XDG state directory."""
+    git_dir = repo_root / ".git"
+    if git_dir.is_dir():
+        return git_dir
+    directory = get_state_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
 def eligibility(repo_root: Path = REPO_ROOT) -> Eligibility:
     """Decide whether this install may update itself."""
+    kind = install_kind(repo_root)
     if not settings.auto_update_enabled:
-        return Eligibility(False, "auto_update_enabled is off")
-    if not (repo_root / ".git").exists():
-        return Eligibility(False, f"{repo_root} is not a git checkout")
+        return Eligibility(False, "auto_update_enabled is off", kind=kind)
+    if kind in (UV_TOOL, PIPX):
+        if tool_executable(kind) is None:
+            return Eligibility(False, f"this is a {kind} install, but {kind.split()[0]} is not on the PATH", kind=kind)
+        return Eligibility(True, "eligible", kind=kind)
+    if kind is None:
+        return Eligibility(False, f"{repo_root} is not a git checkout, and Janus is not a uv tool or pipx install")
     if shutil.which("git") is None:
-        return Eligibility(False, "git is not installed")
+        return Eligibility(False, "git is not installed", kind=CHECKOUT)
     if find_uv() is None:
-        return Eligibility(False, "uv is not installed")
+        return Eligibility(False, "uv is not installed", kind=CHECKOUT)
     if Path(sys.prefix).resolve() != (repo_root / ".venv").resolve():
-        return Eligibility(False, f"Janus is not running from {repo_root / '.venv'}")
+        return Eligibility(False, f"Janus is not running from {repo_root / '.venv'}", kind=CHECKOUT)
     try:
         if _git(repo_root, "status", "--porcelain", "--untracked-files=no"):
-            return Eligibility(False, "the checkout has uncommitted changes")
+            return Eligibility(False, "the checkout has uncommitted changes", kind=CHECKOUT)
         branch = _git(repo_root, "symbolic-ref", "--quiet", "--short", "HEAD", check=False) or None
         if branch is None:
             tags = _git(repo_root, "tag", "--points-at", "HEAD").split()
             if not any(parse_tag(tag) for tag in tags):
-                return Eligibility(False, "HEAD is detached but not at a release tag")
+                return Eligibility(False, "HEAD is detached but not at a release tag", kind=CHECKOUT)
         elif branch != "main":
-            return Eligibility(False, f"the checkout is on branch {branch!r}, not main or a release tag")
+            return Eligibility(False, f"the checkout is on branch {branch!r}, not main or a release tag", kind=CHECKOUT)
     except (UpdateError, OSError, subprocess.TimeoutExpired) as exc:
-        return Eligibility(False, f"could not inspect the checkout: {exc}")
-    return Eligibility(True, "eligible", branch=branch)
+        return Eligibility(False, f"could not inspect the checkout: {exc}", kind=CHECKOUT)
+    return Eligibility(True, "eligible", branch=branch, kind=CHECKOUT)
 
 
 def check_for_update(repo_root: Path = REPO_ROOT, *, client: httpx.Client | None = None) -> Release | None:
@@ -195,37 +267,51 @@ def check_for_update(repo_root: Path = REPO_ROOT, *, client: httpx.Client | None
 # --- install ------------------------------------------------------------------------------
 
 
-def _download_frontend(release: Release, dest_dir: Path, *, client: httpx.Client | None = None) -> Path:
-    """Download and unpack the release's frontend build into ``dest_dir``; return the dist dir."""
-    if not release.asset_url:
-        raise UpdateError(f"release {release.tag} has no {FRONTEND_ASSET_NAME} asset (yet)")
-    digest = (release.asset_digest or "").removeprefix("sha256:")
-    if not re.fullmatch(r"[0-9a-f]{64}", digest):
-        raise UpdateError(f"release {release.tag}'s {FRONTEND_ASSET_NAME} has no SHA-256 digest")
+def _download_asset(
+    url: str | None, digest: str | None, name: str, dest: Path, *, client: httpx.Client | None = None
+) -> Path:
+    """Download one release asset to ``dest / name`` and check it against its published SHA-256."""
+    if not url:
+        raise UpdateError(f"the release has no {name} asset (yet)")
+    expected = (digest or "").removeprefix("sha256:")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected):
+        raise UpdateError(f"{name} has no SHA-256 digest")
 
-    archive = dest_dir / FRONTEND_ASSET_NAME
+    path = dest / name
+    partial = dest / f".{name}.part"  # renamed into place only once the digest matched
     sha = hashlib.sha256()
     size = 0
     try:
         owned = client is None
         http = client or httpx.Client(timeout=_HTTP_TIMEOUT, follow_redirects=True)
         try:
-            with http.stream("GET", release.asset_url, headers={"User-Agent": "janus-auto-update"}) as response:
+            with http.stream("GET", url, headers={"User-Agent": "janus-auto-update"}) as response:
                 response.raise_for_status()
-                with archive.open("wb") as handle:
+                with partial.open("wb") as handle:
                     for chunk in response.iter_bytes():
                         size += len(chunk)
                         if size > _MAX_ASSET_BYTES:
-                            raise UpdateError(f"{FRONTEND_ASSET_NAME} is larger than {_MAX_ASSET_BYTES} bytes")
+                            raise UpdateError(f"{name} is larger than {_MAX_ASSET_BYTES} bytes")
                         sha.update(chunk)
                         handle.write(chunk)
         finally:
             if owned:
                 http.close()
-    except httpx.HTTPError as exc:
-        raise UpdateError(f"could not download {FRONTEND_ASSET_NAME}: {exc}") from exc
-    if sha.hexdigest() != digest:
-        raise UpdateError(f"{FRONTEND_ASSET_NAME} does not match its published SHA-256 digest")
+    except (httpx.HTTPError, UpdateError) as exc:
+        partial.unlink(missing_ok=True)
+        if isinstance(exc, UpdateError):
+            raise
+        raise UpdateError(f"could not download {name}: {exc}") from exc
+    if sha.hexdigest() != expected:
+        partial.unlink(missing_ok=True)
+        raise UpdateError(f"{name} does not match its published SHA-256 digest")
+    partial.replace(path)
+    return path
+
+
+def _download_frontend(release: Release, dest_dir: Path, *, client: httpx.Client | None = None) -> Path:
+    """Download and unpack the release's frontend build into ``dest_dir``; return the dist dir."""
+    archive = _download_asset(release.asset_url, release.asset_digest, FRONTEND_ASSET_NAME, dest_dir, client=client)
 
     dist = dest_dir / "dist"
     dist.mkdir()
@@ -250,7 +336,12 @@ def _run(command: list[str], cwd: Path, what: str) -> None:
 
 
 #: Optional extras -> a distribution that is installed exactly when the extra is.
-_EXTRA_MARKERS = {"desktop": "pystray", "documents": "markitdown", "whatsapp": "neonize"}
+EXTRA_MARKERS = {
+    "desktop": "pystray",
+    "documents": "markitdown",
+    "postgres": "psycopg2-binary",
+    "whatsapp": "neonize",
+}
 
 
 def _sync_command(uv: str, repo_root: Path) -> list[str]:
@@ -265,7 +356,7 @@ def _sync_command(uv: str, repo_root: Path) -> list[str]:
     except (OSError, KeyError, tomllib.TOMLDecodeError):
         defined = {}
     command = [uv, "sync", "--frozen", "--inexact"]
-    for extra, marker in sorted(_EXTRA_MARKERS.items()):
+    for extra, marker in sorted(EXTRA_MARKERS.items()):
         if extra in defined and _is_installed(marker):
             command += ["--extra", extra]
     return command
@@ -317,12 +408,12 @@ def _swap_frontend(new_dist: Path, repo_root: Path) -> None:
 
 @contextlib.contextmanager
 def _install_lock(repo_root: Path) -> Iterator[None]:
-    """Hold ``.git/janus-update.lock`` so the worker and ``janus update`` never install at once."""
-    with (repo_root / ".git" / "janus-update.lock").open("a") as handle:
+    """Hold ``janus-update.lock`` so the worker and ``janus update`` never install at once."""
+    with (state_dir(repo_root) / "janus-update.lock").open("a") as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
-            raise UpdateError("another update of this checkout is in progress") from exc
+            raise UpdateError("another update of this install is in progress") from exc
         try:
             yield
         finally:
@@ -336,14 +427,22 @@ class Installed:
     tag: str
     previous_commit: str
     branch: str | None
+    kind: str = CHECKOUT
+    #: Tool installs: the wheel of the release that was replaced (``previous_commit`` is unused).
+    previous_wheel: str | None = None
 
 
 def apply_update(release: Release, repo_root: Path = REPO_ROOT, *, client: httpx.Client | None = None) -> Installed:
-    """Install ``release`` into the checkout, rolling back on failure. Does not restart."""
-    if not (repo_root / ".git").is_dir():
-        raise UpdateError(f"not updating: {repo_root} is not a git checkout")
+    """Install ``release``, rolling back on failure. Does not restart."""
+    kind = install_kind(repo_root)
+    if kind is None:
+        raise UpdateError(f"not updating: {repo_root} is not a git checkout or a uv tool / pipx install")
     with _install_lock(repo_root):
-        return _apply_update_locked(release, repo_root, client)
+        if kind == CHECKOUT:
+            return _apply_update_locked(release, repo_root, client)
+        from janus.services import update_tool_install  # imports this module
+
+        return update_tool_install.apply_locked(release, repo_root, kind, client)
 
 
 def _apply_update_locked(release: Release, repo_root: Path, client: httpx.Client | None) -> Installed:
