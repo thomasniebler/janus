@@ -2,17 +2,21 @@ name: PR title
 
 # Conventional-commit titles for squash merges. Its own workflow so that editing a title
 # re-runs only this check, never the CI suites (JAN-314); a newer event for the same PR
-# cancels an older check.
+# cancels an older check. release-please.yml dispatches it on the release PR's branch, because
+# pull_request events from the Actions token's own PRs start no workflows; the dispatch run reads
+# the title of the open PR for that branch.
 
 on:
   pull_request:
     branches: [main]
     types: [opened, edited, reopened, synchronize]
+  workflow_dispatch:
 
-permissions: {}
+permissions:
+  pull-requests: read
 
 concurrency:
-  group: ${{ github.workflow }}-pr-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-pr-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -23,7 +27,11 @@ jobs:
       - name: Validate PR title for squash merge
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            PR_TITLE=$(gh pr view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --json title --jq .title)
+          fi
           pattern='^(feat|fix|chore|docs|refactor|perf|test|build|ci|style|revert)(\([[:alnum:]_.\/-]+\))?(!)?: .+$'
           if ! printf '%s\n' "$PR_TITLE" | grep -Eq "$pattern"; then
             echo "Pull request title must use conventional-commit format."

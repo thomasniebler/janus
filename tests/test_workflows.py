@@ -67,13 +67,24 @@ def test_ci_jobs_follow_the_selection():
         "semgrep": "semgrep",
         "dependency-audit": "dependency_audit",
     }
-    assert set(jobs) == {"changes", "e2e-report", *keys}
+    assert set(jobs) == {"changes", "e2e-report", "ci-result", *keys}
     for name, key in keys.items():
         assert jobs[name]["needs"] == "changes"
         assert jobs[name]["if"] == f"needs.changes.outputs.{key} == 'true'"
     # The report merge follows the e2e selection and also runs after failed shards (JAN-345).
     assert jobs["e2e-report"]["needs"] == ["changes", "e2e-tests"]
     assert jobs["e2e-report"]["if"] == "${{ !cancelled() && needs.changes.outputs.e2e == 'true' }}"
+
+
+def test_ci_result_gates_on_every_job():
+    """`ci-result`, the check the main ruleset requires, waits for every job and always runs."""
+    jobs = _load("ci.yml")["jobs"]
+    gate = jobs["ci-result"]
+    assert set(gate["needs"]) == set(jobs) - {"ci-result"}
+    assert gate["if"] == "${{ always() }}"
+    script = gate["steps"][0]["run"]
+    assert '"failure"' in script and '"cancelled"' in script
+    assert gate["steps"][0]["env"]["FULL"] == "${{ needs.changes.outputs.full }}"
 
 
 def test_e2e_runs_in_independent_shards():
@@ -101,6 +112,18 @@ def test_pr_title_reruns_on_edit_without_ci():
     """Editing a title re-runs the title check, and CI does not listen to edits."""
     assert "edited" in _triggers(_load("pr-title.yml"))["pull_request"]["types"]
     assert "edited" not in _triggers(_load("ci.yml"))["pull_request"]["types"]
+
+
+def test_release_prs_get_the_required_checks_by_dispatch():
+    """The Actions token's release PR starts no pull_request workflows, so release-please dispatches them."""
+    assert "workflow_dispatch" in _triggers(_load("ci.yml"))
+    assert "workflow_dispatch" in _triggers(_load("pr-title.yml"))
+    workflow = _load("release-please.yml")
+    assert workflow["permissions"]["actions"] == "write"
+    step = next(
+        s for s in workflow["jobs"]["release-please"]["steps"] if s.get("name", "").startswith("Run the required")
+    )
+    assert "gh workflow run ci.yml" in step["run"] and "gh workflow run pr-title.yml" in step["run"]
 
 
 def test_ci_runs_on_pull_requests_and_nightly_not_per_push_to_main():

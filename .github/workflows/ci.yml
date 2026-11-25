@@ -385,3 +385,40 @@ jobs:
     needs: changes
     if: needs.changes.outputs.dependency_audit == 'true'
     uses: ./.github/workflows/dependency-audit.yml
+
+  # The one CI check the `main` ruleset requires (with pr-title). It fails when any job failed or
+  # was cancelled; jobs the path selection skipped count as passed. A pull-request run whose test
+  # steps were skipped (a draft, `full` is false) fails too, so a green draft run never satisfies
+  # the merge rule for a commit that has not had its full run yet.
+  ci-result:
+    needs:
+      - changes
+      - backend-quality
+      - migration-tests
+      - frontend-quality
+      - e2e-tests
+      - e2e-report
+      - docs-build
+      - openapi-check
+      - semgrep
+      - dependency-audit
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check every selected job passed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+          EVENT_NAME: ${{ github.event_name }}
+          FULL: ${{ needs.changes.outputs.full }}
+        run: |
+          set -euo pipefail
+          echo "$RESULTS"
+          if jq -e 'any(.[]; . == "failure" or . == "cancelled")' <<<"$RESULTS" >/dev/null; then
+            echo "::error::A CI job failed or was cancelled."
+            exit 1
+          fi
+          if [ "$EVENT_NAME" = pull_request ] && [ "$FULL" != true ]; then
+            echo "::error::This run skipped the tests (draft pull request). Mark the PR ready for review for the full run."
+            exit 1
+          fi
