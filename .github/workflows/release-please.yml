@@ -6,6 +6,7 @@ on:
       - main
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -22,6 +23,17 @@ jobs:
       # which the plain `release-type: python` mode cannot do.
       - uses: googleapis/release-please-action@v5
         id: release
+      # The main ruleset requires ci-result and pr-title, but pull_request events for a PR the
+      # Actions token opened or updated start no workflows. A dispatch is the one event that token
+      # may trigger, and its checks count for the release PR's head commit.
+      - name: Run the required checks on the release PR
+        if: ${{ steps.release.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+        run: |
+          gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          gh workflow run pr-title.yml -R "$GITHUB_REPOSITORY" --ref "$BRANCH"
 
   build-and-release-artifacts:
     needs: release-please

@@ -1022,7 +1022,7 @@ it logs why it skipped the update when it starts, and never touches the checkout
 
 ```bash
 janus update --check   # the install kind, and is a newer release available?
-janus update           # install it now (then restart Janus yourself)
+janus update           # install it now; restarts the `janus service` if it runs, else restart Janus yourself
 ```
 
 To turn automatic updates off, set `auto_update_enabled = false` in the configuration file, or
