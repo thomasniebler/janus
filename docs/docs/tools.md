@@ -42,7 +42,10 @@ delegated tasks don't write them: their output is a result, not a conversation.
     - *Self-evolution tools* are for an administrator who switched the
       self-evolution loop on, with GitHub and Linear set up;
     - *Shell* is for administrators only, and only when the operator turned
-      it on with `shell_tool_enabled` (off by default).
+      it on with `shell_tool_enabled` (off by default);
+    - *Coding agents* is for administrators only, and only when the operator
+      turned it on with `coding_agents_enabled` (off by default) and at least
+      one coding-agent CLI is installed.
 
     Everything else is always offered. The **Unattended** switch does not
     apply in chat.
@@ -840,6 +843,50 @@ when you ask it to.
 Unattended default: **Off**. You can switch it on for unattended runs, and a
 trigger you write yourself that selects *Shell* runs its commands **without
 asking**, so only do that for commands you trust.
+
+## Coding agents
+
+`ask_coding_agent` lets Janus ask a coding agent installed on the machine
+Janus runs on for help: Claude Code (`claude`) or the OpenAI Codex CLI
+(`codex`). Janus stays one assistant; the
+coding agent is a tool it calls, like an MCP server. It is meant for a
+**local, personal install** where you already use one of those CLIs and are
+logged in to it.
+
+- **Off until the operator turns it on** with `coding_agents_enabled = true`;
+  see [Configuration](configuration.md#coding-agents-tool). Only agents whose
+  program is installed are offered. **Administrators only.**
+- **Janus asks before every question** in chat: the approval card shows the
+  agent and the exact prompt. The other agent does not see your conversation,
+  only that prompt, and the prompt goes to that agent's model provider under
+  your own account. Prompts longer than 1,000 characters, with invisible
+  characters, or starting with `-` (which the agent would read as an option)
+  are refused.
+- **Read-only by default.** The agents can read and explain the files in
+  `coding_agents_working_dir`, but not change them. Claude Code is given only
+  its file-reading tools (and with edits allowed, its file-editing tools,
+  never a shell), whatever you allowed in your own Claude settings. With
+  `coding_agents_allow_edits = true` they may edit files there.
+- **Fenced process**, as for *Shell*: no input, a time limit
+  (`coding_agents_timeout_seconds`, default 300 s), an output cap
+  (`coding_agents_output_max_bytes`, default 50,000 bytes), and everything the
+  agent started is stopped when it finishes. The agent sees only the basic
+  environment (`PATH`, `HOME`, `LANG`, ...) plus the names listed in
+  `coding_agents_env_passthrough`, for example an API key the CLI needs;
+  never Janus's own settings.
+- The answer is another agent's untrusted output: Janus checks it and never
+  follows instructions in it. After a suspected prompt injection in the same
+  step, *Coding agents* answers `BLOCKED`.
+- Delegated background tasks never get it.
+
+Unattended default: **Off**. If you switch it on, unattended runs can ask
+coding agents without asking you first.
+
+Want another coding agent supported? Open a
+[feature request](https://github.com/thomasniebler/janus/issues/new).
+
+See the [feature spec](feature-specs/external-agents.md) for every gate and
+the planned remote (A2A) agents.
 
 ## Remote MCP tools
 

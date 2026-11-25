@@ -244,7 +244,8 @@ user's own chat input is never scanned or blocked.
   `trigger-history` (both carry mail-derived text), `ui_introspection` (the
   outline of the user's open page shows mail subjects and other outside text,
   JAN-283), `shell` (command output can echo any file or fetched content,
-  JAN-353), and every remote MCP entry.
+  JAN-353), `coding_agents` (another agent's answer can quote anything it
+  read, JAN-403), and every remote MCP entry.
   It is not set on Janus-owned state the user or Janus writes (`memory`,
   planner, rules, skills, triggers, delegation, `core`), nor on write-only
   toolboxes (`mail.send`, `mail.label`, `mail.processing`, `wiki.propose`),
@@ -964,6 +965,67 @@ existing fence rather than adding a new mechanism.
 - **Residual risk:** the command runs as Janus's OS user, so it can read the
   database and the Fernet key file; approval is the only fence against a
   command that does that or sends data out. There is no container sandbox.
+
+## Coding agents (`coding_agents`, JAN-403)
+
+`agent_toolboxes/coding_agents.py` (`CODING_AGENTS_ENTRY`, tool
+`ask_coding_agent`) and `services/coding_agent_service.py` (presets,
+environment, result rendering). The process itself runs through
+`shell_service.run_argv`, so every process fence of the shell tool applies
+unchanged. Feature spec: [External Agents](../feature-specs/external-agents.md).
+
+- **Tier:** the shell tool's: `operation="admin"`, `risk_level="high"`,
+  `confirmation="required"`, no required capability, `reads_untrusted_content`;
+  per-call approval in chat, *Off* unattended by default (switchable, not
+  locked), refused after a suspected injection, never delegable, not
+  proposable.
+- **Gate (`enabled_when`):** `coding_agents_enabled` (default `false`), an
+  admin user, a plan-step `task_id`, and at least one available agent (a
+  preset or operator command whose program `shutil.which` finds on the
+  scrubbed `PATH`; an operator command can name an absolute path).
+  Allowlisted for `chat` only among the fixed task-mode lists.
+- **No free-form command:** the model chooses an agent from an enum of the
+  available names (`claude`, `codex`) and writes a prompt. The prompt
+  replaces the template's single `{prompt}` element as one argument; there is
+  never a shell. `coding_agents_commands` may only adjust those two
+  templates, never add an agent; each is validated (non-empty strings,
+  exactly one `{prompt}` that is not the program) and a malformed one skips
+  that agent.
+- **Prompt = what was approved:** `shell_service.validate_approvable_text`
+  (at most 1,000 characters, no control or invisible characters other than
+  tab and newline), and the toolbox refuses the call unless
+  `preview_args({"agent", "prompt"})` is uncut and unredacted.
+- **Prompt is never an option:** a prompt whose first non-space character is
+  `-` is refused. Both CLIs parse such an argument as a flag even in the
+  prompt position (Claude Code takes `"--version"` as `--version`), so
+  `--dangerously-skip-permissions` or `--sandbox=danger-full-access` would
+  otherwise lift the read-only fence.
+- **Read-only by default:** each preset has a read-only argv and an edit
+  argv used only with `coding_agents_allow_edits`. Codex: its OS sandbox,
+  `--sandbox read-only` / `workspace-write`. Claude Code: the built-in tool
+  set is restricted with `--tools` (`Read,Grep,Glob`; edits add `Edit,Write`;
+  never `Bash`) and configured MCP servers are skipped with
+  `--strict-mcp-config`; `--permission-mode dontAsk` / `acceptEdits` come on
+  top. The tool restriction is the fence: under `dontAsk` alone, allow rules
+  saved in the user's Claude settings (reachable through `HOME`) would still
+  run, for example a pre-approved `Edit` or `Bash(...)`. These are the CLIs' own fences, so they are
+  only as strong as each CLI's implementation. An operator command is used
+  as written in both modes; the description and result then call it the
+  operator's custom command instead of claiming read-only.
+- **Environment:** `scrubbed_environment()` plus the names in
+  `coding_agents_env_passthrough` that are valid identifiers and do not start
+  with `JANUS_` (case-insensitive). The CLIs read their logins from `HOME`.
+- **Process:** `cwd=coding_agents_working_dir`, `stdin=DEVNULL`, own process
+  group killed at the end, `coding_agents_timeout_seconds` (default 300, max
+  3,600), `coding_agents_output_max_bytes` (default 50,000).
+- **Output:** a status line and the answer inside an escaped
+  `<coding_agent_output>` block with a note that it is another agent's
+  answer (data, not instructions); the runtime adapter spotlights it as
+  untrusted. Refusals answer `ERROR: ask_coding_agent failed: ...`.
+- **Residual risk:** the prompt leaves the machine to the CLI's model
+  provider under the user's account, and the CLI runs as Janus's OS user
+  with its own tools. In edit mode it can change any file in the working
+  directory. Approving each prompt is the outer fence.
 
 ## Web page reader (`web_fetch`, JAN-329)
 
