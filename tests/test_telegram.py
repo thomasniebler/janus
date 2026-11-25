@@ -241,3 +241,40 @@ def test_api_rejects_a_bad_token(auth_client, fake):
     response = auth_client.post("/api/telegram/connect", json={"token": "999:WRONG"})
     assert response.status_code == 422
     assert auth_client.get("/api/telegram").json()["connected"] is False
+
+
+# --- review follow-ups -------------------------------------------------------------------------
+
+
+def test_a_poll_answered_after_a_token_change_is_discarded(db, fake, monkeypatch):
+    """Updates from the old bot's long poll must not move the new bot's offset or pair it."""
+    user = _user(db)
+    bot = telegram_service.connect(db, user, TOKEN)
+    db.commit()
+    new_token = "654321:NEWtoken_xyz"
+
+    def reconnect_during_poll(token, method, payload=None, *, timeout=15.0):
+        if method == "getUpdates":
+            # The user reconnects with another bot while this poll is in flight.
+            bot.encrypted_token = security.security_service.encrypt(new_token)
+            bot.last_update_id = None
+            db.commit()
+            return [_message(900, 4242, f"/start {bot.pairing_code}")]
+        return fake(token, method, payload, timeout=timeout)
+
+    monkeypatch.setattr(telegram_service, "_api", reconnect_during_poll)
+    assert telegram_service.poll_once(db, bot, timeout=0) == 0
+    db.refresh(bot)
+    assert bot.last_update_id is None and bot.chat_id is None
+
+
+def test_bot_tokens_are_redacted_from_httpx_logs(caplog):
+    """The httpx library logs request URLs at INFO; the token in the Bot API path must not reach the log."""
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="httpx"):
+        logging.getLogger("httpx").info(
+            'HTTP Request: %s %s "%s"', "POST", f"https://api.telegram.org/bot{TOKEN}/getMe", "OK"
+        )
+    assert TOKEN not in caplog.text
+    assert "/bot<redacted>/getMe" in caplog.text

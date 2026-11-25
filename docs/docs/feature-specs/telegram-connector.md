@@ -45,6 +45,8 @@ there. Inspired by the Telegram gateway of
   - default limit 30 runs an hour.
 - **Untrusted.** The payload reaches the run as untrusted `<event_data>`, like every event.
 - **Offset.** It advances past every handled update, so nothing is handled twice. One failing update is logged and skipped rather than blocking the rest.
+- **Reconnects during a poll.** When a long poll returns, the worker reloads the bot. If the token changed (the user connected another bot) or the bot was removed meanwhile, the updates are discarded, so the old bot's offset never lands on the new one.
+- **Token in logs.** The Bot API puts the token in the URL path, and httpx logs request URLs at INFO. A logging filter on the `httpx` and `httpcore` loggers replaces it with `/bot<redacted>` before any handler, including the log file, sees the record.
 
 ## Outbound: alerts to the owner
 

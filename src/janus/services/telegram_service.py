@@ -19,6 +19,7 @@ backend can use a local fake.
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 from datetime import UTC, datetime
 from typing import Any
@@ -36,6 +37,29 @@ MAX_TEXT_CHARS = 4000
 MAX_SENT_PER_DAY = 20
 MAX_BODY_CHARS = 4000
 _TOKEN_CHARS = set("0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-")
+
+
+_TOKEN_IN_URL = re.compile(r"/bot[0-9]+:[A-Za-z0-9_-]+")
+
+
+class _RedactBotTokens(logging.Filter):
+    """Redact bot tokens from log records: the Bot API puts the token in the URL path, and httpx logs URLs at INFO."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        if _TOKEN_IN_URL.search(message):
+            record.msg, record.args = _TOKEN_IN_URL.sub("/bot<redacted>", message), ()
+        return True
+
+
+def _install_log_redaction() -> None:
+    for name in ("httpx", "httpcore"):
+        target = logging.getLogger(name)
+        if not any(isinstance(existing, _RedactBotTokens) for existing in target.filters):
+            target.addFilter(_RedactBotTokens())
+
+
+_install_log_redaction()
 
 
 class TelegramError(ValueError):
@@ -161,7 +185,15 @@ def poll_once(db: Session, bot: models.TelegramBot, *, timeout: int = POLL_TIMEO
     payload: dict[str, Any] = {"timeout": timeout, "allowed_updates": ["message"]}
     if offset is not None:
         payload["offset"] = offset
-    updates = _api(token_of(bot), "getUpdates", payload, timeout=timeout + 10) or []
+    token = token_of(bot)
+    updates = _api(token, "getUpdates", payload, timeout=timeout + 10) or []
+    # The long poll can take a while: if the user reconnected (a new token) or removed the bot
+    # meanwhile, these updates belong to the old bot and its offset must not land on the new one.
+    db.expire(bot)
+    current = db.query(models.TelegramBot).filter(models.TelegramBot.id == bot.id).first()
+    if current is None or token_of(current) != token:
+        db.rollback()
+        return 0
     for update in updates:
         try:
             handle_update(db, bot, update)
