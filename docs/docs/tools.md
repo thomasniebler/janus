@@ -847,8 +847,8 @@ asking**, so only do that for commands you trust.
 ## Coding agents
 
 `ask_coding_agent` lets Janus ask a coding agent installed on the machine
-Janus runs on for help: Claude Code (`claude`), OpenAI Codex CLI (`codex`),
-Gemini CLI (`gemini`), or Aider (`aider`). Janus stays one assistant; the
+Janus runs on for help: Claude Code (`claude`) or the OpenAI Codex CLI
+(`codex`). Janus stays one assistant; the
 coding agent is a tool it calls, like an MCP server. It is meant for a
 **local, personal install** where you already use one of those CLIs and are
 logged in to it.
@@ -863,8 +863,7 @@ logged in to it.
   characters are refused.
 - **Read-only by default.** The agents can read and explain the files in
   `coding_agents_working_dir`, but not change them. With
-  `coding_agents_allow_edits = true` they may edit files there (Aider never
-  commits).
+  `coding_agents_allow_edits = true` they may edit files there.
 - **Fenced process**, as for *Shell*: no input, a time limit
   (`coding_agents_timeout_seconds`, default 300 s), an output cap
   (`coding_agents_output_max_bytes`, default 50,000 bytes), and everything the
@@ -879,6 +878,9 @@ logged in to it.
 
 Unattended default: **Off**. If you switch it on, unattended runs can ask
 coding agents without asking you first.
+
+Want another coding agent supported? Open a
+[feature request](https://github.com/thomasniebler/janus/issues/new).
 
 See the [feature spec](feature-specs/external-agents.md) for every gate and
 the planned remote (A2A) agents.

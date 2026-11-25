@@ -194,7 +194,7 @@ introspection/test helper.
 | `skills` | `skills` | `create_skill`, `list_skills`, `update_skill`, `search_remote_skills`, `import_remote_skill` | required |
 | `docs` | `docs` | `list_docs`, `read_doc`, `search_docs` (Janus's own documentation, without `reviews/`; JAN-297) | never |
 | `shell` | `shell` | `run_shell_command` (one command on the Janus host; no shell by default, scrubbed env, timeout, output cap; JAN-353) | required |
-| `coding_agents` | `coding_agents` | `ask_coding_agent` (one prompt to an installed coding-agent CLI: Claude Code, Codex, Gemini CLI, Aider; read-only presets by default, the shell tool's process fences; JAN-403) | required |
+| `coding_agents` | `coding_agents` | `ask_coding_agent` (one prompt to an installed coding-agent CLI: Claude Code or Codex; read-only presets by default, the shell tool's process fences; JAN-403) | required |
 
 Gating is by real state, not per-agent flags (agent definitions were removed
 in JAN-227): `mail*` and `rules*` need a connected mail account; `calendar`,

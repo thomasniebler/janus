@@ -1,15 +1,17 @@
 """Ask a local coding-agent CLI for help, for the ``coding_agents`` agent tool (JAN-403).
 
 Janus stays one agent; on a local install it can hand a focused task to a
-coding agent the user already installed and logged in to (Claude Code, Codex,
-Gemini CLI, Aider) and read the answer back. The idea comes from the external
+coding agent the user already installed and logged in to (Claude Code or the
+OpenAI Codex CLI) and read the answer back. Other agents are feature requests,
+not configuration. The idea comes from the external
 CLI tools of samalgotrader7-ops/janus, an unrelated MIT project; this is our own
 implementation on the shell tool's process fences (``shell_service``).
 
 * **Presets, not free-form commands.** Each agent is a fixed argument vector
   with one ``{prompt}`` element; the prompt is passed as that single argument,
-  never through a shell. The operator can override a preset or add an agent with
-  ``coding_agents_commands``. Only agents whose program is on ``PATH`` are offered.
+  never through a shell. The operator can adjust a preset's command with
+  ``coding_agents_commands`` (for a CLI version whose flags differ), but cannot
+  add new agents. Only agents whose program is on ``PATH`` are offered.
 * **Read-only by default.** Every built-in preset has a read-only and an edit
   form; the edit form is used only with ``coding_agents_allow_edits``.
 * **What you approve is what runs.** The prompt follows the shell tool's
@@ -53,7 +55,7 @@ class AgentPreset:
     label: str
 
 
-#: Built-in presets. The CLIs evolve; ``coding_agents_commands`` overrides any of these.
+#: The supported agents. The CLIs evolve; ``coding_agents_commands`` can adjust either command.
 BUILTIN_PRESETS: dict[str, AgentPreset] = {
     # Print mode; "dontAsk" refuses every tool call that would need a permission prompt
     # (edits, Bash), "acceptEdits" allows file edits only. No session is saved.
@@ -85,34 +87,6 @@ BUILTIN_PRESETS: dict[str, AgentPreset] = {
         read_only=("codex", "exec", "--sandbox", "read-only", "--skip-git-repo-check", PROMPT_PLACEHOLDER),
         edits=("codex", "exec", "--sandbox", "workspace-write", "--skip-git-repo-check", PROMPT_PLACEHOLDER),
         label="OpenAI Codex CLI",
-    ),
-    # Non-interactive prompt; "default" approval mode does not auto-approve edits or commands.
-    "gemini": AgentPreset(
-        read_only=("gemini", "-p", PROMPT_PLACEHOLDER, "--approval-mode", "default"),
-        edits=("gemini", "-p", PROMPT_PLACEHOLDER, "--approval-mode", "auto_edit"),
-        label="Gemini CLI",
-    ),
-    # One message, then exit; --dry-run shows edits without writing them. Never commits.
-    "aider": AgentPreset(
-        read_only=(
-            "aider",
-            "--message",
-            PROMPT_PLACEHOLDER,
-            "--dry-run",
-            "--no-auto-commits",
-            "--no-pretty",
-            "--no-check-update",
-        ),
-        edits=(
-            "aider",
-            "--message",
-            PROMPT_PLACEHOLDER,
-            "--yes-always",
-            "--no-auto-commits",
-            "--no-pretty",
-            "--no-check-update",
-        ),
-        label="Aider",
     ),
 }
 
@@ -163,15 +137,15 @@ def _validate_template(name: str, argv: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def configured_template(settings: CodingAgentSettings, name: str) -> tuple[tuple[str, ...], str]:
-    """Return ``(argv template, label)`` for one agent; an operator command overrides a preset.
+    """Return ``(argv template, label)`` for one supported agent; an operator command adjusts its preset.
 
-    Raises :class:`CodingAgentError` for an unknown name or a malformed operator command.
+    Raises :class:`CodingAgentError` for an unsupported name or a malformed operator command.
     """
-    if name in settings.commands:
-        return _validate_template(name, tuple(settings.commands[name])), name
     preset = BUILTIN_PRESETS.get(name)
     if preset is None:
-        raise CodingAgentError(f"{name!r} is not a configured coding agent")
+        raise CodingAgentError(f"{name!r} is not a supported coding agent")
+    if name in settings.commands:
+        return _validate_template(name, tuple(settings.commands[name])), preset.label
     return (preset.edits if settings.allow_edits else preset.read_only), preset.label
 
 
@@ -179,11 +153,11 @@ def available_agents(settings: CodingAgentSettings, path: str | None = None) -> 
     """Return the configured agents whose program is found, resolved to an absolute path.
 
     ``path`` defaults to the ``PATH`` a command gets (the scrubbed environment).
-    A misconfigured operator command is skipped rather than breaking the toolbox.
+    A misconfigured operator command skips that agent rather than breaking the toolbox.
     """
     search_path = path if path is not None else shell_service.scrubbed_environment()["PATH"]
     found: list[AvailableAgent] = []
-    for name in sorted(BUILTIN_PRESETS.keys() | settings.commands.keys()):
+    for name in sorted(BUILTIN_PRESETS):
         try:
             argv, label = configured_template(settings, name)
         except CodingAgentError:

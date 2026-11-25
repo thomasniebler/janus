@@ -1,7 +1,7 @@
 """Ask a local coding-agent CLI for help (JAN-403).
 
 ``ask_coding_agent`` hands one focused prompt to a coding agent the user
-installed and logged in to (Claude Code, Codex, Gemini CLI, Aider) and returns
+installed and logged in to (Claude Code or the OpenAI Codex CLI) and returns
 its answer as untrusted output. Janus stays one agent: the coding agent is a
 tool it calls, not a handoff. Presets, the read-only default, and every
 process fence live in ``services/coding_agent_service.py``.
@@ -119,7 +119,7 @@ CODING_AGENTS_ENTRY = ToolRegistryEntry(
     reads_untrusted_content=True,
     display_name="Coding agents",
     description=(
-        "Ask a coding agent installed on this machine (Claude Code, Codex, Gemini CLI, Aider) for help "
+        "Ask a coding agent installed on this machine (Claude Code or Codex CLI) for help "
         "(local installs; admins only; off unless enabled)."
     ),
     required_capabilities=(),

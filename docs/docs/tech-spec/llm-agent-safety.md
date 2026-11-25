@@ -985,23 +985,22 @@ unchanged. Feature spec: [External Agents](../feature-specs/external-agents.md).
   scrubbed `PATH`; an operator command can name an absolute path).
   Allowlisted for `chat` only among the fixed task-mode lists.
 - **No free-form command:** the model chooses an agent from an enum of the
-  available names and writes a prompt. The prompt replaces the template's
-  single `{prompt}` element as one argument; there is never a shell.
-  Operator templates are validated (agent name `^[a-z][a-z0-9_-]{0,31}$`,
-  non-empty strings, exactly one `{prompt}` that is not the program); a
-  malformed one is skipped.
+  available names (`claude`, `codex`) and writes a prompt. The prompt
+  replaces the template's single `{prompt}` element as one argument; there is
+  never a shell. `coding_agents_commands` may only adjust those two
+  templates, never add an agent; each is validated (non-empty strings,
+  exactly one `{prompt}` that is not the program) and a malformed one skips
+  that agent.
 - **Prompt = what was approved:** `shell_service.validate_approvable_text`
   (at most 1,000 characters, no control or invisible characters other than
   tab and newline), and the toolbox refuses the call unless
   `preview_args({"agent", "prompt"})` is uncut and unredacted.
-- **Read-only by default:** each built-in preset has a read-only argv (Claude
-  Code `--permission-mode dontAsk`, which refuses every tool call that would
-  need a permission prompt; Codex `--sandbox read-only`; Gemini
-  `--approval-mode default`; Aider `--dry-run`) and an edit argv used only
-  with `coding_agents_allow_edits` (`acceptEdits`, `workspace-write`,
-  `auto_edit`, `--yes-always`; Aider always `--no-auto-commits`). These are
-  the CLIs' own fences, so they are only as strong as each CLI's
-  implementation.
+- **Read-only by default:** each preset has a read-only argv (Claude Code
+  `--permission-mode dontAsk`, which refuses every tool call that would need
+  a permission prompt; Codex `--sandbox read-only`) and an edit argv used
+  only with `coding_agents_allow_edits` (`acceptEdits`,
+  `--sandbox workspace-write`). These are the CLIs' own fences, so they are
+  only as strong as each CLI's implementation.
 - **Environment:** `scrubbed_environment()` plus the names in
   `coding_agents_env_passthrough` that are valid identifiers and do not start
   with `JANUS_` (case-insensitive). The CLIs read their logins from `HOME`.

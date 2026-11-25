@@ -91,13 +91,13 @@ task setup
 | `shell_tool_timeout_seconds` | float | `30` | Seconds a shell command may run before it and everything it started are stopped (max 600) |
 | `shell_tool_output_max_bytes` | int | `16000` | Output (stdout + stderr) above this many bytes stops the command |
 | `shell_tool_allow_shell_syntax` | bool | `false` | Run commands through `/bin/sh -c`, so pipes, redirection, `&&`, globs, and `$VARIABLES` work |
-| `coding_agents_enabled` | bool | `false` | Lets administrators' Janus ask an installed coding-agent CLI (Claude Code, Codex, Gemini CLI, Aider) for help, each question approved in chat. Local installs only. See [Coding agents tool](#coding-agents-tool). |
+| `coding_agents_enabled` | bool | `false` | Lets administrators' Janus ask an installed coding-agent CLI (Claude Code or Codex) for help, each question approved in chat. Local installs only. See [Coding agents tool](#coding-agents-tool). |
 | `coding_agents_working_dir` | path | home directory | Directory the coding agents run in |
 | `coding_agents_timeout_seconds` | float | `300` | Seconds a coding agent may run before it is stopped (max 3600) |
 | `coding_agents_output_max_bytes` | int | `50000` | Answer size above which the agent is stopped |
 | `coding_agents_allow_edits` | bool | `false` | Let the coding agents edit files in their working directory (otherwise read-only) |
 | `coding_agents_env_passthrough` | list | `[]` | Extra environment variable names passed to the agents, such as an API key a CLI reads (`JANUS_*` names are never passed) |
-| `coding_agents_commands` | table | `{}` | Override a built-in agent's command or add one: `name = ["program", ..., "{prompt}", ...]` with exactly one `{prompt}` |
+| `coding_agents_commands` | table | `{}` | Adjust the `claude` or `codex` command: `claude = ["program", ..., "{prompt}", ...]` with exactly one `{prompt}` |
 | `auto_update_enabled` | bool | `true` | Install each new GitHub release automatically and restart. Only applies to a git checkout that is clean, on `main` or a release tag, and run from its own `.venv`. See [Automatic updates](#automatic-updates). |
 | `auto_update_repository` | string | `thomasniebler/janus` | GitHub repository (`owner/name`) whose releases are installed |
 | `auto_update_interval_minutes` | int | `60` | Minutes between release checks (at least 15) |
@@ -745,18 +745,17 @@ each built-in agent whose program it finds on `PATH`:
 |---|---|---|
 | `claude` | `claude -p <prompt> --output-format text --permission-mode dontAsk --no-session-persistence` | `--permission-mode acceptEdits` |
 | `codex` | `codex exec --sandbox read-only --skip-git-repo-check <prompt>` | `--sandbox workspace-write` |
-| `gemini` | `gemini -p <prompt> --approval-mode default` | `--approval-mode auto_edit` |
-| `aider` | `aider --message <prompt> --dry-run --no-auto-commits --no-pretty --no-check-update` | `--yes-always` instead of `--dry-run` |
 
-These CLIs change between versions. If yours rejects a flag, or you want a
-different agent, set the command yourself; exactly one argument must be
-`{prompt}`:
+These CLIs change between versions. If yours rejects a flag, adjust the
+command; exactly one argument must be `{prompt}`:
 
 ```toml
 [coding_agents_commands]
 claude = ["claude", "-p", "{prompt}", "--permission-mode", "plan"]
-my-agent = ["/opt/my-agent/bin/ask", "--quiet", "{prompt}"]
 ```
+
+Only `claude` and `codex` are supported. For another coding agent, open a
+[feature request](https://github.com/thomasniebler/janus/issues/new).
 
 As environment variables, the list and table settings are JSON, for example
 `JANUS_CODING_AGENTS_ENV_PASSTHROUGH='["OPENAI_API_KEY"]'`.
@@ -1142,4 +1141,4 @@ in-process IMAP/planner workers from conflicting concurrent execution.
 | `JANUS_CODING_AGENTS_OUTPUT_MAX_BYTES` | `coding_agents_output_max_bytes` | Answer size cap per question |
 | `JANUS_CODING_AGENTS_ALLOW_EDITS` | `coding_agents_allow_edits` | Let the coding agents edit files |
 | `JANUS_CODING_AGENTS_ENV_PASSTHROUGH` | `coding_agents_env_passthrough` | JSON list of extra environment variable names for the agents |
-| `JANUS_CODING_AGENTS_COMMANDS` | `coding_agents_commands` | JSON object of agent commands (`{"name": ["program", "{prompt}"]}`) |
+| `JANUS_CODING_AGENTS_COMMANDS` | `coding_agents_commands` | JSON object adjusting the `claude`/`codex` commands (`{"codex": ["codex", "exec", "{prompt}"]}`) |

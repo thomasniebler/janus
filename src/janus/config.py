@@ -263,7 +263,7 @@ _SETTINGS_TEMPLATE = f"""\
 # shell_tool_allow_shell_syntax = false
 
 # Coding agents tool (JAN-403): lets Janus ask a coding-agent CLI you installed
-# and logged in to (claude, codex, gemini, aider) for help. Local installs only;
+# and logged in to (claude, codex) for help. Local installs only;
 # admins only; every question waits for your approval in chat.
 # coding_agents_enabled = false
 # coding_agents_working_dir = "/home/you/projects"
@@ -273,7 +273,7 @@ _SETTINGS_TEMPLATE = f"""\
 # coding_agents_allow_edits = false
 # Extra environment variables passed to the agents (never JANUS_* names).
 # coding_agents_env_passthrough = ["ANTHROPIC_API_KEY"]
-# Override a preset or add an agent; exactly one "{{prompt}}" argument.
+# Adjust the claude or codex command; exactly one "{{prompt}}" argument.
 # coding_agents_commands = {{ claude = ["claude", "-p", "{{prompt}}", "--permission-mode", "plan"] }}
 """
 

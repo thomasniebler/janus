@@ -18,7 +18,7 @@ Two transports:
 
 | Transport | Example agents | Where | Status |
 |---|---|---|---|
-| Local coding-agent CLI | Claude Code (`claude -p`), OpenAI Codex CLI (`codex exec`), Gemini CLI (`gemini -p`), Aider (`aider --message`) | The Janus host, with the user's own CLI logins | Shipped (JAN-403) |
+| Local coding-agent CLI | Claude Code (`claude -p`), OpenAI Codex CLI (`codex exec`) | The Janus host, with the user's own CLI logins | Shipped (JAN-403) |
 | Agent2Agent (A2A) protocol | Any remote agent that publishes an agent card | Over HTTPS | Planned (JAN-404) |
 
 ## Acknowledgement
@@ -38,19 +38,20 @@ gate). No code was copied.
 One admin-only, operator-opt-in toolbox, `coding_agents`, with one tool,
 `ask_coding_agent(agent, prompt)`.
 
-- **Presets, not free-form commands.** Each agent is a fixed argument vector
-  with exactly one `{prompt}` element. The prompt goes in as that single
-  argument and never passes through a shell. The built-in presets cover
-  `claude`, `codex`, `gemini` and `aider`. `coding_agents_commands` overrides
-  a preset or adds an agent; a malformed entry is skipped, it never breaks
-  the toolbox. Only agents whose program is on the scrubbed `PATH` are
-  offered, and the tool's `agent` argument is an enum of exactly those.
-- **Read-only by default.** Every preset has a read-only form (Claude Code
-  `--permission-mode dontAsk`, Codex `--sandbox read-only`, Gemini
-  `--approval-mode default`, Aider `--dry-run`) and an edit form, used only
-  with `coding_agents_allow_edits`. Aider never commits. The CLIs evolve: the
-  Claude Code preset was checked against Claude Code 2.1. For the others,
-  check the flags against your installed version and override them if needed.
+- **Two supported agents, as presets.** Each agent is a fixed argument
+  vector with exactly one `{prompt}` element. The prompt goes in as that
+  single argument and never passes through a shell. Supported: `claude` and
+  `codex`. `coding_agents_commands` can adjust either command (for a CLI
+  version whose flags differ) but cannot add agents; a malformed entry skips
+  that agent instead of breaking the toolbox. Support for other agents is a
+  feature request, not configuration: we keep the list short on purpose.
+  Only agents whose program is on the scrubbed `PATH` are offered, and the
+  tool's `agent` argument is an enum of exactly those.
+- **Read-only by default.** Each preset has a read-only form (Claude Code
+  `--permission-mode dontAsk`, Codex `--sandbox read-only`) and an edit form
+  (`acceptEdits`, `--sandbox workspace-write`), used only with
+  `coding_agents_allow_edits`. The Claude Code preset was checked against
+  Claude Code 2.1; the Codex preset follows Codex's documented `exec` flags.
 - **Fences**, shared with the shell tool (`shell_service.run_argv`,
   `validate_approvable_text`):
     - the exact-preview rule for the prompt (at most 1,000 characters, no

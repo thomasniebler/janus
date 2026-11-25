@@ -103,7 +103,7 @@ The Janus API base URL is configurable from the in-app Settings screen.
 
 ## Acknowledgements
 
-Some features (asking local coding agents for help, and backlog ideas such as a
+Some features (asking a local Claude Code or Codex CLI for help, and backlog ideas such as a
 Telegram connector, signed inbound webhooks, a skill proposer, and cost
 tracking) are inspired by
 [samalgotrader7-ops/janus](https://github.com/samalgotrader7-ops/janus), an
