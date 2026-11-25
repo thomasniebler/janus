@@ -104,6 +104,7 @@ from janus.models.reminders import (
 from janus.models.settings import (
     Settings,
 )
+from janus.models.skill_suggestions import SkillSuggestionDismissal
 from janus.models.topics import (
     TopicEvidence,
     TopicSuggestion,
@@ -295,4 +296,5 @@ __all__ = [
     "utcnow",
     "WebhookEndpoint",
     "LlmUsageDay",
+    "SkillSuggestionDismissal",
 ]

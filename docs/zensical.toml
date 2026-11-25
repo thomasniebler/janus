@@ -46,6 +46,7 @@ nav = [
     {"MCP Tool Registry" = "feature-specs/mcp-tool-registry/feature-description.md"},
     {"Plan-driven Janus Runtime" = "feature-specs/plan-driven-janus-runtime.md"},
     {"Proactive Secretary" = "feature-specs/proactive-secretary.md"},
+    {"Skill Suggestions" = "feature-specs/skill-suggestions.md"},
     {"Streamed Briefing and Chat" = "feature-specs/streamed-briefing-and-chat/feature-description.md"},
     {"Structured Topic Tracking" = "feature-specs/structured-topic-tracking.md"},
     {"System Status" = "feature-specs/system-status.md"},

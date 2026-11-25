@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Code2, Download, Eye, Pencil, Plus, RefreshCw, Search, Sparkles, Trash2 } from 'lucide-react';
 import { skillApi } from '../../api';
 import type { RemoteSkillSummary, SkillCreate, SkillSummary, SkillUpdate } from '../../types';
+import { SkillSuggestions } from './SkillSuggestions';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
@@ -145,22 +146,23 @@ export const SkillManager: React.FC = () => {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const closeModal = () => {
-    setShowModal(false);
+  /** Clears the editor; ``goal`` prefills the designer (a skill suggestion passes its brief, JAN-407). */
+  const resetEditor = (goal = '') => {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setErrors({});
-    setIsLoadingSkillDetail(false);
-    setDesignGoal('');
+    setDesignGoal(goal);
     setDesignError(null);
   };
 
-  const openCreate = () => {
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setErrors({});
-    setDesignGoal('');
-    setDesignError(null);
+  const closeModal = () => {
+    setShowModal(false);
+    setIsLoadingSkillDetail(false);
+    resetEditor();
+  };
+
+  const openCreate = (goal = '') => {
+    resetEditor(goal);
     setShowModal(true);
   };
 
@@ -221,7 +223,7 @@ export const SkillManager: React.FC = () => {
           <Button variant="ghost" onClick={() => void refetchSkills()} icon={<RefreshCw size={16} />}>
             Refresh
           </Button>
-          <Button onClick={openCreate} icon={<Plus size={16} />}>
+          <Button onClick={() => openCreate()} icon={<Plus size={16} />}>
             New Skill
           </Button>
         </div>
@@ -230,6 +232,7 @@ export const SkillManager: React.FC = () => {
       <p className="text-sm text-gray-500 dark:text-gray-400">
         Manage reusable skill instructions. Every skill applies to Janus in chat and in every trigger run.
       </p>
+      <SkillSuggestions onDraft={openCreate} />
       {skillsFetching && !skillsLoading ? (
         <p className="text-xs text-gray-500 dark:text-gray-400">Refreshing skills list…</p>
       ) : null}
