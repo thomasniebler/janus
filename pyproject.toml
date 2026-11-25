@@ -181,6 +181,7 @@ source_modules = [
   "janus.graph_mail_service",
   "janus.imap_service",
   "janus.llm_service",
+  "janus.llm_usage",
   "janus.models",
   "janus.models_character",
   "janus.models_images",
