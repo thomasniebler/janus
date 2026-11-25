@@ -43,9 +43,10 @@ SERVICE_MODULE_BUDGET_EXCEPTIONS = {
     # JAN-232 record_email_topic for the mail.received tools, plus manual topic
     # deletion (delete_topic) from main.
     "src/janus/services/topic_service.py": 995,
-    # Raised from 500 for install kinds, release wheels and the update state directory of
-    # uv tool / pipx installs (JAN-398); their install and rollback live in update_tool_install.py.
-    "src/janus/services/update_service.py": 532,
+    # Raised from 500 for install kinds, release wheels (named after the janus-assistant
+    # distribution) and the update state directory of uv tool / pipx installs (JAN-398, JAN-400);
+    # their install and rollback live in update_tool_install.py.
+    "src/janus/services/update_service.py": 539,
 }
 
 CORE_MODULE_BUDGET_EXCEPTIONS = {
