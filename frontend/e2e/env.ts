@@ -70,6 +70,8 @@ export const E2E_BACKEND_ENV: Record<string, string> = {
   JANUS_GOOGLE_CLIENT_ID: E2E_GOOGLE_CLIENT_ID,
   JANUS_GOOGLE_CLIENT_SECRET: E2E_GOOGLE_CLIENT_SECRET,
   JANUS_GOOGLE_API_BASE_URL: `${E2E_FAKE_UPSTREAM_URL}/google`,
+  // The Telegram Bot API goes to the same fixed-port fake (JAN-405, telegram.spec.ts).
+  JANUS_TELEGRAM_API_BASE_URL: `${E2E_FAKE_UPSTREAM_URL}/telegram`,
   OAUTHLIB_INSECURE_TRANSPORT: '1',
   // Azure OpenAI endpoints must be https; this test seam admits the plain-http loopback fake (JAN-349).
   JANUS_AZURE_OPENAI_ALLOW_LOOPBACK_HTTP: 'true',

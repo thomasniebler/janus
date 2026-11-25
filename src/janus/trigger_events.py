@@ -17,8 +17,8 @@ description, and the payload fields its producer sends. The same catalog is:
 Only events that are actually emitted belong here: a catalog entry nobody
 emits would let users build definitions that never fire. Producers today:
 ``processor.py`` (mail), ``whatsapp_neonize.py`` (WhatsApp, JAN-361) and
-``planner_service.py`` (planner, JAN-362) and ``services/webhook_service.py``
-(webhooks, JAN-406). Add the member, its
+``planner_service.py`` (planner, JAN-362), ``services/webhook_service.py``
+(webhooks, JAN-406) and ``services/telegram_service.py`` (Telegram, JAN-405). Add the member, its
 :class:`EventSpec`, and the producer's ``emit_event`` call in the same change.
 """
 
@@ -36,6 +36,7 @@ class TriggerSubsystem(StrEnum):
     WHATSAPP = "whatsapp"
     PLANNER = "planner"
     WEBHOOK = "webhook"
+    TELEGRAM = "telegram"
 
 
 class TriggerEvent(StrEnum):
@@ -50,6 +51,7 @@ class TriggerEvent(StrEnum):
     PLANNER_CALENDAR_EVENT_CREATED = "planner.calendar_event_created"
     PLANNER_CALENDAR_EVENT_CHANGED = "planner.calendar_event_changed"
     WEBHOOK_RECEIVED = "webhook.received"
+    TELEGRAM_MESSAGE_RECEIVED = "telegram.message_received"
 
 
 @dataclass(frozen=True)
@@ -106,6 +108,11 @@ SUBSYSTEMS: dict[TriggerSubsystem, SubsystemSpec] = {
         subsystem=TriggerSubsystem.WEBHOOK,
         label="Webhooks",
         description="Signed requests outside services send to one of your webhook URLs.",
+    ),
+    TriggerSubsystem.TELEGRAM: SubsystemSpec(
+        subsystem=TriggerSubsystem.TELEGRAM,
+        label="Telegram",
+        description="Messages you send to your own Janus bot on Telegram (nobody else's).",
     ),
 }
 
@@ -232,6 +239,20 @@ EVENTS: dict[TriggerEvent, EventSpec] = {
             EventPayloadField("event_header", "The sender's event-type header (X-GitHub-Event, X-Event-Type), if any."),
             EventPayloadField("received_at", "When Janus received the request (ISO-8601)."),
             EventPayloadField("body", "The request's JSON body, compacted, first 4,000 characters."),
+        ),
+        default_max_runs_per_hour=30,
+    ),
+    TriggerEvent.TELEGRAM_MESSAGE_RECEIVED: EventSpec(
+        event=TriggerEvent.TELEGRAM_MESSAGE_RECEIVED,
+        subsystem=TriggerSubsystem.TELEGRAM,
+        label="Message to your bot",
+        description="You sent a message to your Janus bot from your linked Telegram chat.",
+        payload=(
+            EventPayloadField("message_id", "Telegram's id of the message."),
+            EventPayloadField("bot", "The bot's @username."),
+            EventPayloadField("sender", "Your Telegram name."),
+            EventPayloadField("received_at", "When the message was sent (ISO-8601)."),
+            EventPayloadField("body", "The first 4,000 characters of the text."),
         ),
         default_max_runs_per_hour=30,
     ),

@@ -17,6 +17,7 @@ from janus.services import (
     google_client,
     google_connect_service,
     google_oauth,
+    telegram_service,
     webhook_service,
 )
 from janus.services import oauth_connection_service as connection_service
@@ -256,6 +257,7 @@ async def delete_user(
     # Webhook secrets and remote-agent tokens too, for the same reason (JAN-406, JAN-404).
     webhook_service.delete_all_for_user(db, user.id)
     A2AService(db).delete_all_for_user(user.id)
+    telegram_service.delete_all_for_user(db, user.id)
     db.delete(user)
     db.commit()
     return {"status": "success"}

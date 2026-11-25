@@ -2018,6 +2018,13 @@ Authorization", narrowed by a selection the brain makes per task.
     starts no second run.
   - See [Inbound Webhooks](../feature-specs/inbound-webhooks.md).
 
+## Telegram Connector Runtime (JAN-405)
+
+- One supervised worker per enabled bot (`workers/telegram.py`, label `telegram:<user id>`), started by `startup.ensure_runtime_initialized` and by `POST /api/telegram/connect`. An already-running worker is not restarted.
+- It long-polls `getUpdates` (25 s) and reloads the bot row on every poll, so a new token or pairing applies on the next request. It ends when the row is deleted or switched off.
+- A failed poll records `last_error` and sleeps 15 s. An empty poll that returned within a second sleeps 1 s, so an endpoint that does not hold long polls cannot make it spin.
+- Linked-chat messages emit `telegram.message_received` under `event_logger.owned_by(user)`. See [Telegram Connector](../feature-specs/telegram-connector.md).
+
 ## WhatsApp Connector Runtime
 
 - **Persistent per-account connection:** Each enabled `WhatsAppAccount` gets one supervised daemon thread (`whatsapp:{account.id}`) that opens a Neonize client and blocks on its connection for the account's lifetime, mirroring the IMAP monitor's one-thread-per-account model rather than a shared poll loop.

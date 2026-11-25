@@ -25,6 +25,9 @@ def _stub_unrelated_startup_steps(monkeypatch):
     monkeypatch.setattr(startup.auth_service, "ensure_setup_token", MagicMock())
     monkeypatch.setattr(startup.worker_manager, "start", MagicMock())
     monkeypatch.setattr(startup, "prepare_knowledge_search", MagicMock())
+    import janus.workers.telegram as telegram_workers
+
+    monkeypatch.setattr(telegram_workers, "start_all_bot_workers", MagicMock())
 
 
 def test_runtime_trigger_worker_is_enabled_by_default(monkeypatch, tmp_path):

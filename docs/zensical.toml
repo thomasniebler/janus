@@ -50,6 +50,7 @@ nav = [
     {"Streamed Briefing and Chat" = "feature-specs/streamed-briefing-and-chat/feature-description.md"},
     {"Structured Topic Tracking" = "feature-specs/structured-topic-tracking.md"},
     {"System Status" = "feature-specs/system-status.md"},
+    {"Telegram Connector" = "feature-specs/telegram-connector.md"},
     {"Tool Permissions" = "feature-specs/tool-permissions.md"},
     {"WhatsApp Neonize Foundation" = "feature-specs/whatsapp-neonize-foundation.md"},
     {"WhatsApp Neonize Live Connector" = "feature-specs/whatsapp-neonize-live-connector.md"}

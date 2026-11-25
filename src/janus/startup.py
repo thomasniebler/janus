@@ -179,4 +179,7 @@ def ensure_runtime_initialized() -> None:
         start_runtime_trigger_worker()
         prepare_knowledge_search()
         start_knowledge_index_worker()
+        from janus.workers.telegram import start_all_bot_workers  # lazy, like the trigger handler above
+
+        start_all_bot_workers()  # one polling worker per linked Telegram bot (JAN-405)
         _startup_initialized = True

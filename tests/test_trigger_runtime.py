@@ -431,6 +431,8 @@ def test_unattended_defaults_allow_everything_but_confirmation_required_tools(db
             # The Secretary's alert to the owner's own number: Allowed by default; the real gates are the
             # owner's opt-in and number (``enabled_when``) and the per-run/per-day caps.
             "whatsapp.notify_me",
+            # The owner's linked Telegram chat only, capped per day (JAN-405).
+            "telegram.notify",
             "calendar",
             # Microsoft 365 reads follow the unattended default (Allowed) like the IMAP mail tools.
             "microsoft.mail",

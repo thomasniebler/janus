@@ -99,6 +99,18 @@ def user_connected_capabilities(db: Session, user: models.User) -> frozenset[str
         # Stored WhatsApp conversations to read (JAN-347).
         capabilities.add("whatsapp")
 
+    # A Telegram bot linked to the owner's own chat (JAN-405).
+    if (
+        db.query(models.TelegramBot.id)
+        .filter(
+            models.TelegramBot.user_id == user.id,
+            models.TelegramBot.enabled.is_(True),
+            models.TelegramBot.chat_id.is_not(None),
+        )
+        .first()
+    ):
+        capabilities.add("telegram")
+
     if has_calendar or has_tasks:
         capabilities.add("dashboard")
 

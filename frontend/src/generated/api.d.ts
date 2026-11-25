@@ -3601,6 +3601,70 @@ export interface paths {
         patch: operations["update_message_priority_api_whatsapp_messages__message_id__priority_patch"];
         trace?: never;
     };
+    "/api/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Whether a bot is connected and linked to the user's chat.
+         */
+        get: operations["get_status_api_telegram_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Disconnect
+         * @description Forget the bot and its token; polling stops.
+         */
+        delete: operations["disconnect_api_telegram_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/telegram/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect
+         * @description Check the token with Telegram, store it encrypted, and issue a pairing code.
+         */
+        post: operations["connect_api_telegram_connect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/telegram/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Test
+         * @description Send a test message to the linked chat (counts toward the daily cap).
+         */
+        post: operations["send_test_api_telegram_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/webhooks": {
         parameters: {
             query?: never;
@@ -7649,6 +7713,36 @@ export interface components {
          */
         TaskUrgency: "low" | "normal" | "high" | "critical";
         /**
+         * TelegramConnect
+         * @description Connect a bot by its @BotFather token (write-only).
+         */
+        TelegramConnect: {
+            /**
+             * Token
+             * Format: password
+             */
+            token: string;
+        };
+        /**
+         * TelegramStatus
+         * @description The user's bot; ``pairing_code`` is shown only until the user's chat is linked.
+         */
+        TelegramStatus: {
+            /** Connected */
+            connected: boolean;
+            /** Bot Username */
+            bot_username?: string | null;
+            /**
+             * Linked
+             * @default false
+             */
+            linked: boolean;
+            /** Pairing Code */
+            pairing_code?: string | null;
+            /** Last Error */
+            last_error?: string | null;
+        };
+        /**
          * ToneDimension
          * @description Allowed tones and the default tone.
          */
@@ -8204,7 +8298,7 @@ export interface components {
          * @description Every event type Janus publishes. Values are ``<subsystem>.<event>``.
          * @enum {string}
          */
-        TriggerEvent: "mail.received" | "whatsapp.direct_message_received" | "whatsapp.group_message_received" | "whatsapp.group_mention" | "planner.task_created" | "planner.task_changed" | "planner.calendar_event_created" | "planner.calendar_event_changed" | "webhook.received";
+        TriggerEvent: "mail.received" | "whatsapp.direct_message_received" | "whatsapp.group_message_received" | "whatsapp.group_mention" | "planner.task_created" | "planner.task_changed" | "planner.calendar_event_created" | "planner.calendar_event_changed" | "webhook.received" | "telegram.message_received";
         /**
          * TriggerEventCondition
          * @description One condition of an event definition's payload filter (JAN-363).
@@ -8467,7 +8561,7 @@ export interface components {
          * @description A part of Janus that publishes trigger events.
          * @enum {string}
          */
-        TriggerSubsystem: "mail" | "whatsapp" | "planner" | "webhook";
+        TriggerSubsystem: "mail" | "whatsapp" | "planner" | "webhook" | "telegram";
         /**
          * TriggerSubsystemResponse
          * @description A subsystem and the events it publishes (JAN-210).
@@ -17043,6 +17137,142 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WhatsAppMessage"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_telegram_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_api_telegram_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connect_api_telegram_connect_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelegramConnect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_test_api_telegram_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -105,6 +105,7 @@ from janus.models.settings import (
     Settings,
 )
 from janus.models.skill_suggestions import SkillSuggestionDismissal
+from janus.models.telegram import TelegramBot
 from janus.models.topics import (
     TopicEvidence,
     TopicSuggestion,
@@ -297,4 +298,5 @@ __all__ = [
     "WebhookEndpoint",
     "LlmUsageDay",
     "SkillSuggestionDismissal",
+    "TelegramBot",
 ]
