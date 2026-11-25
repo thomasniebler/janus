@@ -29,6 +29,7 @@ Scope: FastAPI routers under `src/janus/api/`.
 | `self_evolution.py` | The caller's self-evolution loop settings, caps, usage, scope fence and recent actions (`GET`), admin-only `PATCH` (JAN-320) |
 | `memory.py` | Durable agent-memory fact listing/search (incl. the `source` filter, JAN-245), manual creation, editing (`PATCH`, JAN-224), deletion, and compaction triggers |
 | `stats.py` | `GET /api/stats`: owner-scoped mail, trigger, memory/knowledge, messaging, and approval (JAN-371) statistics bucketed per local day (JAN-258); delegates to `services/stats_service.py` |
+| `skill_suggestions.py` | Skill suggestions from repeated chat tool sequences (JAN-407): `GET /api/skills/suggestions` and `POST /api/skills/suggestions/dismiss`; mounted before `skills.py` so `/api/skills/{skill_id}` does not capture it |
 | `skills.py` | Skill-library CRUD, community-catalog discovery/import, and LLM design assist |
 | `llm_models.py` | `POST /api/planner/llm-models`: per-provider model listing for the AI settings dropdown, and `POST /api/planner/test-llm`: the admin-only connection test with draft settings, which never sends the stored key to a draft base URL (JAN-222); both delegate the credential policy to `services/llm_model_catalog.py` |
 | `planner.py` | Planner account management, planner summary endpoints, and system/LLM settings (the LLM connection test lives in `llm_models.py`) |

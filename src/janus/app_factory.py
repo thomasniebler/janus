@@ -38,6 +38,7 @@ from janus.api import (
     runtime_tasks,
     runtime_triggers,
     self_evolution,
+    skill_suggestions,
     skills,
     stats,
     tools,
@@ -163,6 +164,8 @@ def create_fastapi_app() -> FastAPI:
     api.include_router(runtime_tasks.router, dependencies=csrf_dependencies)
     api.include_router(runtime_triggers.router, dependencies=csrf_dependencies)
     api.include_router(trigger_definitions.router, dependencies=csrf_dependencies)
+    # Before skills.router, whose /api/skills/{skill_id} would otherwise match /api/skills/suggestions.
+    api.include_router(skill_suggestions.router, dependencies=csrf_dependencies)
     api.include_router(skills.router, dependencies=csrf_dependencies)
     api.include_router(stats.router, dependencies=csrf_dependencies)
     api.include_router(topics.router, dependencies=csrf_dependencies)

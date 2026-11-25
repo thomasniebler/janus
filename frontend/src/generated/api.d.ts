@@ -2620,6 +2620,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/skills/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Suggestions
+         * @description The user's current suggestions (computed on request, no model call).
+         */
+        get: operations["list_suggestions_api_skills_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/skills/suggestions/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Suggestion
+         * @description Hide a suggestion for 30 days.
+         */
+        post: operations["dismiss_suggestion_api_skills_suggestions_dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/skills": {
         parameters: {
             query?: never;
@@ -7382,6 +7422,30 @@ export interface components {
             license?: string | null;
             /** Content */
             content?: string | null;
+        };
+        /**
+         * SkillSuggestionDismiss
+         * @description Hide one suggestion for a while.
+         */
+        SkillSuggestionDismiss: {
+            /** Key */
+            key: string;
+        };
+        /**
+         * SkillSuggestionResponse
+         * @description A repeated tool sequence the user could turn into a skill.
+         */
+        SkillSuggestionResponse: {
+            /** Key */
+            key: string;
+            /** Tools */
+            tools: string[];
+            /** Turns */
+            turns: number;
+            /** Examples */
+            examples: string[];
+            /** Brief */
+            brief: string;
         };
         /**
          * SkillSummary
@@ -14774,6 +14838,76 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RuntimeTriggerResponse"][];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_suggestions_api_skills_suggestions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillSuggestionResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_suggestion_api_skills_suggestions_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillSuggestionDismiss"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

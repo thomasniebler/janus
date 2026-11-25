@@ -582,10 +582,15 @@ These are configured per user in the dashboard, not in `settings.toml`:
   trigger or background task). The focus is shown to Janus as data, not as
   instructions.
 - **Settings → Skills** — one shared skill library; every skill applies to
-  Janus everywhere. There are no agent definitions to assign skills to.
+  Janus everywhere. There are no agent definitions to assign skills to. When
+  Janus used the same tools in the same order in at least three recent chats,
+  **Suggested skills** offers that routine: **Draft skill** opens the editor
+  with the designer's goal filled in (nothing is saved until you save it), and
+  **Not now** hides it for 30 days. See [Skill
+  Suggestions](feature-specs/skill-suggestions.md).
 - **Settings → Triggers** — the Morning briefing, Afternoon digest, and Mail
   processing built-ins and your own automations (objective, tools, schedule or
-  event). The digest's time is set here, on its trigger; changing the
+  event), plus your **Webhooks** for outside services (JAN-406). The digest's time is set here, on its trigger; changing the
   notification digest settings through the API updates that trigger too.
 - **Settings → Tools & Connections** — under **Built-in Janus tools**, each
   tool has an **Unattended** switch, *Allowed* or *Off*. It decides whether
