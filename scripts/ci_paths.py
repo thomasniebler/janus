@@ -245,7 +245,7 @@ PYPROJECT_TABLES: dict[str, frozenset[str]] = {
     "tool.hatch": frozenset({BACKEND}),
 }
 #: The project's own package in ``uv.lock``, whose version follows ``pyproject.toml``.
-PROJECT_NAME = "janus"
+PROJECT_NAME = "janus-assistant"
 #: Paths :func:`refine_toml` can narrow.
 REFINABLE = ("pyproject.toml", "uv.lock")
 

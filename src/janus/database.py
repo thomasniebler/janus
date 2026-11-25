@@ -23,7 +23,7 @@ def driver_problems(database_url: str) -> list[str]:
     """Explain a database URL whose driver is an optional extra that is not installed."""
     return [
         f"database_url points to {prefix}, but its driver ({module}) is not installed. "
-        f"Install the {extra} extra: uv sync --extra {extra} (or janus[{extra}])."
+        f"Install the {extra} extra: uv sync --extra {extra} (or janus-assistant[{extra}])."
         for prefix, (module, extra) in _OPTIONAL_DRIVERS.items()
         if database_url.startswith(prefix) and importlib.util.find_spec(module) is None
     ]

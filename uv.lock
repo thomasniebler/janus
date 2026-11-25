@@ -1229,7 +1229,7 @@ wheels = [
 ]
 
 [[package]]
-name = "janus"
+name = "janus-assistant"
 version = "1.15.0"
 source = { editable = "." }
 dependencies = [

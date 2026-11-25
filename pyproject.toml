@@ -65,7 +65,7 @@ dependencies = [
 description = "Personal AI Assistant for filtering noise and surfacing signal."
 license = "MIT"
 license-files = ["LICENSE"]
-name = "janus"
+name = "janus-assistant"
 readme = "README.md"
 requires-python = ">=3.12"
 version = "1.15.0"

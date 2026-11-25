@@ -134,16 +134,23 @@ UI. `release-please.yml` builds the frontend before `uv build`, uploads the whee
 wheel (install as a uv tool in a scratch location, migrate a fresh database, check `install_kind`).
 CI's backend job runs the same smoke test without a frontend (`task package:smoke`).
 
+The distribution is `janus-assistant` (`janus` and `janus-agent` are taken on PyPI); the
+import package and the command stay `janus`, and `update_service.DISTRIBUTION` names it for the
+version lookup and the wheel file name. The `publish-pypi` job in `release-please.yml` uploads
+the wheel and sdist with PyPI trusted publishing (OIDC, no token) from the `pypi` environment. It
+only runs when the repository variable `PYPI_ENABLED` is `true`, which is set after pypi.org has
+a trusted publisher for this repository, workflow `release-please.yml` and environment `pypi`.
+
 ### Tool installs
 
 `services/update_tool_install.py`, called by `apply_update` under the same lock.
 
 - **Eligibility:** `auto_update_enabled` is on and the installer (`uv` or `pipx`) is on the PATH.
   The installed version comes from the `janus` distribution metadata, not `pyproject.toml`.
-- **Install:** download the release's `janus-X.Y.Z-py3-none-any.whl` and check its SHA-256
+- **Install:** download the release's `janus_assistant-X.Y.Z-py3-none-any.whl` and check its SHA-256
   `digest`; download the running release's wheel into `<state dir>/rollback/` (refused if that is
   not possible, so a rollback never needs the network); take the pre-release snapshot in-process
-  with SQLite's backup API; `uv tool install --force --python X.Y "janus[extras] @ file://…"` or
+  with SQLite's backup API; `uv tool install --force --python X.Y "janus-assistant[extras] @ file://…"` or
   `pipx install --force "…whl[extras]"`, with the extras detected the same way as in a checkout
   (now including `postgres`); then the same import check and migration children.
 - **Rollback and boot recovery:** a failure reinstalls the kept wheel and, once migrations started,
