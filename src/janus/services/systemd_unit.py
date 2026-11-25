@@ -2,8 +2,10 @@
 
 ``install`` writes ``~/.config/systemd/user/janus.service`` (``$XDG_CONFIG_HOME`` respected) for
 ``janus start``, then enables and starts it, so Janus runs in the background and starts at login.
-The unit keeps the installing shell's ``PATH``, so the auto-update finds ``uv``/``pipx``, and its
-working directory, so a ``.env`` there is still read. ``loginctl enable-linger`` starts it at boot.
+The unit keeps the installing shell's ``PATH`` (so the auto-update finds ``uv``/``pipx``), its XDG
+config/data/state overrides (so the service uses the same settings, database and key file), and
+its working directory (so a ``.env`` there is still read). Other variables, secrets included, are
+never written into the unit. ``loginctl enable-linger`` starts it at boot.
 """
 
 from __future__ import annotations
@@ -15,6 +17,8 @@ import sys
 from pathlib import Path
 
 UNIT_NAME = "janus.service"
+#: Variables copied from the installing shell into the unit when set.
+KEPT_ENVIRONMENT = ("PATH", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME")
 _TIMEOUT_SECONDS = 60
 
 
@@ -40,15 +44,20 @@ def janus_executable() -> str:
 
 
 def _quote(arg: str) -> str:
-    """Quote one ExecStart argument for systemd (spaces, quotes and backslashes)."""
-    if arg and not any(ch in arg for ch in " \"\\'$%"):
+    """Quote one value for systemd (spaces, quotes, backslashes, ``%`` specifiers).
+
+    ``$`` stays as it is: systemd expands variables only in ExecStart's arguments, not in its
+    executable path, ``WorkingDirectory`` or ``Environment``, and the only argument is ``start``.
+    """
+    if arg and not any(ch in arg for ch in " \"\\'%"):
         return arg
-    escaped = arg.replace("\\", "\\\\").replace('"', '\\"').replace("$", "$$").replace("%", "%%")
+    escaped = arg.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%")
     return f'"{escaped}"'
 
 
-def render_unit(executable: str, working_dir: Path, path_env: str) -> str:
+def render_unit(executable: str, working_dir: Path, environment: dict[str, str]) -> str:
     """The unit file text for ``janus start``."""
+    env_lines = "".join(f"Environment={_quote(f'{name}={value}')}\n" for name, value in sorted(environment.items()))
     return f"""[Unit]
 Description=Janus personal AI agent
 Documentation=https://github.com/thomasniebler/janus
@@ -58,9 +67,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart={_quote(executable)} start
-WorkingDirectory={_quote(str(working_dir))}
-Environment={_quote("PATH=" + path_env)}
-Environment=PYTHONUNBUFFERED=1
+WorkingDirectory={str(working_dir).replace("%", "%%")}
+{env_lines}Environment=PYTHONUNBUFFERED=1
 Restart=on-failure
 RestartSec=10
 
@@ -95,7 +103,8 @@ def install(*, start: bool = True) -> Path:
     _systemctl()
     path = unit_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_unit(janus_executable(), Path.cwd(), os.environ.get("PATH", "/usr/bin:/bin")))
+    environment = {name: os.environ[name] for name in KEPT_ENVIRONMENT if os.environ.get(name)}
+    path.write_text(render_unit(janus_executable(), Path.cwd(), environment))
     systemctl("daemon-reload")
     systemctl("enable", *(["--now"] if start else []), UNIT_NAME)
     return path

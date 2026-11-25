@@ -158,7 +158,8 @@ janus service uninstall  # stop it and remove the unit
 
 The service runs the same `janus` you ran `service install` with, in the directory you ran it
 from (so a `.env` there is still read), with that shell's `PATH` (so automatic updates find
-`uv` or `pipx`). To start it at boot without logging in, run `loginctl enable-linger $USER`.
+`uv` or `pipx`) and its `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_STATE_HOME`, so it uses the
+same settings and database. To start it at boot without logging in, run `loginctl enable-linger $USER`.
 `janus update` restarts the service after installing a release. The setup token below then
 appears in `janus service logs`.
 

@@ -32,11 +32,14 @@ def systemd(tmp_path, monkeypatch):
 
 
 def test_render_unit_quotes_paths_and_runs_janus_start(tmp_path):
-    """ExecStart runs `janus start`; paths with spaces, $ and % are quoted for systemd."""
-    unit = systemd_unit.render_unit("/opt/my tools/bin/janus", tmp_path / "100%", "/a$b:/usr/bin")
-    assert 'ExecStart="/opt/my tools/bin/janus" start' in unit
-    assert f'WorkingDirectory="{tmp_path}/100%%"' in unit
-    assert 'Environment="PATH=/a$$b:/usr/bin"' in unit
+    """ExecStart runs `janus start`; $ stays literal, % is escaped, and spaces are quoted."""
+    unit = systemd_unit.render_unit(
+        "/opt/my $tools/bin/janus", tmp_path / "a$b 100%", {"PATH": "/a$b:/usr/bin", "XDG_DATA_HOME": "/d"}
+    )
+    assert 'ExecStart="/opt/my $tools/bin/janus" start' in unit
+    assert f"WorkingDirectory={tmp_path}/a$b 100%%\n" in unit
+    assert "Environment=PATH=/a$b:/usr/bin\n" in unit
+    assert "Environment=XDG_DATA_HOME=/d" in unit
     assert "WantedBy=default.target" in unit
 
 
@@ -48,22 +51,28 @@ def test_rendered_unit_passes_systemd_analyze(tmp_path):
     executable.write_text("#!/bin/sh\n")
     executable.chmod(0o755)
     unit = tmp_path / "janus.service"
-    unit.write_text(systemd_unit.render_unit(str(executable), tmp_path, "/usr/bin:/bin"))
+    workdir = tmp_path / "work dir"
+    workdir.mkdir()
+    unit.write_text(systemd_unit.render_unit(str(executable), workdir, {"PATH": "/usr/bin:/bin"}))
     result = subprocess.run(["systemd-analyze", "--user", "verify", str(unit)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert "janus.service" not in result.stderr, result.stderr
 
 
 def test_install_writes_the_unit_and_enables_it(systemd, tmp_path, monkeypatch):
-    """Install writes the unit, reloads systemd and enables it with --now."""
+    """Install writes the unit, reloads systemd and enables it with --now; secrets stay out."""
     calls, _ = systemd
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("XDG_STATE_HOME", "/srv/janus-state")
+    monkeypatch.setenv("JANUS_SECRET_KEY", "do-not-copy")
     result = CliRunner().invoke(app, ["service", "install"])
 
     assert result.exit_code == 0, result.output
     unit = (tmp_path / "config" / "systemd" / "user" / "janus.service").read_text()
     assert 'ExecStart="/opt/my tools/bin/janus" start' in unit
     assert f"WorkingDirectory={tmp_path}" in unit
+    assert "Environment=XDG_STATE_HOME=/srv/janus-state" in unit
+    assert "do-not-copy" not in unit
     assert calls == [("daemon-reload",), ("enable", "--now", "janus.service")]
     assert "loginctl enable-linger" in result.output
 
