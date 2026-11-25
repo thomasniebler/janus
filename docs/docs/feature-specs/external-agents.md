@@ -114,10 +114,12 @@ One admin-only, operator-opt-in toolbox, `coding_agents`, with one tool,
 
   | Card version | JSON-RPC URL | Methods | Message shape | Task states |
   |---|---|---|---|---|
-  | 1.x (current) | first `JSONRPC` entry in `supportedInterfaces` | `SendMessage`, then `GetTask` | `ROLE_USER`, `{"text": ...}` parts | `TASK_STATE_*` |
-  | 0.x | the card's `url` | `message/send` with `blocking`, then `tasks/get` | `kind` discriminators | lowercase states |
+  | 1.x (current) | first `JSONRPC` entry in `supportedInterfaces` | `SendMessage` with `returnImmediately`, then `GetTask` | `ROLE_USER`, `{"text": ...}` parts | `TASK_STATE_*` |
+  | 0.x | the card's `url` | `message/send` with `blocking: false`, then `tasks/get` | `kind` discriminators | lowercase states |
 
-  - Requests carry `A2A-Version` and the bearer token.
+  - Requests carry `A2A-Version` and the bearer token. The first request
+    asks for an immediate return, so a task longer than the 30 s HTTP read
+    timeout still hands back its id for polling.
   - A message result is the answer. Otherwise the task is polled every 2 s
     until it reaches a terminal state (`completed`, `failed`, `canceled`,
     `rejected`) or an interrupted one (`input-required`, `auth-required`),

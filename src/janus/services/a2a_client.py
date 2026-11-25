@@ -243,9 +243,13 @@ class A2AClient:
     def ask(self, prompt: str, *, deadline_seconds: float = TASK_DEADLINE_SECONDS) -> AgentAnswer:
         """Send ``prompt`` and return the answer, polling a running task until ``deadline_seconds``."""
         deadline = time.monotonic() + deadline_seconds
+        # Ask for the task right away (1.x defaults to blocking): a long task would otherwise outlast the
+        # HTTP read timeout before Janus learned its id, and the polling below could never take over.
         configuration: dict[str, Any] = {"acceptedOutputModes": _ACCEPTED_OUTPUT}
-        if not self.v1:
-            configuration["blocking"] = True
+        if self.v1:
+            configuration["returnImmediately"] = True
+        else:
+            configuration["blocking"] = False
         result = self._call(
             "SendMessage", "message/send", {"message": self._message(prompt), "configuration": configuration}
         )

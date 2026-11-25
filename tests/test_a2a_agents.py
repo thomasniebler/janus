@@ -143,6 +143,8 @@ def test_v1_message_answer_and_headers(fake):
     assert body["params"]["message"]["role"] == "ROLE_USER"
     assert body["params"]["message"]["parts"] == [{"text": "Hello"}]
     assert request.headers["a2a-version"] == "1.0"
+    # Non-blocking, so a long task returns its id for polling instead of outlasting the read timeout.
+    assert body["params"]["configuration"]["returnImmediately"] is True
     assert request.headers["authorization"] == "Bearer tok"
 
 
@@ -173,7 +175,7 @@ def test_v0_task_result_and_methods(fake):
     assert answer.text == "Old style"
     body = json.loads(fake.requests[-1].content)
     assert body["params"]["message"]["parts"] == [{"kind": "text", "text": "Hi"}]
-    assert body["params"]["configuration"]["blocking"] is True
+    assert body["params"]["configuration"]["blocking"] is False
 
 
 def test_deadline_returns_partial_state(fake, monkeypatch):
