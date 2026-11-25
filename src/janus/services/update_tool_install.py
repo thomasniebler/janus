@@ -17,6 +17,8 @@ start. The restart is the checkout's ``os.execv`` of the ``janus`` entry point.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import sqlite3
 import sys
@@ -40,7 +42,20 @@ def install_command(kind: str, tool: str, wheel: Path) -> list[str]:
         spec = f"{base.DISTRIBUTION}[{extras}] @ {wheel.as_uri()}" if extras else str(wheel)
         python = f"{sys.version_info.major}.{sys.version_info.minor}"
         return [tool, "tool", "install", "--force", "--python", python, spec]
-    return [tool, "install", "--force", f"{wheel}[{extras}]" if extras else str(wheel)]
+    command = [tool, "install", "--force"]
+    suffix = _pipx_suffix()
+    if suffix:  # `pipx install --suffix` names the environment; without it pipx targets another one
+        command.append(f"--suffix={suffix}")
+    return [*command, f"{wheel}[{extras}]" if extras else str(wheel)]
+
+
+def _pipx_suffix(prefix: str | None = None) -> str:
+    """The ``--suffix`` this pipx environment was installed with (empty for none)."""
+    try:
+        metadata = json.loads((Path(prefix or sys.prefix) / "pipx_metadata.json").read_text())
+        return str(metadata.get("main_package", {}).get("suffix") or "")
+    except (OSError, ValueError, AttributeError):
+        return ""
 
 
 def _snapshot_database(db_path: Path) -> None:
@@ -67,7 +82,8 @@ def _keep_rollback_wheel(repo_root: Path, *, client: httpx.Client | None) -> Pat
     directory.mkdir(parents=True, exist_ok=True)
     current = base.fetch_release(current_tag, client=client)
     kept = directory / current.wheel_name
-    if kept.is_file():
+    expected = (current.wheel_digest or "").removeprefix("sha256:")
+    if kept.is_file() and hashlib.sha256(kept.read_bytes()).hexdigest() == expected:
         return kept
     for stale in directory.glob("*.whl"):
         stale.unlink()

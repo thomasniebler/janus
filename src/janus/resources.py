@@ -1,4 +1,4 @@
-"""Locate the files Janus ships next to its code: the Alembic migrations and the built frontend.
+"""Locate the files Janus ships next to its code: the Alembic migrations, the frontend and the docs.
 
 A wheel install carries them inside the package under ``janus/_data`` (copied in by
 ``hatch_build.py``). A git checkout keeps them at the repository root, which is the fallback.
@@ -26,6 +26,11 @@ def alembic_ini_path() -> Path:
 def frontend_dist_dir() -> Path:
     """Directory holding the built frontend (``index.html`` and ``assets/``)."""
     return _first_existing(PACKAGE_DATA_DIR / "frontend", REPO_ROOT / "frontend" / "dist")
+
+
+def docs_root() -> Path:
+    """Directory holding ``docs/docs``, ``docs/zensical.toml``, ``TECH_SPEC.md`` and ``CHANGELOG.md``."""
+    return _first_existing(PACKAGE_DATA_DIR / "docs_root", REPO_ROOT)
 
 
 def is_packaged_install() -> bool:

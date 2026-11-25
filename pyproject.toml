@@ -127,7 +127,19 @@ DEP002 = [
 # frontend/dist is gitignored; `artifacts` puts it in the sdist anyway, so a wheel built from the
 # sdist (what `uv build` does) still carries the UI.
 artifacts = ["frontend/dist"]
-include = ["/LICENSE", "/README.md", "/alembic", "/alembic.ini", "/frontend/dist", "/hatch_build.py", "/src/janus"]
+include = [
+  "/CHANGELOG.md",
+  "/LICENSE",
+  "/README.md",
+  "/TECH_SPEC.md",
+  "/alembic",
+  "/alembic.ini",
+  "/docs/docs",
+  "/docs/zensical.toml",
+  "/frontend/dist",
+  "/hatch_build.py",
+  "/src/janus"
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/janus"]
