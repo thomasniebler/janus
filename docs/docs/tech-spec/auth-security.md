@@ -46,6 +46,7 @@
   - Signature styles: timestamped `X-Janus-Signature` (5-minute window), or GitHub's `X-Hub-Signature-256`; both compared in constant time.
   - Storage: the URL key is stored only as its SHA-256 hash, and the secret Fernet-encrypted; both are shown once.
   - Limits: 64 KB JSON bodies and 60 deliveries a minute per endpoint.
+  - User deletion: `DELETE /api/auth/users/{username}` deletes the user's webhook endpoints and remote A2A agents (with their tokens) explicitly. SQLite enforces no cascade, and a reused id must not inherit them; this is the same reason device tokens are deleted.
   - The route is a triaged Semgrep `janus-route-without-auth-dependency` exception. See [Inbound Webhooks](../feature-specs/inbound-webhooks.md).
 - **WebSocket origin checks:** WebSocket handshakes must validate the `Origin` header against configured allowed origins before accepting dashboard sessions.
 

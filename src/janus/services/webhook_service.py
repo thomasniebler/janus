@@ -199,12 +199,23 @@ def receive(db: Session, key: str, body: bytes, headers: Mapping[str, str], *, n
         "body": compact[:MAX_BODY_CHARS],
     }
     runs = trigger_definition_service.emit_event(
-        db, endpoint.user_id, TriggerEvent.WEBHOOK_RECEIVED, f"{endpoint.id}:{material[:32]}", data
+        # The key hash, not the row id: SQLite can reuse a deleted endpoint's id, and a new endpoint's
+        # deliveries must never collide with the old one's occurrence keys.
+        db,
+        endpoint.user_id,
+        TriggerEvent.WEBHOOK_RECEIVED,
+        f"{endpoint.key_hash[:16]}:{material[:32]}",
+        data,
     )
     endpoint.received_count = (endpoint.received_count or 0) + 1
     endpoint.last_received_at = received_at
     db.flush()
     return len(runs)
+
+
+def delete_all_for_user(db: Session, user_id: int) -> None:
+    """Delete a user's endpoints: SQLite does not cascade, and a reused id must not inherit them."""
+    db.query(models.WebhookEndpoint).filter(models.WebhookEndpoint.user_id == user_id).delete(synchronize_session=False)
 
 
 def delete(db: Session, endpoint: models.WebhookEndpoint) -> None:
@@ -221,6 +232,7 @@ __all__ = [
     "WebhookError",
     "create",
     "delete",
+    "delete_all_for_user",
     "get_endpoint",
     "list_endpoints",
     "receive",

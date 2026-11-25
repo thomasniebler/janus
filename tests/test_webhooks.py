@@ -258,3 +258,37 @@ def test_delivery_ignores_a_session_cookie_without_csrf_header(auth_client):
         assert auth_client.post("/api/webhooks", json={"name": "No CSRF"}).status_code == 403
     finally:
         auth_client.headers[security.CSRF_HEADER_NAME] = csrf
+
+
+def test_redelivery_to_a_replacement_endpoint_is_not_taken_for_a_duplicate(db):
+    """Regression: an endpoint that reuses a deleted endpoint's row id still starts its own runs."""
+    user = _user(db)
+    _definition(db, user.id)
+    old = webhook_service.create(db, user, "Old")
+    body = b'{"same":"body"}'
+    assert webhook_service.receive(db, old.key, body, _hub_headers(old.secret, body)) == 1
+    old_id = old.endpoint.id
+    webhook_service.delete(db, old.endpoint)
+    db.commit()
+    new = webhook_service.create(db, user, "New")
+    # The scenario: SQLite handed the new endpoint the deleted one's id.
+    assert new.endpoint.id == old_id
+    assert webhook_service.receive(db, new.key, body, _hub_headers(new.secret, body)) == 1
+
+
+def test_deleting_a_user_removes_their_webhooks_and_remote_agents(client, db):
+    """Regression: SQLite does not cascade, so user deletion removes credential-bearing rows explicitly."""
+    admin = models.User(
+        username="hook-admin", hashed_password=security.security_service.get_password_hash("secret"), is_admin=True
+    )
+    db.add(admin)
+    victim = _user(db, "leaving")
+    webhook_service.create(db, victim, "Theirs")
+    db.add(models.A2AAgent(user_id=victim.id, name="Agent", base_url="https://agent.example.com", encrypted_token="x"))
+    db.commit()
+    login = client.post("/api/auth/login", json={"username": "hook-admin", "password": "secret"})
+    client.headers[security.CSRF_HEADER_NAME] = login.json()["csrf_token"]
+    assert client.delete("/api/auth/users/leaving").status_code == 200
+    db.expire_all()
+    assert db.query(models.WebhookEndpoint).count() == 0
+    assert db.query(models.A2AAgent).count() == 0

@@ -7,7 +7,8 @@ import { api } from './helpers';
 // JAN-406: inbound webhooks. The user creates a webhook on Settings -> Runtime triggers and sees its
 // URL and secret once. An outside sender, with no session, then POSTs signed JSON: a Janus-style
 // signature starts the user's "Webhook received" trigger; an unsigned request is refused; a
-// GitHub-style signature works too. Every test runs as its own throwaway user.
+// GitHub-style signature works too. Switching the webhook off refuses deliveries, and a new secret
+// replaces the old one at once. Every test runs as its own throwaway user.
 
 test.use({ asThrowawayUser: true });
 
@@ -69,6 +70,36 @@ test('create a webhook, deliver signed JSON from outside, and start its trigger'
   await expect(row).toContainText('2 deliveries');
   // The listing never shows the secret again.
   expect(await (await page.request.get('/api/webhooks')).text()).not.toContain(secret);
+
+  const deliver = async (signingSecret: string, payload: Record<string, unknown>) => {
+    const context = await playwrightRequest.newContext({ baseURL: E2E_BASE_URL });
+    try {
+      const data = JSON.stringify(payload);
+      return (await context.post(path, { data, headers: janusHeaders(signingSecret, data) })).status();
+    } finally {
+      await context.dispose();
+    }
+  };
+
+  // Switched off, the URL answers 404 even to a correctly signed delivery; switched on, it works again.
+  await row.getByRole('button', { name: 'Switch off' }).click();
+  await expect(row).toContainText('switched off');
+  expect(await deliver(secret, { phase: 'off' })).toBe(404);
+  await row.getByRole('button', { name: 'Switch on' }).click();
+  await expect(row).not.toContainText('switched off');
+  expect(await deliver(secret, { phase: 'on' })).toBe(202);
+
+  // A new secret is shown once; the old one stops working at once.
+  await row.getByRole('button', { name: 'New secret' }).click();
+  const rotated = page.getByTestId('webhook-secret');
+  await expect(rotated).toContainText('Copy these now');
+  await expect(rotated.getByTestId('webhook-url')).toHaveCount(0);
+  const newSecret = (await rotated.getByTestId('webhook-secret-value').textContent()) ?? '';
+  expect(newSecret).toMatch(/^whsec_/);
+  expect(newSecret).not.toBe(secret);
+  expect(await deliver(secret, { phase: 'old secret' })).toBe(401);
+  expect(await deliver(newSecret, { phase: 'new secret' })).toBe(202);
+  await rotated.getByRole('button', { name: 'Done' }).click();
 
   await row.getByRole('button', { name: 'Delete E2E sender' }).click();
   await expect(page.getByText('No webhooks yet.')).toBeVisible();

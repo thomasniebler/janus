@@ -17,8 +17,10 @@ from janus.services import (
     google_client,
     google_connect_service,
     google_oauth,
+    webhook_service,
 )
 from janus.services import oauth_connection_service as connection_service
+from janus.services.a2a_service import A2AService
 from janus.services.device_token_service import DeviceTokenService
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -251,6 +253,9 @@ async def delete_user(
     character_state_service.delete_for_user(db, user.id)
     # Device tokens go with the user: SQLite may reuse the id, and a leftover row would authenticate as the next user.
     DeviceTokenService(db).delete_all(user.id)
+    # Webhook secrets and remote-agent tokens too, for the same reason (JAN-406, JAN-404).
+    webhook_service.delete_all_for_user(db, user.id)
+    A2AService(db).delete_all_for_user(user.id)
     db.delete(user)
     db.commit()
     return {"status": "success"}

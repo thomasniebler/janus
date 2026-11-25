@@ -26,6 +26,7 @@ implementation on the trigger catalog.
   - a delivery counter and the last delivery time.
 - **Shown once.** `POST /api/webhooks` returns the URL path (`/api/webhooks/in/<key>`) and the secret (`whsec_...`); `POST /api/webhooks/{id}/rotate-secret` returns a new secret. Neither appears in the listing again. At most 20 endpoints per user.
 - **Management API** (`api/webhooks.py`, cookie session): list, create, rename or switch on/off, rotate secret, delete.
+- **User deletion** removes the user's endpoints explicitly (`webhook_service.delete_all_for_user`). SQLite does not enforce the cascade, and a reused user id must not inherit a still-valid URL and secret. The same applies to remote A2A agents (`A2AService.delete_all_for_user`).
 - **UI:** Settings → Runtime triggers → **Webhooks** (`WebhookManager.tsx`, `webhooksApi.ts`). The new URL and secret are shown in a notice that closes with **Done**.
 
 ## Delivery
@@ -40,7 +41,7 @@ implementation on the trigger catalog.
   | GitHub | `X-Hub-Signature-256: sha256=<hex>` | the body | deduplication |
 
   Signatures are compared in constant time. An unsigned or wrongly signed request, or a stale timestamp, answers 401.
-- **Deduplication.** The event id is the endpoint id plus a hash of the signed material. `emit_event`'s occurrence key therefore starts at most one run per definition for the same delivery, however often it is sent.
+- **Deduplication.** The event id is the endpoint's key hash (not its row id, which SQLite can reuse after a delete) plus a hash of the signed material. `emit_event`'s occurrence key therefore starts at most one run per definition for the same delivery, however often it is sent.
 - **Limits.**
   - The body must be JSON, at most 64 KB. Larger bodies answer 413, also when only the declared `Content-Length` is too large; non-JSON answers 400.
   - Each endpoint takes at most 60 deliveries a minute (in process), else 429.
