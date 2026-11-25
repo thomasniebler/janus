@@ -365,6 +365,13 @@ reason = "MCP OAuth callback; bound to its user by the single-use OAuth state."
 rule = "janus-route-without-auth-dependency"
 
 [[tool.janus.semgrep.exceptions]]
+expires = 2027-05-25
+line = "@router.post(\"/in/{key}\""
+path = "src/janus/api/webhooks.py"
+reason = "Inbound webhook delivery from outside services (JAN-406); authenticated by the endpoint's HMAC signature over the body, with a 64 KB cap and a per-endpoint rate limit."
+rule = "janus-route-without-auth-dependency"
+
+[[tool.janus.semgrep.exceptions]]
 expires = 2027-04-04
 line = "db.get(models.TriggerDefinition, definition_id)"
 path = "src/janus/agent_toolboxes/triggers.py"

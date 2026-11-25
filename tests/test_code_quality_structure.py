@@ -17,8 +17,9 @@ SERVICE_MODULE_LINE_LIMIT = 500
 CORE_MODULE_LINE_LIMIT = 600
 
 API_MODULE_BUDGET_EXCEPTIONS = {
-    # Raised from the 400 default for deleting a user's device tokens (action inbox; SQLite may reuse the id).
-    "src/janus/api/auth.py": 403,
+    # Raised from the 400 default for deleting a user's device tokens (action inbox; SQLite may reuse the id),
+    # then to 408 for deleting their webhooks and remote agents the same way (JAN-406, JAN-404).
+    "src/janus/api/auth.py": 408,
     # Raised from 771 for the Google multi-calendar selection endpoints
     # (GET/PUT /api/planner/google/calendars), then from 822 for the chat and
     # utility model fields (JAN-233; their update rules live in llm_settings),
@@ -133,6 +134,8 @@ API_HELPER_BASELINE = {
     "src/janus/api/topics.py": {"_parse_status"},
     "src/janus/api/tools.py": {"_get_server_or_404", "_server_response"},
     "src/janus/api/trigger_definitions.py": {"_get_or_404", "_unprocessable", "with_outcomes"},
+    # JAN-406: inbound webhooks (serialize without the secret; owner-scoped 404).
+    "src/janus/api/webhooks.py": {"_get_or_404", "_response"},
 }
 
 

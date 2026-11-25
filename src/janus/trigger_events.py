@@ -17,7 +17,8 @@ description, and the payload fields its producer sends. The same catalog is:
 Only events that are actually emitted belong here: a catalog entry nobody
 emits would let users build definitions that never fire. Producers today:
 ``processor.py`` (mail), ``whatsapp_neonize.py`` (WhatsApp, JAN-361) and
-``planner_service.py`` (planner, JAN-362). Add the member, its
+``planner_service.py`` (planner, JAN-362) and ``services/webhook_service.py``
+(webhooks, JAN-406). Add the member, its
 :class:`EventSpec`, and the producer's ``emit_event`` call in the same change.
 """
 
@@ -34,6 +35,7 @@ class TriggerSubsystem(StrEnum):
     MAIL = "mail"
     WHATSAPP = "whatsapp"
     PLANNER = "planner"
+    WEBHOOK = "webhook"
 
 
 class TriggerEvent(StrEnum):
@@ -47,6 +49,7 @@ class TriggerEvent(StrEnum):
     PLANNER_TASK_CHANGED = "planner.task_changed"
     PLANNER_CALENDAR_EVENT_CREATED = "planner.calendar_event_created"
     PLANNER_CALENDAR_EVENT_CHANGED = "planner.calendar_event_changed"
+    WEBHOOK_RECEIVED = "webhook.received"
 
 
 @dataclass(frozen=True)
@@ -98,6 +101,11 @@ SUBSYSTEMS: dict[TriggerSubsystem, SubsystemSpec] = {
             "Changes the planner sync (Google Calendar, Google Tasks, Jira) finds. "
             "An account's first sync is a baseline and emits nothing."
         ),
+    ),
+    TriggerSubsystem.WEBHOOK: SubsystemSpec(
+        subsystem=TriggerSubsystem.WEBHOOK,
+        label="Webhooks",
+        description="Signed requests outside services send to one of your webhook URLs.",
     ),
 }
 
@@ -209,6 +217,23 @@ EVENTS: dict[TriggerEvent, EventSpec] = {
         label="Calendar event changed",
         description="A synced calendar event's title, start, end, or location changed.",
         payload=(*_CALENDAR_EVENT_PAYLOAD, _CHANGES_FIELD),
+    ),
+    TriggerEvent.WEBHOOK_RECEIVED: EventSpec(
+        event=TriggerEvent.WEBHOOK_RECEIVED,
+        subsystem=TriggerSubsystem.WEBHOOK,
+        label="Webhook received",
+        description=(
+            "One of your webhook URLs received a correctly signed JSON request. "
+            "Filter on the webhook's name to react to one sender only."
+        ),
+        payload=(
+            EventPayloadField("webhook", "The webhook's name."),
+            EventPayloadField("webhook_id", "Janus's id of the webhook."),
+            EventPayloadField("event_header", "The sender's event-type header (X-GitHub-Event, X-Event-Type), if any."),
+            EventPayloadField("received_at", "When Janus received the request (ISO-8601)."),
+            EventPayloadField("body", "The request's JSON body, compacted, first 4,000 characters."),
+        ),
+        default_max_runs_per_hour=30,
     ),
 }
 

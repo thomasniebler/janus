@@ -125,6 +125,7 @@ from janus.models.users import (
     NotificationPreference,
     User,
 )
+from janus.models.webhooks import WebhookEndpoint
 from janus.models.whatsapp import (
     WhatsAppAccount,
     WhatsAppConversation,
@@ -291,4 +292,5 @@ __all__ = [
     "database",
     "to_dict",
     "utcnow",
+    "WebhookEndpoint",
 ]

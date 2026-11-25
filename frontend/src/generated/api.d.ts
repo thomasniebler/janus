@@ -3561,6 +3561,94 @@ export interface paths {
         patch: operations["update_message_priority_api_whatsapp_messages__message_id__priority_patch"];
         trace?: never;
     };
+    "/api/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Webhooks
+         * @description List the user's webhooks.
+         */
+        get: operations["list_webhooks_api_webhooks_get"];
+        put?: never;
+        /**
+         * Create Webhook
+         * @description Create a webhook; the response is the only time its URL path and secret are shown.
+         */
+        post: operations["create_webhook_api_webhooks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webhooks/{endpoint_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Webhook
+         * @description Delete a webhook; its URL stops working at once.
+         */
+        delete: operations["delete_webhook_api_webhooks__endpoint_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Webhook
+         * @description Rename a webhook or switch it on/off.
+         */
+        patch: operations["update_webhook_api_webhooks__endpoint_id__patch"];
+        trace?: never;
+    };
+    "/api/webhooks/{endpoint_id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Webhook Secret
+         * @description Replace the secret; the old one stops working at once. The new one is shown only now.
+         */
+        post: operations["rotate_webhook_secret_api_webhooks__endpoint_id__rotate_secret_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webhooks/in/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deliver
+         * @description Public delivery URL: authenticated by the HMAC signature, not a session (see ``webhook_service``).
+         */
+        post: operations["deliver_api_webhooks_in__key__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/docs/nav": {
         parameters: {
             query?: never;
@@ -7993,7 +8081,7 @@ export interface components {
          * @description Every event type Janus publishes. Values are ``<subsystem>.<event>``.
          * @enum {string}
          */
-        TriggerEvent: "mail.received" | "whatsapp.direct_message_received" | "whatsapp.group_message_received" | "whatsapp.group_mention" | "planner.task_created" | "planner.task_changed" | "planner.calendar_event_created" | "planner.calendar_event_changed";
+        TriggerEvent: "mail.received" | "whatsapp.direct_message_received" | "whatsapp.group_message_received" | "whatsapp.group_mention" | "planner.task_created" | "planner.task_changed" | "planner.calendar_event_created" | "planner.calendar_event_changed" | "webhook.received";
         /**
          * TriggerEventCondition
          * @description One condition of an event definition's payload filter (JAN-363).
@@ -8256,7 +8344,7 @@ export interface components {
          * @description A part of Janus that publishes trigger events.
          * @enum {string}
          */
-        TriggerSubsystem: "mail" | "whatsapp" | "planner";
+        TriggerSubsystem: "mail" | "whatsapp" | "planner" | "webhook";
         /**
          * TriggerSubsystemResponse
          * @description A subsystem and the events it publishes (JAN-210).
@@ -8404,6 +8492,68 @@ export interface components {
             api_key?: string | null;
             /** Base Url */
             base_url?: string | null;
+        };
+        /**
+         * WebhookCreate
+         * @description Create a webhook endpoint.
+         */
+        WebhookCreate: {
+            /** Name */
+            name: string;
+        };
+        /**
+         * WebhookDeliveryResponse
+         * @description What an accepted delivery started.
+         */
+        WebhookDeliveryResponse: {
+            /** Accepted */
+            accepted: boolean;
+            /** Runs */
+            runs: number;
+        };
+        /**
+         * WebhookResponse
+         * @description A webhook endpoint; its full URL and secret are never returned after creation.
+         */
+        WebhookResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Key Prefix */
+            key_prefix: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Received Count */
+            received_count: number;
+            /** Last Received At */
+            last_received_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * WebhookSecretResponse
+         * @description Returned once, at creation (``path`` and ``secret``) or after a rotation (``secret`` only).
+         */
+        WebhookSecretResponse: {
+            webhook: components["schemas"]["WebhookResponse"];
+            /** Path */
+            path?: string | null;
+            /** Secret */
+            secret: string;
+        };
+        /**
+         * WebhookUpdate
+         * @description Rename or switch a webhook on/off.
+         */
+        WebhookUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
         };
         /**
          * WhatsAppAccount
@@ -16699,6 +16849,223 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WhatsAppMessage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_webhooks_api_webhooks_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_webhook_api_webhooks_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecretResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_webhook_api_webhooks__endpoint_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                endpoint_id: number;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_webhook_api_webhooks__endpoint_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                endpoint_id: number;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_webhook_secret_api_webhooks__endpoint_id__rotate_secret_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                endpoint_id: number;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecretResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deliver_api_webhooks_in__key__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryResponse"];
                 };
             };
             /** @description Validation Error */

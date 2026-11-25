@@ -634,6 +634,11 @@ export type ToolPolicy = ApiSchemas['ToolPolicyResponse'];
 /** A registered remote A2A agent (JAN-404); its token is write-only and never returned. */
 export type A2AAgent = ApiSchemas['A2AAgentResponse'];
 
+/** An inbound webhook (JAN-406); its URL key and secret are never listed. */
+export type Webhook = ApiSchemas['WebhookResponse'];
+/** Returned once, at creation (with `path`) or after a secret rotation. */
+export type WebhookSecret = ApiSchemas['WebhookSecretResponse'];
+
 export interface MCPRegistry {
   builtins: MCPBuiltin[];
   remote_servers: MCPServer[];

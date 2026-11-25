@@ -38,6 +38,7 @@ Scope: FastAPI routers under `src/janus/api/`.
 | `runtime_tasks.py` | Read-only, owner-scoped Agent Tasks endpoints (JAN-204): the paginated list of trigger runs, definition runs and delegated tasks, and the trigger-run / delegated-task detail with plan steps and tool trace; another user's id is a 404 |
 | `runtime_triggers.py` | Authenticated ad-hoc runtime-trigger ingress, the filterable (status/kind/definition/date), paginated run history labelled with each run's definition (JAN-256), and worker health endpoints |
 | `trigger_definitions.py` | Authenticated CRUD for saved trigger definitions, "run now", per-definition run history, the list of subscribable event types, and the review side of Janus-proposed automations (proposal list and count, approve, reject; JAN-235) |
+| `webhooks.py` | Inbound webhooks (JAN-406): owner-scoped management at `/api/webhooks` (list, create returning the URL path and secret once, patch, rotate-secret, delete) and the public, signature-authenticated delivery `POST /api/webhooks/in/{key}` (body capped while streaming) |
 | `a2a.py` | Owner-scoped remote A2A agent registry at `/api/tools/a2a-agents` (JAN-404): list, create (fetches the card), patch (name, URL, `enabled`, write-only token / `clear_token`), `refresh`, delete; the token is never returned. Mounted before `tools.py` |
 | `tools.py` | Authenticated management API for the built-in and remote MCP tool registry, the per-user, per-tool switches on `/api/tools/policies`: Unattended Allowed/Off (JAN-255) and, for `confirmation="required"` tools only, In chat `ask`/`always`/`off` (`chat_mode`, JAN-306, JAN-359; `PUT` changes only the fields sent, `422` for a locked tool or a `chat_mode` on a tool without per-call approval), the blanket modes on `/api/tools/policy-modes` (`per_tool`/`allow_all` for unattended runs and chat, JAN-359), and the optional prompt-injection classifier's settings (`/api/tools/injection-classifier`, JAN-289) |
 | `knowledge.py` | Knowledge-source endpoints (JAN-242): document upload (10 MB, supported types only, parsed in the request), owner-scoped source listing with type/status filters and chunk counts, and source deletion; knowledge extraction settings, hybrid knowledge search, entity listing and detail, and merge-suggestion accept/reject (JAN-243); the topic/entity graph (`/graph`, JAN-334) |
@@ -69,6 +70,7 @@ Scope: FastAPI routers under `src/janus/api/`.
 - The Agent Tasks page's data (persisted task/plan state, JAN-204) -> `runtime_tasks.py`, then `../services/runtime_task_service.py`
 - Trigger definitions (briefing/digest/mail built-ins, user automations) -> `trigger_definitions.py`, then `../trigger_definition_service.py` and `../builtin_triggers.py`
 - MCP tool registry management -> `tools.py`, then `../services/mcp_service.py`
+- Inbound webhooks -> `webhooks.py`, then `../services/webhook_service.py`
 - Remote A2A agents -> `a2a.py`, then `../services/a2a_service.py` and `../services/a2a_client.py`
 - Tracked-topic routes -> `topics.py`, then `../services/topic_service.py`
 - Settings → Stats figures -> `stats.py`, then `../services/stats_service.py` and `../schemas/stats.py`

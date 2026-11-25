@@ -146,6 +146,15 @@ class A2AService:
         protocol_version = str((agent.card or {}).get("protocol_version") or "")
         return a2a_client.A2AClient(agent.rpc_url, protocol_version, token=token).ask(prompt)
 
+    def delete_all_for_user(self, user_id: int) -> None:
+        """Delete a user's agents and their tokens: SQLite does not cascade, and a reused id must not inherit them."""
+        agent_ids = [row.id for row in self.db.query(models.A2AAgent.id).filter(models.A2AAgent.user_id == user_id)]
+        if agent_ids:
+            self.db.query(models.ToolPolicy).filter(
+                models.ToolPolicy.user_id == user_id, models.ToolPolicy.tool_id.in_([tool_id(i) for i in agent_ids])
+            ).delete(synchronize_session=False)
+        self.db.query(models.A2AAgent).filter(models.A2AAgent.user_id == user_id).delete(synchronize_session=False)
+
     def offered_agents(self, user: models.User) -> list[models.A2AAgent]:
         """Agents chat may use: switched on and with a fetched card."""
         return [agent for agent in self.list_agents(user) if agent.enabled and agent.rpc_url]
