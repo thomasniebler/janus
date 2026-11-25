@@ -110,6 +110,7 @@ TASK_MODE_ALLOWED_TOOL_IDS: dict[str, frozenset[str]] = {
             "character",
             "character.propose",
             "shell",  # Shell commands (JAN-353): operator opt-in, admins only, each call approved in chat.
+            "coding_agents",  # Local coding-agent CLIs (JAN-403): operator opt-in, admins only, approved per call.
         }
     ),
     "briefing": frozenset({"core", "calendar", "jira", "dashboard", "topics", "knowledge", "wiki"}),

@@ -261,6 +261,20 @@ _SETTINGS_TEMPLATE = f"""\
 # Run commands through /bin/sh -c, so pipes, redirection, && and $VAR work.
 # Off: the command is split like a shell would and run without one.
 # shell_tool_allow_shell_syntax = false
+
+# Coding agents tool (JAN-403): lets Janus ask a coding-agent CLI you installed
+# and logged in to (claude, codex) for help. Local installs only;
+# admins only; every question waits for your approval in chat.
+# coding_agents_enabled = false
+# coding_agents_working_dir = "/home/you/projects"
+# coding_agents_timeout_seconds = 300
+# coding_agents_output_max_bytes = 50000
+# Off: the agents run read-only. On: they may edit files in the working directory.
+# coding_agents_allow_edits = false
+# Extra environment variables passed to the agents (never JANUS_* names).
+# coding_agents_env_passthrough = ["ANTHROPIC_API_KEY"]
+# Adjust the claude or codex command; exactly one "{{prompt}}" argument.
+# coding_agents_commands = {{ claude = ["claude", "-p", "{{prompt}}", "--permission-mode", "plan"] }}
 """
 
 
@@ -412,6 +426,38 @@ class Settings(BaseSettings):
     shell_tool_allow_shell_syntax: bool = Field(
         default=False,
         validation_alias=AliasChoices("JANUS_SHELL_TOOL_ALLOW_SHELL_SYNTAX", "shell_tool_allow_shell_syntax"),
+    )
+
+    # Coding agents tool (JAN-403): off unless the operator opts in (local installs).
+    coding_agents_enabled: bool = Field(
+        default=False, validation_alias=AliasChoices("JANUS_CODING_AGENTS_ENABLED", "coding_agents_enabled")
+    )
+    coding_agents_working_dir: Path = Field(
+        default_factory=Path.home,
+        validation_alias=AliasChoices("JANUS_CODING_AGENTS_WORKING_DIR", "coding_agents_working_dir"),
+    )
+    coding_agents_timeout_seconds: float = Field(
+        default=300,
+        gt=0,
+        le=3600,
+        validation_alias=AliasChoices("JANUS_CODING_AGENTS_TIMEOUT_SECONDS", "coding_agents_timeout_seconds"),
+    )
+    coding_agents_output_max_bytes: int = Field(
+        default=50000,
+        ge=256,
+        le=1_000_000,
+        validation_alias=AliasChoices("JANUS_CODING_AGENTS_OUTPUT_MAX_BYTES", "coding_agents_output_max_bytes"),
+    )
+    coding_agents_allow_edits: bool = Field(
+        default=False, validation_alias=AliasChoices("JANUS_CODING_AGENTS_ALLOW_EDITS", "coding_agents_allow_edits")
+    )
+    coding_agents_env_passthrough: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("JANUS_CODING_AGENTS_ENV_PASSTHROUGH", "coding_agents_env_passthrough"),
+    )
+    coding_agents_commands: dict[str, list[str]] = Field(
+        default_factory=dict,
+        validation_alias=AliasChoices("JANUS_CODING_AGENTS_COMMANDS", "coding_agents_commands"),
     )
 
     # Test seam (JAN-221): send the backend's own Google calls (OAuth token
@@ -619,6 +665,10 @@ class Settings(BaseSettings):
             "shell_tool_timeout_seconds": self.shell_tool_timeout_seconds,
             "shell_tool_output_max_bytes": self.shell_tool_output_max_bytes,
             "shell_tool_allow_shell_syntax": self.shell_tool_allow_shell_syntax,
+            "coding_agents_enabled": self.coding_agents_enabled,
+            "coding_agents_working_dir": str(self.coding_agents_working_dir),
+            "coding_agents_allow_edits": self.coding_agents_allow_edits,
+            "coding_agents_env_passthrough": list(self.coding_agents_env_passthrough),
         }
 
 
