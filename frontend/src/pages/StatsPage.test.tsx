@@ -62,6 +62,12 @@ const summary: StatsSummary = {
     },
     character: { totals: { proposed: 0, approved: 1, rejected: 1 }, total: 2, approval_rate: 0.5, median_hours_to_decision: 12 },
   },
+  llm: {
+    per_day: dates.map((date) => ({ date, calls: 1, input_tokens: 400, output_tokens: 100 })),
+    by_surface: [{ surface: 'chat', calls: 4, input_tokens: 1200, output_tokens: 300 }],
+    by_model: [{ model: 'ollama/llama3', calls: 4, input_tokens: 1200, output_tokens: 300 }],
+    totals: { calls: 4, input_tokens: 1200, output_tokens: 300, unreported_calls: 0 },
+  },
 };
 
 const renderPage = () =>
@@ -88,7 +94,7 @@ describe('StatsPage', () => {
     expect(within(table).getByText('Morning briefing')).toBeInTheDocument();
     expect(within(table).getByText('Ad-hoc runs')).toBeInTheDocument();
     expect(within(table).getByText('42s')).toBeInTheDocument();
-    expect(screen.getAllByRole('img')).toHaveLength(4);
+    expect(screen.getAllByRole('img')).toHaveLength(5); // mail, triggers, memory, messaging, LLM tokens (JAN-408)
     expect(statsApi.get).toHaveBeenCalledWith(30, expect.any(String));
   });
 
@@ -127,6 +133,15 @@ describe('StatsPage', () => {
     const tooltip = within(mailChart).getByRole('tooltip');
     expect(tooltip).toHaveTextContent('Important');
     expect(tooltip).toHaveTextContent('2');
+  });
+
+  it('shows LLM usage by surface and model (JAN-408)', async () => {
+    vi.mocked(statsApi.get).mockResolvedValue({ data: summary } as never);
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'LLM usage' })).toBeInTheDocument();
+    expect(screen.getByTestId('stat-Model calls')).toHaveTextContent('4');
+    expect(screen.getByRole('table', { name: 'Usage by surface' })).toHaveTextContent('Chat');
+    expect(screen.getByRole('table', { name: 'Usage by model' })).toHaveTextContent('ollama/llama3');
   });
 });
 

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from langchain_core.tools import BaseTool
 from sqlalchemy.orm import Session
 
-from janus import config, llm_service, models, prompt_injection, tool_policy, toolset_selection
+from janus import config, llm_service, llm_usage, models, prompt_injection, tool_policy, toolset_selection
 from janus.agent_runtime import build_janus_system_prompt, load_skill_library
 from janus.agent_task_runner import AgentTaskRun, run_agent_task
 from janus.agent_toolboxes.shared import TurnToolCall
@@ -364,7 +364,9 @@ def execute_unattended_step_detailed(
     )
     token = _CURRENT_MODEL_CHOICE.set(model_choice)
     try:
-        run = task_executor(db, system_prompt, prepared.tools, step.objective)
+        # Usage accounting (JAN-408): a trigger run's step, or a delegated child's (no trigger id).
+        with llm_usage.usage_surface("trigger" if trigger_id else "delegated"):
+            run = task_executor(db, system_prompt, prepared.tools, step.objective)
     finally:
         _CURRENT_MODEL_CHOICE.reset(token)
     result = format_step_result(

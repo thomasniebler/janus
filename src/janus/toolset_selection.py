@@ -35,6 +35,7 @@ on the narrowed request.
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import re
@@ -113,7 +114,10 @@ def _call_bounded(
         finally:
             _SLOTS.release()
 
-    threading.Thread(target=work, name="janus-toolset-select", daemon=True).start()
+    # Copy the context so the owner and usage surface (JAN-408) follow the call onto the thread.
+    threading.Thread(
+        target=contextvars.copy_context().run, args=(work,), name="janus-toolset-select", daemon=True
+    ).start()
     return future.result(timeout=timeout_seconds)
 
 

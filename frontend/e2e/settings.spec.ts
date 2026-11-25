@@ -104,6 +104,9 @@ test.describe('Settings page', () => {
     await expect(page.getByTestId('stat-Suggested automations')).toContainText(/\d+ approved · \d+ rejected · \d+ open/);
     await expect(page.getByTestId('stat-Tool approvals in chat')).toContainText(/\d+ allowed · \d+ denied · \d+ timed out/);
     await expect(page.getByTestId('stat-Character changes')).toContainText(/\d+ approved/);
+    // JAN-408: LLM token usage by surface and model.
+    await expect(page.getByRole('heading', { name: 'LLM usage' })).toBeVisible();
+    await expect(page.getByTestId('stat-Model calls')).toBeVisible();
 
     const statsRequest = page.waitForRequest((request) => request.url().includes('/api/stats') && request.url().includes('days=7'));
     await page.getByRole('button', { name: '7 days' }).click();

@@ -94,5 +94,32 @@ export const makeStatsSample = (days = 30): StatsSummary => {
       },
       character: { totals: { proposed: 0, approved: 1, rejected: 1 }, total: 2, approval_rate: 0.5, median_hours_to_decision: 12 },
     },
+    llm: (() => {
+      const perDay = dates.map((date, index) => ({
+        date,
+        calls: wave(index, 40, 15),
+        input_tokens: wave(index, 60000, 25000),
+        output_tokens: wave(index + 3, 8000, 3000),
+      }));
+      const totalOf = (key: 'calls' | 'input_tokens' | 'output_tokens') => perDay.reduce((sum, day) => sum + day[key], 0);
+      const calls = totalOf('calls');
+      const input = totalOf('input_tokens');
+      const output = totalOf('output_tokens');
+      const share = (part: number) => ({ calls: Math.round(calls * part), input_tokens: Math.round(input * part), output_tokens: Math.round(output * part) });
+      return {
+        per_day: perDay,
+        by_surface: [
+          { surface: 'chat', ...share(0.6) },
+          { surface: 'delegated', ...share(0.1) },
+          { surface: 'other', ...share(0.1) },
+          { surface: 'trigger', ...share(0.2) },
+        ],
+        by_model: [
+          { model: 'anthropic/claude-sonnet-5-5', ...share(0.8) },
+          { model: 'ollama/llama3', ...share(0.2) },
+        ],
+        totals: { calls, input_tokens: input, output_tokens: output, unreported_calls: 3 },
+      };
+    })(),
   };
 };

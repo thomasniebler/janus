@@ -17,7 +17,7 @@ from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from sqlalchemy.orm import Session
 
-from janus import database, event_logger, models, security
+from janus import database, event_logger, llm_usage, models, security
 from janus.services import llm_provider_clients, plan_step_events
 from janus.services.llm_provider_clients import is_native_openai, responses_only_model
 from janus.services.llm_provider_clients import resolved_value as _resolved_value
@@ -575,6 +575,7 @@ class LLMService:
                 event_logger.log(models.EventType.INFO, "LLMService", f"Initialized with Ollama model: {model_name}")
             #: ``provider/model`` actually used, recorded in trigger results (JAN-233).
             self.model_label = f"{provider.value}/{model_name}"
+            llm_usage.attach(self.llm, self.model_label)  # count every call's tokens (JAN-408)
         except Exception as e:
             event_logger.log(models.EventType.ERROR, "LLMService", f"Failed to initialize LLMService: {e}")
             raise

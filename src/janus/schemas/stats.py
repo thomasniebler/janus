@@ -129,6 +129,42 @@ class ApprovalStats(BaseModel):
     character: DecisionStats
 
 
+class LlmUsageDay(BaseModel):
+    """LLM calls and tokens on one (UTC) day (JAN-408)."""
+
+    date: str
+    calls: int
+    input_tokens: int
+    output_tokens: int
+
+
+class LlmUsageSurface(BaseModel):
+    """LLM usage of one surface: chat, trigger, delegated, or other."""
+
+    surface: str
+    calls: int
+    input_tokens: int
+    output_tokens: int
+
+
+class LlmUsageModel(BaseModel):
+    """LLM usage of one ``provider/model``."""
+
+    model: str
+    calls: int
+    input_tokens: int
+    output_tokens: int
+
+
+class LlmUsageStats(BaseModel):
+    """LLM usage in the range; ``unreported_calls`` returned no token counts (some streamed responses)."""
+
+    per_day: list[LlmUsageDay]
+    by_surface: list[LlmUsageSurface]
+    by_model: list[LlmUsageModel]
+    totals: dict[str, int]
+
+
 class StatsSummary(BaseModel):
     """Everything the Stats tab shows for one range, bucketed in ``timezone``."""
 
@@ -142,3 +178,4 @@ class StatsSummary(BaseModel):
     memory: MemoryStats
     messaging: MessagingStats
     approvals: ApprovalStats
+    llm: LlmUsageStats

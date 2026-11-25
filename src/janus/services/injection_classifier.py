@@ -36,6 +36,7 @@ Safety properties:
 from __future__ import annotations
 
 import concurrent.futures
+import contextvars
 import hashlib
 import html
 import logging
@@ -281,7 +282,8 @@ class InjectionClassifier:
         if period is None:
             raise ClassifierUnavailable("monthly budget reached")
         llm = self._service.llm  # type: ignore[attr-defined]
-        future = _executor.submit(llm.invoke, prompt)
+        # Copy the context so the owner and usage surface (JAN-408) follow the call onto the pool thread.
+        future = _executor.submit(contextvars.copy_context().run, llm.invoke, prompt)
         try:
             message = future.result(timeout=TIMEOUT_SECONDS)
         except concurrent.futures.TimeoutError as error:

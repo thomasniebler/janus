@@ -5361,6 +5361,64 @@ export interface components {
             google_id: string;
         };
         /**
+         * LlmUsageDay
+         * @description LLM calls and tokens on one (UTC) day (JAN-408).
+         */
+        LlmUsageDay: {
+            /** Date */
+            date: string;
+            /** Calls */
+            calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+        };
+        /**
+         * LlmUsageModel
+         * @description LLM usage of one ``provider/model``.
+         */
+        LlmUsageModel: {
+            /** Model */
+            model: string;
+            /** Calls */
+            calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+        };
+        /**
+         * LlmUsageStats
+         * @description LLM usage in the range; ``unreported_calls`` returned no token counts (some streamed responses).
+         */
+        LlmUsageStats: {
+            /** Per Day */
+            per_day: components["schemas"]["LlmUsageDay"][];
+            /** By Surface */
+            by_surface: components["schemas"]["LlmUsageSurface"][];
+            /** By Model */
+            by_model: components["schemas"]["LlmUsageModel"][];
+            /** Totals */
+            totals: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * LlmUsageSurface
+         * @description LLM usage of one surface: chat, trigger, delegated, or other.
+         */
+        LlmUsageSurface: {
+            /** Surface */
+            surface: string;
+            /** Calls */
+            calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+        };
+        /**
          * LocalPlannerEventCreate
          * @description Payload for creating a Janus-owned planner event.
          */
@@ -7389,6 +7447,7 @@ export interface components {
             memory: components["schemas"]["MemoryStats"];
             messaging: components["schemas"]["MessagingStats"];
             approvals: components["schemas"]["ApprovalStats"];
+            llm: components["schemas"]["LlmUsageStats"];
         };
         /**
          * StatusComponent

@@ -181,6 +181,7 @@ const decisionsOf = <K extends string>(keys: readonly [K, ...K[]]) =>
     median_hours_to_decision: z.number().nullable(),
   });
 
+const LLM_USAGE_KEYS = ['calls', 'input_tokens', 'output_tokens'] as const;
 const perDayOf = <K extends string>(keys: readonly [K, ...K[]]) =>
   z.array(countsOf(keys).extend({ date: z.string() }));
 
@@ -227,6 +228,12 @@ export const statsSummarySchema = z.looseObject({
     automations: decisionsOf(AUTOMATION_DECISION_KEYS),
     chat_tools: decisionsOf(CHAT_TOOL_DECISION_KEYS),
     character: decisionsOf(CHARACTER_DECISION_KEYS),
+  }),
+  llm: z.looseObject({
+    per_day: perDayOf(LLM_USAGE_KEYS),
+    by_surface: z.array(countsOf(LLM_USAGE_KEYS).extend({ surface: z.string() })),
+    by_model: z.array(countsOf(LLM_USAGE_KEYS).extend({ model: z.string() })),
+    totals: countsOf([...LLM_USAGE_KEYS, 'unreported_calls'] as const),
   }),
 });
 

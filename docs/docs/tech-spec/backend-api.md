@@ -412,6 +412,11 @@ All routes are owner-scoped; a foreign or unknown page or revision answers `404`
   decisions), and `median_hours_to_decision` (proposal to approval or rejection;
   always `null` for chat tools, which record no decision time). Whether the user
   edited a proposal before approving it is not recorded, so it is not reported.
+- `llm` (JAN-408) reports the user's model calls and tokens from
+  `llm_usage_days`. It has `per_day`, `by_surface` (chat, trigger, delegated,
+  other), `by_model`, and `totals`, which include `unreported_calls`, the
+  calls whose provider returned no token counts. Rows are per UTC day, so the
+  window is the last `days` UTC days, not the local calendar. See [LLM Usage Tracking](../feature-specs/llm-usage-tracking.md).
 
 ## Domain-Change WebSocket (JAN-104)
 
