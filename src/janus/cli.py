@@ -11,6 +11,7 @@ import uvicorn
 from janus import cli_client, database, models, notifications, status_service
 from janus.app_factory import api
 from janus.cli_microsoft import microsoft_app
+from janus.cli_service import service_app
 from janus.cli_update import update
 from janus.config import _SETTINGS_TEMPLATE, _normalize_allowed_origin, get_config_file_path, settings
 from janus.desktop.tray import create_tray_icon, set_tray_dashboard_url
@@ -47,7 +48,6 @@ user_app = typer.Typer(help="Manage system users.")
 config_app = typer.Typer(help="Manage Janus user configuration.")
 db_app = typer.Typer(help="Manage the Janus database.")
 knowledge_app = typer.Typer(help="Manage semantic search over memory facts and topics.")
-
 app.add_typer(account_app, name="account")
 app.add_typer(rule_app, name="rule")
 app.add_typer(planner_app, name="planner")
@@ -56,6 +56,7 @@ app.add_typer(config_app, name="config")
 app.add_typer(db_app, name="db")
 app.add_typer(knowledge_app, name="knowledge")
 app.add_typer(microsoft_app, name="microsoft")
+app.add_typer(service_app, name="service")
 app.command()(update)
 
 

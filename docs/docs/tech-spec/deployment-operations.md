@@ -152,6 +152,13 @@ CI's backend job runs the same smoke test without a frontend (`task package:smok
   `.git`; the pending record carries `kind` and `previous_wheel`, so a release that does not start
   reinstalls the kept wheel. The restart is the same `os.execv` of the `janus` entry point, whose
   path does not change across a reinstall.
+- **Background service** (`janus service`, `services/systemd_unit.py`, Linux only): `install` writes
+  a systemd user unit (`$XDG_CONFIG_HOME/systemd/user/janus.service`) that runs `<janus> start`
+  with the installing shell's working directory and `PATH`, `Restart=on-failure`, and
+  `WantedBy=default.target`, then `daemon-reload` and `enable --now`; `status`, `logs` (journalctl)
+  and `uninstall` wrap systemctl. The auto-update worker inside the service re-executes in place
+  (same PID, so systemd sees no restart); a manual `janus update` instead runs
+  `systemctl --user restart janus.service` when the unit is active. macOS (launchd) is not covered.
 
 ## Pre-Release Snapshot
 
