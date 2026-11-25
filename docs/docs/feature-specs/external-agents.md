@@ -1,6 +1,6 @@
 # External Agents
 
-**Status:** Partially shipped (local coding agents shipped; remote A2A agents planned)
+**Status:** Shipped (phase 1: local coding agents; remote A2A agents, JAN-404, are planned, not built)
 **Linear:** JAN-403 (coding agents tool, shipped); JAN-404 (A2A client, planned)
 **Depends on:** [Tool Permissions](tool-permissions.md), [MCP Tool Registry](mcp-tool-registry/feature-description.md) (registry pattern for JAN-404), the shell tool's process fences (`services/shell_service.py`, JAN-353), [LLM and agent safety](../tech-spec/llm-agent-safety.md)
 
@@ -42,7 +42,8 @@ One admin-only, operator-opt-in toolbox, `coding_agents`, with one tool,
   vector with exactly one `{prompt}` element. The prompt goes in as that
   single argument and never passes through a shell. Supported: `claude` and
   `codex`. `coding_agents_commands` can adjust either command (for a CLI
-  version whose flags differ) but cannot add agents; a malformed entry skips
+  version whose flags differ; used as written in both modes, and labelled a
+  custom command to the model) but cannot add agents; a malformed entry skips
   that agent instead of breaking the toolbox. Support for other agents is a
   feature request, not configuration: we keep the list short on purpose.
   Only agents whose program is on the scrubbed `PATH` are offered, and the
@@ -57,6 +58,8 @@ One admin-only, operator-opt-in toolbox, `coding_agents`, with one tool,
     - the exact-preview rule for the prompt (at most 1,000 characters, no
       control or invisible characters, refused if the approval preview would
       be cut or redacted);
+    - no prompt starting with `-`, which the CLIs would parse as an option
+      (`--dangerously-skip-permissions`) instead of the prompt;
     - a scrubbed environment plus the operator's
       `coding_agents_env_passthrough` names (never `JANUS_*`);
     - no stdin and a fixed `coding_agents_working_dir`;

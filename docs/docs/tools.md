@@ -859,8 +859,9 @@ logged in to it.
 - **Janus asks before every question** in chat: the approval card shows the
   agent and the exact prompt. The other agent does not see your conversation,
   only that prompt, and the prompt goes to that agent's model provider under
-  your own account. Prompts longer than 1,000 characters or with invisible
-  characters are refused.
+  your own account. Prompts longer than 1,000 characters, with invisible
+  characters, or starting with `-` (which the agent would read as an option)
+  are refused.
 - **Read-only by default.** The agents can read and explain the files in
   `coding_agents_working_dir`, but not change them. With
   `coding_agents_allow_edits = true` they may edit files there.

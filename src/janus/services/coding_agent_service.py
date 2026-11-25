@@ -13,7 +13,10 @@ implementation on the shell tool's process fences (``shell_service``).
   ``coding_agents_commands`` (for a CLI version whose flags differ), but cannot
   add new agents. Only agents whose program is on ``PATH`` are offered.
 * **Read-only by default.** Every built-in preset has a read-only and an edit
-  form; the edit form is used only with ``coding_agents_allow_edits``.
+  form; the edit form is used only with ``coding_agents_allow_edits``. An
+  operator command is used as written in both modes ("custom command").
+* **The prompt is never an option.** A prompt starting with ``-`` is refused:
+  the CLIs would parse it as a flag (``--dangerously-skip-permissions``).
 * **What you approve is what runs.** The prompt follows the shell tool's
   approval-preview rules (:func:`shell_service.validate_approvable_text`).
 * **Scrubbed environment.** :data:`shell_service.ENV_PASSTHROUGH` plus the
@@ -206,6 +209,9 @@ def ask(
         shell_service.validate_approvable_text(prompt, label="prompt", max_chars=PROMPT_MAX_CHARS)
     except shell_service.ShellCommandError as exc:
         raise CodingAgentError(str(exc)) from exc
+    if prompt.lstrip().startswith("-"):
+        # The CLIs would parse it as an option (e.g. --dangerously-skip-permissions), not as the prompt.
+        raise CodingAgentError("the prompt starts with '-', which the agent would read as an option; reword it")
     if not settings.working_dir.is_dir():
         raise CodingAgentError(f"the working directory {settings.working_dir} does not exist")
     try:
@@ -219,13 +225,20 @@ def ask(
         raise CodingAgentError(str(exc)) from exc
 
 
+def mode_label(settings: CodingAgentSettings, agent: str) -> str:
+    """How the agent runs: read-only, could edit files, or the operator's own command."""
+    if agent in settings.commands:
+        return "the operator's custom command"
+    return "could edit files" if settings.allow_edits else "read-only"
+
+
 def format_result(agent: str, result: shell_service.ShellResult, settings: CodingAgentSettings) -> str:
     """Render a result for the model: a status header, then the answer as untrusted text."""
     if result.timed_out:
         status = f"timed out after {settings.timeout_seconds:g} s and was stopped"
     else:
         status = f"exit code {result.exit_code}"
-    mode = "could edit files" if settings.allow_edits else "read-only"
+    mode = mode_label(settings, agent)
     lines = [
         f"Coding agent {agent} finished: {status} (ran {result.duration_seconds:g} s in "
         f"{settings.working_dir}, {mode})."
@@ -257,4 +270,5 @@ __all__ = [
     "build_argv",
     "configured_template",
     "format_result",
+    "mode_label",
 ]

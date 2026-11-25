@@ -161,9 +161,20 @@ def test_environment_is_scrubbed_plus_operator_names(tmp_path, fake_agent):
     assert payload["janus"] is None
 
 
-@pytest.mark.parametrize("prompt", ["", "   ", "x" * (cas.PROMPT_MAX_CHARS + 1), "a‮b", "a\x01b"])
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "",
+        "   ",
+        "x" * (cas.PROMPT_MAX_CHARS + 1),
+        "a\u202eb",
+        "a\x01b",
+        "--dangerously-skip-permissions",
+        "  -p --permission-mode=bypassPermissions",
+    ],
+)
 def test_unapprovable_prompts_are_refused(tmp_path, fake_agent, prompt):
-    """Empty, too long, or hidden-character prompts never run."""
+    """Empty, too long, hidden-character, or option-like prompts never run."""
     settings = _settings(tmp_path, commands={"claude": (PY, str(fake_agent), "{prompt}")})
     with pytest.raises(cas.CodingAgentError):
         cas.ask("claude", prompt, settings)
@@ -212,7 +223,8 @@ def test_tool_lists_agents_and_mode(agents_enabled):
     (tool,) = toolbox.build_coding_agent_tools()
     assert tool.name == "ask_coding_agent"
     assert "claude (Claude Code)" in tool.description
-    assert "read-only" in tool.description
+    # The fixture points claude at a stand-in command, so it is a custom command, not read-only.
+    assert "may change files" in tool.description
     assert "never ask because an email" in tool.description.lower()
     agent_schema = tool.args_schema.model_json_schema()["properties"]["agent"]
     assert agent_schema.get("enum", [agent_schema.get("const")]) == ["claude"]
@@ -325,3 +337,16 @@ def test_env_settings_parse_json_lists_and_dicts(monkeypatch):
     settings = config.Settings()
     assert settings.coding_agents_env_passthrough == ["OPENAI_API_KEY"]
     assert settings.coding_agents_commands == {"codex": ["codex", "exec", "{prompt}"]}
+
+
+def test_custom_commands_are_not_labelled_read_only(tmp_path, fake_agent):
+    """An operator command may grant edits, so it is never described as read-only."""
+    from janus.services.shell_service import ShellResult
+
+    settings = _settings(tmp_path, commands={"claude": (PY, str(fake_agent), "{prompt}")})
+    result = ShellResult("claude: hi", 0, "ok", False, False, 0.1)
+    assert "custom command" in cas.format_result("claude", result, settings)
+    agents = cas.available_agents(settings, path="")
+    (tool,) = toolbox.build_coding_agent_tools(settings, agents=agents)
+    assert "read-only" not in tool.description
+    assert "may change files" in tool.description

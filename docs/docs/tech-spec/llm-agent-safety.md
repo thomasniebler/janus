@@ -995,12 +995,19 @@ unchanged. Feature spec: [External Agents](../feature-specs/external-agents.md).
   (at most 1,000 characters, no control or invisible characters other than
   tab and newline), and the toolbox refuses the call unless
   `preview_args({"agent", "prompt"})` is uncut and unredacted.
+- **Prompt is never an option:** a prompt whose first non-space character is
+  `-` is refused. Both CLIs parse such an argument as a flag even in the
+  prompt position (Claude Code takes `"--version"` as `--version`), so
+  `--dangerously-skip-permissions` or `--sandbox=danger-full-access` would
+  otherwise lift the read-only fence.
 - **Read-only by default:** each preset has a read-only argv (Claude Code
   `--permission-mode dontAsk`, which refuses every tool call that would need
   a permission prompt; Codex `--sandbox read-only`) and an edit argv used
   only with `coding_agents_allow_edits` (`acceptEdits`,
   `--sandbox workspace-write`). These are the CLIs' own fences, so they are
-  only as strong as each CLI's implementation.
+  only as strong as each CLI's implementation. An operator command is used
+  as written in both modes; the description and result then call it the
+  operator's custom command instead of claiming read-only.
 - **Environment:** `scrubbed_environment()` plus the names in
   `coding_agents_env_passthrough` that are valid identifiers and do not start
   with `JANUS_` (case-insensitive). The CLIs read their logins from `HOME`.
