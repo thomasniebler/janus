@@ -1,15 +1,15 @@
 name: Deploy to Uberspace
 
 on:
+  # No `release: published` trigger: release-please.yml calls this after building and
+  # smoke-testing the artifacts, and its release (made with RELEASE_PLEASE_TOKEN) would otherwise
+  # start a second, unordered deploy.
   workflow_call:
     inputs:
       ref:
         description: "Git ref to deploy (defaults to main)"
         required: false
         type: string
-  release:
-    types:
-      - published
   workflow_dispatch:
     inputs:
       ref:

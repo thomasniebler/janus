@@ -114,16 +114,14 @@ def test_pr_title_reruns_on_edit_without_ci():
     assert "edited" not in _triggers(_load("ci.yml"))["pull_request"]["types"]
 
 
-def test_release_prs_get_the_required_checks_by_dispatch():
-    """The Actions token's release PR starts no pull_request workflows, so release-please dispatches them."""
-    assert "workflow_dispatch" in _triggers(_load("ci.yml"))
-    assert "workflow_dispatch" in _triggers(_load("pr-title.yml"))
+def test_release_prs_are_opened_with_a_token_that_starts_their_checks():
+    """The release PR must run ci-result and pr-title like any PR, so release-please opens it with its own token."""
     workflow = _load("release-please.yml")
-    assert workflow["permissions"]["actions"] == "write"
-    step = next(
-        s for s in workflow["jobs"]["release-please"]["steps"] if s.get("name", "").startswith("Run the required")
-    )
-    assert "gh workflow run ci.yml" in step["run"] and "gh workflow run pr-title.yml" in step["run"]
+    step = next(s for s in workflow["jobs"]["release-please"]["steps"] if s.get("id") == "release")
+    assert "secrets.RELEASE_PLEASE_TOKEN" in step["with"]["token"]
+    assert "actions" not in workflow["permissions"]
+    # A token-made release fires `release` events, so the deploy runs only when release-please calls it.
+    assert "release" not in _triggers(_load("deploy-uberspace.yml"))
 
 
 def test_ci_runs_on_pull_requests_and_nightly_not_per_push_to_main():

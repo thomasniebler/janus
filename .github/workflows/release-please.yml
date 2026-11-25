@@ -6,7 +6,6 @@ on:
       - main
 
 permissions:
-  actions: write
   contents: write
   pull-requests: write
 
@@ -21,19 +20,14 @@ jobs:
       # Manifest mode: release-please-config.json and .release-please-manifest.json
       # at the repo root. The config also bumps the janus entry in uv.lock (JAN-290),
       # which the plain `release-type: python` mode cannot do.
+      # RELEASE_PLEASE_TOKEN (a fine-grained token: this repository, contents + pull requests
+      # read/write) opens the release PR as the maintainer. The main ruleset requires ci-result and
+      # pr-title, and a PR the Actions token opens or updates starts no checks by itself (GitHub
+      # holds them for approval); runs dispatched by hand are not linked to the PR either.
       - uses: googleapis/release-please-action@v5
         id: release
-      # The main ruleset requires ci-result and pr-title, but pull_request events for a PR the
-      # Actions token opened or updated start no workflows. A dispatch is the one event that token
-      # may trigger, and its checks count for the release PR's head commit.
-      - name: Run the required checks on the release PR
-        if: ${{ steps.release.outputs.pr }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
-        run: |
-          gh workflow run ci.yml -R "$GITHUB_REPOSITORY" --ref "$BRANCH"
-          gh workflow run pr-title.yml -R "$GITHUB_REPOSITORY" --ref "$BRANCH"
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
 
   build-and-release-artifacts:
     needs: release-please
