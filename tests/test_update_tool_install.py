@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from janus import config, resources
-from janus.services import update_boot, update_service
+from janus.services import update_boot, update_service, update_tool_install
 
 WHEEL_NEW = b"new wheel"
 WHEEL_OLD = b"old wheel"
@@ -118,14 +118,14 @@ def test_tool_install_commands_keep_the_installed_extras(tmp_path, monkeypatch):
     """Both uv and pipx reinstall from the wheel with the extras installed now."""
     monkeypatch.setattr(update_service, "_is_installed", lambda dist: dist in {"neonize", "pystray"})
     wheel = tmp_path / "janus-1.1.0-py3-none-any.whl"
-    uv = update_service._tool_install_command(update_service.UV_TOOL, "uv", wheel)
+    uv = update_tool_install.install_command(update_service.UV_TOOL, "uv", wheel)
     assert uv[:4] == ["uv", "tool", "install", "--force"]
     assert uv[-1] == f"janus[desktop,whatsapp] @ {wheel.as_uri()}"
-    pipx = update_service._tool_install_command(update_service.PIPX, "pipx", wheel)
+    pipx = update_tool_install.install_command(update_service.PIPX, "pipx", wheel)
     assert pipx == ["pipx", "install", "--force", f"{wheel}[desktop,whatsapp]"]
 
     monkeypatch.setattr(update_service, "_is_installed", lambda dist: False)
-    assert update_service._tool_install_command(update_service.UV_TOOL, "uv", wheel)[-1] == str(wheel)
+    assert update_tool_install.install_command(update_service.UV_TOOL, "uv", wheel)[-1] == str(wheel)
 
 
 def test_apply_update_reinstalls_the_tool_and_keeps_the_old_wheel(tool_install, commands):
@@ -138,7 +138,7 @@ def test_apply_update_reinstalls_the_tool_and_keeps_the_old_wheel(tool_install, 
     installed = update_service.apply_update(release, site, client=client)
 
     assert installed.kind == update_service.UV_TOOL and installed.tag == "v1.1.0"
-    kept = update_service.state_dir(site) / update_service.ROLLBACK_WHEEL_DIR / "janus-1.0.0-py3-none-any.whl"
+    kept = update_service.state_dir(site) / update_tool_install.ROLLBACK_WHEEL_DIR / "janus-1.0.0-py3-none-any.whl"
     assert installed.previous_wheel == str(kept) and kept.read_bytes() == WHEEL_OLD
     assert recorded[0][:4] == ["uv", "tool", "install", "--force"]
     assert recorded[0][-1].startswith("janus[whatsapp] @ file://") and "janus-1.1.0" in recorded[0][-1]
@@ -190,7 +190,7 @@ def test_failed_boot_of_a_tool_update_reinstalls_the_previous_wheel(tool_install
     monkeypatch.setattr(update_service, "_restart_requested", threading.Event())
     monkeypatch.setattr(update_boot.event_logger, "log", lambda *a, **k: None)
     done = []
-    monkeypatch.setattr(update_service, "rollback_tool", lambda kind, wheel, db: done.append((kind, wheel)))
+    monkeypatch.setattr(update_tool_install, "rollback", lambda kind, wheel, db: done.append((kind, wheel)))
     monkeypatch.setattr(update_service, "rollback", lambda *a: done.append("git rollback"))
     monkeypatch.setattr(update_service, "reexec", lambda: done.append("reexec"))
 

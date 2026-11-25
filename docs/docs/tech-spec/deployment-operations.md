@@ -136,6 +136,8 @@ CI's backend job runs the same smoke test without a frontend (`task package:smok
 
 ### Tool installs
 
+`services/update_tool_install.py`, called by `apply_update` under the same lock.
+
 - **Eligibility:** `auto_update_enabled` is on and the installer (`uv` or `pipx`) is on the PATH.
   The installed version comes from the `janus` distribution metadata, not `pyproject.toml`.
 - **Install:** download the release's `janus-X.Y.Z-py3-none-any.whl` and check its SHA-256

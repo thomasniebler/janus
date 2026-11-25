@@ -430,7 +430,7 @@ rule = "dangerous-subprocess-use-audit"
 expires = 2027-05-10
 line = "subprocess.run("
 path = "src/janus/services/update_service.py"
-reason = "Self-hosted auto-update's fixed install steps (uv sync --frozen --inexact, the venv Python running a constant -c snippet or scripts/pre_release_snapshot.py), argv lists without a shell; no value from GitHub reaches this call."
+reason = "Self-hosted auto-update's fixed install steps (uv sync --frozen --inexact, the venv Python running a constant -c snippet or scripts/pre_release_snapshot.py, and for a tool install uv tool install / pipx install of a local wheel whose name comes from the validated vX.Y.Z version after its SHA-256 matched), argv lists without a shell; no other value from GitHub reaches this call."
 rule = "dangerous-subprocess-use-audit"
 
 [[tool.janus.semgrep.exceptions]]

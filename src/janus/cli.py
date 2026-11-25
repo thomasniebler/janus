@@ -1,6 +1,5 @@
 """Typer CLI commands for Janus."""
 
-import importlib.util
 import json
 import logging
 import sys
@@ -561,11 +560,7 @@ def config_doctor():  # noqa: C901
             f'Add it: allowed_hosts = ["{base_host}"]'
         )
 
-    if active_settings.database_url.startswith("postgres") and importlib.util.find_spec("psycopg2") is None:
-        errors_found.append(
-            "database_url points to PostgreSQL, but the driver is not installed. "
-            "Install the postgres extra: uv sync --extra postgres (or janus[postgres])."
-        )
+    errors_found.extend(database.driver_problems(active_settings.database_url))
 
     if not active_settings.fernet_key_path.exists():
         warnings_found.append(

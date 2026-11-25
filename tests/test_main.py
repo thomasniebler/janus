@@ -638,7 +638,7 @@ def test_config_doctor_postgres_driver(monkeypatch, tmp_path, installed):
     )
     result = _run_config_doctor(monkeypatch, tmp_path, database_url="postgresql://janus@localhost/janus")
 
-    assert ("the driver is not installed" in result.output) is not installed, result.output
+    assert ("is not installed" in result.output) is not installed, result.output
     assert result.exit_code == (0 if installed else 1), result.output
 
 

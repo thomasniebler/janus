@@ -15,10 +15,7 @@ Janus updates itself in two kinds of install (``install_kind``): a git clone run
 A failure in step 3 or later rolls the checkout, the virtualenv and (once migrations ran) the
 database back to where they were.
 
-A tool install instead downloads the release's wheel (digest-checked), keeps the running
-release's wheel in the state directory for rollback, snapshots the database, reinstalls the tool
-from the new wheel with the optional extras it already has, and runs the same import check and
-migrations; a failure reinstalls the previous wheel and restores the snapshot.
+A tool install is updated by ``update_tool_install.py`` instead.
 
 After a successful install, ``request_restart`` asks the running server to shut down, and
 ``janus start`` re-executes itself on the new code.
@@ -71,7 +68,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CHECKOUT = "checkout"
 UV_TOOL = "uv tool"
 PIPX = "pipx"
-ROLLBACK_WHEEL_DIR = "rollback"
 
 
 class UpdateError(Exception):
@@ -303,10 +299,6 @@ def _download_asset(
 
 def _download_frontend(release: Release, dest_dir: Path, *, client: httpx.Client | None = None) -> Path:
     """Download and unpack the release's frontend build into ``dest_dir``; return the dist dir."""
-    if not release.asset_url:
-        raise UpdateError(f"release {release.tag} has no {FRONTEND_ASSET_NAME} asset (yet)")
-    if not re.fullmatch(r"[0-9a-f]{64}", (release.asset_digest or "").removeprefix("sha256:")):
-        raise UpdateError(f"release {release.tag}'s {FRONTEND_ASSET_NAME} has no SHA-256 digest")
     archive = _download_asset(release.asset_url, release.asset_digest, FRONTEND_ASSET_NAME, dest_dir, client=client)
 
     dist = dest_dir / "dist"
@@ -332,7 +324,7 @@ def _run(command: list[str], cwd: Path, what: str) -> None:
 
 
 #: Optional extras -> a distribution that is installed exactly when the extra is.
-_EXTRA_MARKERS = {
+EXTRA_MARKERS = {
     "desktop": "pystray",
     "documents": "markitdown",
     "postgres": "psycopg2-binary",
@@ -352,7 +344,7 @@ def _sync_command(uv: str, repo_root: Path) -> list[str]:
     except (OSError, KeyError, tomllib.TOMLDecodeError):
         defined = {}
     command = [uv, "sync", "--frozen", "--inexact"]
-    for extra, marker in sorted(_EXTRA_MARKERS.items()):
+    for extra, marker in sorted(EXTRA_MARKERS.items()):
         if extra in defined and _is_installed(marker):
             command += ["--extra", extra]
     return command
@@ -376,23 +368,6 @@ def _sqlite_path() -> Path | None:
     if url.get_backend_name() != "sqlite" or not url.database or url.database == ":memory:":
         return None
     return Path(url.database).expanduser().resolve()
-
-
-def _snapshot_database(db_path: Path) -> None:
-    """Write ``janus.pre-release.db`` next to the database with SQLite's online backup."""
-    snapshot = db_path.with_name(SNAPSHOT_NAME)
-    snapshot.unlink(missing_ok=True)
-    try:
-        source = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-        target = sqlite3.connect(snapshot)
-        try:
-            source.backup(target)
-        finally:
-            source.close()
-            target.close()
-    except sqlite3.Error as exc:
-        snapshot.unlink(missing_ok=True)
-        raise UpdateError(f"database snapshot failed: {exc}") from exc
 
 
 def _restore_snapshot(db_path: Path) -> None:
@@ -453,7 +428,9 @@ def apply_update(release: Release, repo_root: Path = REPO_ROOT, *, client: httpx
     with _install_lock(repo_root):
         if kind == CHECKOUT:
             return _apply_update_locked(release, repo_root, client)
-        return _apply_tool_update_locked(release, repo_root, kind, client)
+        from janus.services import update_tool_install  # imports this module
+
+        return update_tool_install.apply_locked(release, repo_root, kind, client)
 
 
 def _apply_update_locked(release: Release, repo_root: Path, client: httpx.Client | None) -> Installed:
@@ -511,90 +488,6 @@ def rollback(repo_root: Path, uv: str, old_commit: str, branch: str | None, db_p
         ),
         ("uv sync", lambda: _run(_sync_command(uv, repo_root), repo_root, "uv sync")),
     ]
-    if db_path is not None and db_path.with_name(SNAPSHOT_NAME).is_file():
-        steps.append(("database restore", lambda: _restore_snapshot(db_path)))
-    for name, step in steps:
-        try:
-            step()
-        except Exception:
-            logger.exception("Auto-update rollback step '%s' failed; fix the install by hand", name)
-
-
-def _tool_install_command(kind: str, tool: str, wheel: Path) -> list[str]:
-    """Reinstall the tool from ``wheel``, keeping the optional extras installed now."""
-    extras = ",".join(extra for extra, marker in sorted(_EXTRA_MARKERS.items()) if _is_installed(marker))
-    if kind == UV_TOOL:
-        spec = f"janus[{extras}] @ {wheel.as_uri()}" if extras else str(wheel)
-        python = f"{sys.version_info.major}.{sys.version_info.minor}"
-        return [tool, "tool", "install", "--force", "--python", python, spec]
-    return [tool, "install", "--force", f"{wheel}[{extras}]" if extras else str(wheel)]
-
-
-def _keep_rollback_wheel(repo_root: Path, *, client: httpx.Client | None) -> Path:
-    """Download the running release's wheel into the state directory, for a later rollback."""
-    current_tag = f"v{format_version(installed_version(repo_root))}"
-    directory = state_dir(repo_root) / ROLLBACK_WHEEL_DIR
-    directory.mkdir(parents=True, exist_ok=True)
-    current = fetch_release(current_tag, client=client)
-    kept = directory / current.wheel_name
-    if kept.is_file():
-        return kept
-    for stale in directory.glob("*.whl"):
-        stale.unlink()
-    try:
-        return _download_asset(current.wheel_url, current.wheel_digest, current.wheel_name, directory, client=client)
-    except UpdateError as exc:
-        raise UpdateError(f"cannot keep {current_tag} for a rollback: {exc}") from exc
-
-
-def _apply_tool_update_locked(release: Release, repo_root: Path, kind: str, client: httpx.Client | None) -> Installed:
-    status = eligibility(repo_root)
-    if not status.eligible:
-        raise UpdateError(f"not updating: {status.reason}")
-    tool = tool_executable(kind)
-    assert tool is not None  # eligibility checked it
-    python = sys.executable
-    db_path = _sqlite_path()
-    here = Path.cwd()
-
-    with tempfile.TemporaryDirectory(prefix="janus-update-") as workdir:
-        wheel = _download_asset(
-            release.wheel_url, release.wheel_digest, release.wheel_name, Path(workdir), client=client
-        )
-        previous = _keep_rollback_wheel(repo_root, client=client)
-        if db_path is not None and db_path.is_file():
-            _snapshot_database(db_path)
-        migrated = False
-        try:
-            _run(_tool_install_command(kind, tool, wheel), here, f"{kind} install")
-            _run([python, "-c", "import janus.main"], here, "import check")
-            migrated = True
-            _run(
-                [python, "-c", "from janus import database; database.ensure_schema_up_to_date()"],
-                here,
-                "database migration",
-            )
-        except Exception:
-            logger.exception("Auto-update to %s failed; reinstalling %s", release.tag, previous.name)
-            rollback_tool(kind, str(previous), db_path if migrated else None)
-            raise
-    logger.info("Installed Janus %s; restart pending", release.tag)
-    return Installed(release.tag, "", None, kind=kind, previous_wheel=str(previous))
-
-
-def rollback_tool(kind: str, previous_wheel: str, db_path: Path | None) -> None:
-    """Best-effort reinstall of ``previous_wheel``; logs (never raises) what could not be undone."""
-    steps: list[tuple[str, Callable[[], object]]] = []
-    tool = tool_executable(kind)
-    if tool is not None:
-        steps.append(
-            (
-                f"{kind} install",
-                lambda: _run(_tool_install_command(kind, tool, Path(previous_wheel)), Path.cwd(), "reinstall"),
-            )
-        )
-    else:
-        logger.error("Auto-update rollback: %s is gone; reinstall %s by hand", kind, previous_wheel)
     if db_path is not None and db_path.with_name(SNAPSHOT_NAME).is_file():
         steps.append(("database restore", lambda: _restore_snapshot(db_path)))
     for name, step in steps:

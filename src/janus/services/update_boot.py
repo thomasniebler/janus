@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from janus import event_logger, models
-from janus.services import update_service
+from janus.services import update_service, update_tool_install
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ def recover(record: dict[str, Any], repo_root: Path = update_service.REPO_ROOT) 
         uv = update_service.find_uv() or "uv"
         update_service.rollback(repo_root, uv, str(record["previous_commit"]), record.get("branch"), db_path)
     else:
-        update_service.rollback_tool(kind, str(record["previous_wheel"]), db_path)
+        update_tool_install.rollback(kind, str(record["previous_wheel"]), db_path)
     previous = repo_root / "frontend" / ".dist-previous"
     if previous.is_dir():
         current = repo_root / "frontend" / "dist"

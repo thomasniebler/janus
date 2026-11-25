@@ -339,6 +339,7 @@ def test_config_doctor_treats_unspecified_ipv6_bind_host_as_localhost(tmp_path, 
             allowed_hosts=["localhost"],
             fernet_key_path=key_path,
             server_mode=False,
+            database_url="sqlite:///janus.db",
         ),
     )
 
@@ -370,6 +371,7 @@ def test_config_doctor_handles_ipv6_loopback_hosts_consistently(tmp_path, monkey
             allowed_hosts=["[::1]:8080"],
             fernet_key_path=key_path,
             server_mode=True,
+            database_url="sqlite:///janus.db",
         ),
     )
 

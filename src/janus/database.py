@@ -1,5 +1,6 @@
 """Database configuration and session management."""
 
+import importlib.util
 import threading
 from pathlib import Path
 from urllib.parse import unquote
@@ -14,6 +15,20 @@ from alembic import command
 from janus import config, resources, runtime
 
 ALEMBIC_INI_PATH = resources.alembic_ini_path()
+#: URL scheme prefix -> (driver module, the extra that installs it).
+_OPTIONAL_DRIVERS = {"postgres": ("psycopg2", "postgres")}
+
+
+def driver_problems(database_url: str) -> list[str]:
+    """Explain a database URL whose driver is an optional extra that is not installed."""
+    return [
+        f"database_url points to {prefix}, but its driver ({module}) is not installed. "
+        f"Install the {extra} extra: uv sync --extra {extra} (or janus[{extra}])."
+        for prefix, (module, extra) in _OPTIONAL_DRIVERS.items()
+        if database_url.startswith(prefix) and importlib.util.find_spec(module) is None
+    ]
+
+
 _INITIAL_REVISION = "318b4a706a6e"
 _REVISION_ALIASES = {
     "e4f6a7b8c9d0": "b1c2d3e4f5a6",
