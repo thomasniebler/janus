@@ -1000,11 +1000,15 @@ unchanged. Feature spec: [External Agents](../feature-specs/external-agents.md).
   prompt position (Claude Code takes `"--version"` as `--version`), so
   `--dangerously-skip-permissions` or `--sandbox=danger-full-access` would
   otherwise lift the read-only fence.
-- **Read-only by default:** each preset has a read-only argv (Claude Code
-  `--permission-mode dontAsk`, which refuses every tool call that would need
-  a permission prompt; Codex `--sandbox read-only`) and an edit argv used
-  only with `coding_agents_allow_edits` (`acceptEdits`,
-  `--sandbox workspace-write`). These are the CLIs' own fences, so they are
+- **Read-only by default:** each preset has a read-only argv and an edit
+  argv used only with `coding_agents_allow_edits`. Codex: its OS sandbox,
+  `--sandbox read-only` / `workspace-write`. Claude Code: the built-in tool
+  set is restricted with `--tools` (`Read,Grep,Glob`; edits add `Edit,Write`;
+  never `Bash`) and configured MCP servers are skipped with
+  `--strict-mcp-config`; `--permission-mode dontAsk` / `acceptEdits` come on
+  top. The tool restriction is the fence: under `dontAsk` alone, allow rules
+  saved in the user's Claude settings (reachable through `HOME`) would still
+  run, for example a pre-approved `Edit` or `Bash(...)`. These are the CLIs' own fences, so they are
   only as strong as each CLI's implementation. An operator command is used
   as written in both modes; the description and result then call it the
   operator's custom command instead of claiming read-only.

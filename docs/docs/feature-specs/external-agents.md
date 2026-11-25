@@ -48,10 +48,14 @@ One admin-only, operator-opt-in toolbox, `coding_agents`, with one tool,
   feature request, not configuration: we keep the list short on purpose.
   Only agents whose program is on the scrubbed `PATH` are offered, and the
   tool's `agent` argument is an enum of exactly those.
-- **Read-only by default.** Each preset has a read-only form (Claude Code
-  `--permission-mode dontAsk`, Codex `--sandbox read-only`) and an edit form
-  (`acceptEdits`, `--sandbox workspace-write`), used only with
-  `coding_agents_allow_edits`. The Claude Code preset was checked against
+- **Read-only by default.** Each preset has a read-only form and an edit
+  form, used only with `coding_agents_allow_edits`. Codex: `--sandbox
+  read-only` / `workspace-write`. Claude Code: `--tools Read,Grep,Glob` /
+  `--tools Read,Grep,Glob,Edit,Write` with `--strict-mcp-config`, plus
+  `--permission-mode dontAsk` / `acceptEdits`. A permission mode alone is not
+  enough, because saved allow rules in the user's Claude settings still apply
+  under `dontAsk` (found in review); restricting the tool set is the fence,
+  and Claude Code never gets a shell from Janus. The Claude Code preset was checked against
   Claude Code 2.1; the Codex preset follows Codex's documented `exec` flags.
 - **Fences**, shared with the shell tool (`shell_service.run_argv`,
   `validate_approvable_text`):

@@ -863,7 +863,9 @@ logged in to it.
   characters, or starting with `-` (which the agent would read as an option)
   are refused.
 - **Read-only by default.** The agents can read and explain the files in
-  `coding_agents_working_dir`, but not change them. With
+  `coding_agents_working_dir`, but not change them. Claude Code is given only
+  its file-reading tools (and with edits allowed, its file-editing tools,
+  never a shell), whatever you allowed in your own Claude settings. With
   `coding_agents_allow_edits = true` they may edit files there.
 - **Fenced process**, as for *Shell*: no input, a time limit
   (`coding_agents_timeout_seconds`, default 300 s), an output cap

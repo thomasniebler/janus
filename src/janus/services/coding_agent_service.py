@@ -60,8 +60,10 @@ class AgentPreset:
 
 #: The supported agents. The CLIs evolve; ``coding_agents_commands`` can adjust either command.
 BUILTIN_PRESETS: dict[str, AgentPreset] = {
-    # Print mode; "dontAsk" refuses every tool call that would need a permission prompt
-    # (edits, Bash), "acceptEdits" allows file edits only. No session is saved.
+    # Print mode. The permission mode alone is not a fence: saved allow rules in the user's
+    # Claude settings still apply under "dontAsk". So the built-in tools are restricted
+    # explicitly (--tools; read-only: Read/Grep/Glob, edits: plus Edit/Write, never Bash) and
+    # configured MCP servers are skipped (--strict-mcp-config). No session is saved.
     "claude": AgentPreset(
         read_only=(
             "claude",
@@ -69,6 +71,9 @@ BUILTIN_PRESETS: dict[str, AgentPreset] = {
             PROMPT_PLACEHOLDER,
             "--output-format",
             "text",
+            "--tools",
+            "Read,Grep,Glob",
+            "--strict-mcp-config",
             "--permission-mode",
             "dontAsk",
             "--no-session-persistence",
@@ -79,6 +84,9 @@ BUILTIN_PRESETS: dict[str, AgentPreset] = {
             PROMPT_PLACEHOLDER,
             "--output-format",
             "text",
+            "--tools",
+            "Read,Grep,Glob,Edit,Write",
+            "--strict-mcp-config",
             "--permission-mode",
             "acceptEdits",
             "--no-session-persistence",

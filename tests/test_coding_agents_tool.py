@@ -93,6 +93,10 @@ def test_presets_are_read_only_unless_edits_are_allowed(tmp_path):
     edits, _ = cas.configured_template(_settings(tmp_path, allow_edits=True), "claude")
     assert "dontAsk" in read_only and "acceptEdits" not in read_only
     assert "acceptEdits" in edits
+    # Saved allow rules still apply under dontAsk, so the tool set itself is restricted.
+    assert read_only[read_only.index("--tools") + 1] == "Read,Grep,Glob"
+    assert edits[edits.index("--tools") + 1] == "Read,Grep,Glob,Edit,Write"
+    assert "--strict-mcp-config" in read_only and "--strict-mcp-config" in edits
     for name, preset in cas.BUILTIN_PRESETS.items():
         assert preset.read_only.count(cas.PROMPT_PLACEHOLDER) == 1, name
         assert preset.edits.count(cas.PROMPT_PLACEHOLDER) == 1, name

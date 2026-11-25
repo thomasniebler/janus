@@ -743,7 +743,7 @@ each built-in agent whose program it finds on `PATH`:
 
 | Agent | Read-only command (default) | With `coding_agents_allow_edits` |
 |---|---|---|
-| `claude` | `claude -p <prompt> --output-format text --permission-mode dontAsk --no-session-persistence` | `--permission-mode acceptEdits` |
+| `claude` | `claude -p <prompt> --output-format text --tools Read,Grep,Glob --strict-mcp-config --permission-mode dontAsk --no-session-persistence` | `--tools Read,Grep,Glob,Edit,Write` and `--permission-mode acceptEdits` (still no shell) |
 | `codex` | `codex exec --sandbox read-only --skip-git-repo-check <prompt>` | `--sandbox workspace-write` |
 
 These CLIs change between versions. If yours rejects a flag, adjust the
