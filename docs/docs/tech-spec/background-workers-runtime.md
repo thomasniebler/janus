@@ -841,7 +841,10 @@ the services, never by the prompt. Feature spec:
 - **Remote MCP tools in chat (JAN-343).** Chat builds its `RuntimeAdapter`
   per message on `agent_tools.build_managed_registry(db, user)`, which is
   `DEFAULT_TOOL_REGISTRY` plus the user's offered remote tools (enabled tool,
-  enabled server, last discovery `ready`; `agent_toolboxes/remote_mcp.py`).
+  enabled server, last discovery `ready`; `agent_toolboxes/remote_mcp.py`)
+  and switched-on remote A2A agents with a fetched card (`a2a.<id>`,
+  `agent_toolboxes/remote_agents.py`, JAN-404; always `required`, and treated
+  like `mcp.*` ids below through `mcp_metadata.is_remote_tool_id`).
   It passes `TASK_MODE_ALLOWED_TOOL_IDS["chat"]` plus those `mcp.*` ids as
   `allowed_tool_ids`, both to toolset selection and to `prepare_step`.
   - Remote entries are `confirmation="never"` only when the server marked the

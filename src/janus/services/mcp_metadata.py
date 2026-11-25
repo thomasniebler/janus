@@ -44,9 +44,18 @@ def namespaced_tool_id(server_id: int, upstream_name: str) -> str:
     return f"{REMOTE_TOOL_ID_PREFIX}{server_id}.{upstream_name}"
 
 
+#: Prefix of every remote A2A agent's tool id, ``a2a.<agent id>`` (JAN-404; defined here so the policy
+#: modules can test for it without importing the A2A service).
+REMOTE_AGENT_TOOL_ID_PREFIX = "a2a."
+
+
 def is_remote_tool_id(tool_id: str) -> bool:
-    """Return whether a registry id names a remote MCP tool."""
-    return tool_id.startswith(REMOTE_TOOL_ID_PREFIX)
+    """Return whether a registry id names a remote tool: an MCP tool or a remote A2A agent (JAN-404).
+
+    Both reach a third party with model-written arguments, so the policy treats them alike: locked for
+    unattended runs unless *Allow everything*, confirmation-escalated, and widened into chat's allowlist.
+    """
+    return tool_id.startswith((REMOTE_TOOL_ID_PREFIX, REMOTE_AGENT_TOOL_ID_PREFIX))
 
 
 def normalize_annotations(value: Any) -> dict[str, bool] | None:

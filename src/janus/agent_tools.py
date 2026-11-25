@@ -28,6 +28,7 @@ from janus.agent_toolboxes.local_tasks import build_local_task_tools
 from janus.agent_toolboxes.mail import build_mail_tools
 from janus.agent_toolboxes.mail_processing import build_mail_processing_tools
 from janus.agent_toolboxes.memory import build_memory_tools
+from janus.agent_toolboxes.remote_agents import remote_agent_entries
 from janus.agent_toolboxes.remote_mcp import discovered_tools, remote_tool_entries
 from janus.agent_toolboxes.rules import build_rule_tools
 from janus.agent_toolboxes.self_evolution import SELF_EVOLUTION_ENTRY
@@ -476,13 +477,15 @@ DEFAULT_TOOL_REGISTRY = _build_default_registry()
 
 
 def build_managed_registry(db: Session, user: models.User) -> ToolRegistry:
-    """Return the default registry plus the user's offered remote MCP tools (JAN-343).
+    """Return the default registry plus the user's offered remote MCP tools and remote agents (JAN-343, JAN-404).
 
     Chat builds this per message (``websocket/chat.py``); the remote entries
     are enabled only in chat steps. Every other path keeps
     ``DEFAULT_TOOL_REGISTRY``, which never contains remote tools.
     """
-    return ToolRegistry([*DEFAULT_TOOL_REGISTRY.entries(), *remote_tool_entries(db, user)])
+    return ToolRegistry(
+        [*DEFAULT_TOOL_REGISTRY.entries(), *remote_tool_entries(db, user), *remote_agent_entries(db, user)]
+    )
 
 
 def build_policy_registry(db: Session, user: models.User) -> ToolRegistry:
@@ -491,7 +494,11 @@ def build_policy_registry(db: Session, user: models.User) -> ToolRegistry:
     The tool-policy API uses it, so a switch on a tool whose server is disabled or failed discovery can
     still be listed and reset.
     """
-    return ToolRegistry([*DEFAULT_TOOL_REGISTRY.entries(), *remote_tool_entries(db, user, discovered_tools(db, user))])
+    from janus.services.a2a_service import A2AService
+
+    remote = [*remote_tool_entries(db, user, discovered_tools(db, user))]
+    remote += remote_agent_entries(db, user, A2AService(db).list_agents(user))
+    return ToolRegistry([*DEFAULT_TOOL_REGISTRY.entries(), *remote])
 
 
 def build_tool_set(

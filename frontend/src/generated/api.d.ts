@@ -1458,6 +1458,74 @@ export interface paths {
         patch: operations["update_memory_fact_api_memory__fact_id__patch"];
         trace?: never;
     };
+    "/api/tools/a2a-agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Agents
+         * @description List the user's remote agents.
+         */
+        get: operations["list_agents_api_tools_a2a_agents_get"];
+        put?: never;
+        /**
+         * Create Agent
+         * @description Register a remote agent (switched off) and fetch its card; a failed fetch shows in ``last_error``.
+         */
+        post: operations["create_agent_api_tools_a2a_agents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tools/a2a-agents/{agent_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Agent
+         * @description Delete a remote agent and its tool policy.
+         */
+        delete: operations["delete_agent_api_tools_a2a_agents__agent_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Agent
+         * @description Rename, move, switch on/off, or change the token of a remote agent.
+         */
+        patch: operations["update_agent_api_tools_a2a_agents__agent_id__patch"];
+        trace?: never;
+    };
+    "/api/tools/a2a-agents/{agent_id}/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Agent
+         * @description Fetch the agent card again; a failure switches the agent off and shows in ``last_error``.
+         */
+        post: operations["refresh_agent_api_tools_a2a_agents__agent_id__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tools/registry": {
         parameters: {
             query?: never;
@@ -3639,6 +3707,90 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * A2AAgentCreate
+         * @description Register a remote agent by its base URL; the bearer token is write-only.
+         */
+        A2AAgentCreate: {
+            /** Name */
+            name: string;
+            /** Base Url */
+            base_url: string;
+            /** Token */
+            token?: string | null;
+        };
+        /**
+         * A2AAgentResponse
+         * @description A registered agent without its token.
+         */
+        A2AAgentResponse: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Base Url */
+            base_url: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Card Name */
+            card_name?: string | null;
+            /** Card Description */
+            card_description?: string | null;
+            /** Protocol Version */
+            protocol_version?: string | null;
+            /**
+             * Skills
+             * @default []
+             */
+            skills: components["schemas"]["A2AAgentSkill"][];
+            /** Rpc Url */
+            rpc_url?: string | null;
+            /** Token Configured */
+            token_configured: boolean;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Checked At */
+            last_checked_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * A2AAgentSkill
+         * @description One skill the agent card advertises (untrusted, display only).
+         */
+        A2AAgentSkill: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+        };
+        /**
+         * A2AAgentUpdate
+         * @description Partial update; a new base URL forgets the card and the token.
+         */
+        A2AAgentUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Base Url */
+            base_url?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Token */
+            token?: string | null;
+            /**
+             * Clear Token
+             * @default false
+             */
+            clear_token: boolean;
+        };
         /**
          * AgentMemoryCompactionRunResponse
          * @description Serialized response for a compaction run.
@@ -11860,6 +12012,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentMemoryFactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_agents_api_tools_a2a_agents_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["A2AAgentResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_agent_api_tools_a2a_agents_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["A2AAgentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["A2AAgentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_agent_api_tools_a2a_agents__agent_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                agent_id: number;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_agent_api_tools_a2a_agents__agent_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                agent_id: number;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["A2AAgentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["A2AAgentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_agent_api_tools_a2a_agents__agent_id__refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                agent_id: number;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["A2AAgentResponse"];
                 };
             };
             /** @description Validation Error */

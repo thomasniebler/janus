@@ -1176,6 +1176,26 @@ unchanged. Feature spec: [External Agents](../feature-specs/external-agents.md).
   that passed the scan or that the owner accepted. Remote tools are chat-only:
   `enabled_when` admits only `chat` steps, and `tool_policy.locked_reason`
   locks every `mcp.*` id for unattended runs (JAN-344 tracks opening that).
+- **Remote A2A agents (`a2a.*`, JAN-404).** `agent_toolboxes/remote_agents.py`
+  turns each switched-on agent with a fetched card into one chat tool,
+  `ask_agent_<id>(prompt)`.
+  - Tier: `operation="mixed"`, `risk_level="high"`,
+    `confirmation="required"`, `reads_untrusted_content`.
+  - `mcp_metadata.is_remote_tool_id` matches `a2a.` as well as `mcp.`. So
+    these ids get the same unattended lock (lifted only by *Allow
+    everything*), injection escalation and chat allowlist as remote MCP tools.
+  - The prompt follows the shell tool's exact-preview rule.
+  - Unlike MCP descriptions, nothing the remote card says reaches the model:
+    the tool description is Janus's own text plus the user's label for the
+    agent. The card's description and skills appear only in the settings UI.
+  - Both the base URL and the card's JSON-RPC URL pass
+    `mcp_service.validate_mcp_endpoint`. No redirects are followed and
+    responses are capped at 1 MB.
+  - The bearer token is Fernet-encrypted, write-only, and dropped when the
+    URL changes.
+  - Answers come back inside an escaped `<remote_agent_output>` block and are
+    spotlighted as untrusted.
+  - Details: [External Agents](../feature-specs/external-agents.md).
 - Effective availability intersects owner, server enablement, discovered-tool
   enablement, task allowlists, capabilities, and runtime policy. OAuth,
   static bearer token (JAN-342), and endpoint protections are defined in the [focused MCP registry spec](../feature-specs/mcp-tool-registry/tech-spec.md).

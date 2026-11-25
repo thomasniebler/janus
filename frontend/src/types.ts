@@ -631,6 +631,9 @@ export type ToolChatMode = ApiSchemas['ToolPolicyResponse']['chat_mode'];
 export type ToolPolicyChanges = ApiSchemas['ToolPolicyUpdate'];
 export type ToolPolicy = ApiSchemas['ToolPolicyResponse'];
 
+/** A registered remote A2A agent (JAN-404); its token is write-only and never returned. */
+export type A2AAgent = ApiSchemas['A2AAgentResponse'];
+
 export interface MCPRegistry {
   builtins: MCPBuiltin[];
   remote_servers: MCPServer[];

@@ -89,6 +89,8 @@ CORE_MODULE_BUDGET_EXCEPTIONS = {
 }
 
 API_HELPER_BASELINE = {
+    # JAN-404: remote A2A agent registry (serialize without the token; owner-scoped 404).
+    "src/janus/api/a2a.py": {"_get_or_404", "_response"},
     "src/janus/api/auth.py": {
         "_build_google_login_flow",
         "_client_ip",
