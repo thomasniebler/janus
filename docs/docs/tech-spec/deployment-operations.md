@@ -136,10 +136,28 @@ CI's backend job runs the same smoke test without a frontend (`task package:smok
 
 The distribution is `janus-assistant` (`janus` and `janus-agent` are taken on PyPI); the
 import package and the command stay `janus`, and `update_service.DISTRIBUTION` names it for the
-version lookup and the wheel file name. The `publish-pypi` job in `release-please.yml` uploads
-the wheel and sdist with PyPI trusted publishing (OIDC, no token) from the `pypi` environment. It
-only runs when the repository variable `PYPI_ENABLED` is `true`, which is set after pypi.org has
-a trusted publisher for this repository, workflow `release-please.yml` and environment `pypi`.
+version lookup and the wheel file name (`api/status.py` and `scripts/release_host_checks.py` read
+the same distribution).
+
+### Publishing to PyPI
+
+`.github/workflows/publish-pypi.yml` downloads a release's `janus_assistant-X.Y.Z` wheel and sdist
+from the GitHub release, checks that the wheel carries `janus/_data/frontend/index.html` and
+`janus/_data/alembic.ini`, and uploads both with PyPI trusted publishing (OIDC, no API token)
+from the `pypi` environment. `release-please.yml`'s `publish-pypi` job calls it after each
+release once the repository variable `PYPI_ENABLED` is `true`; a manual run (`workflow_dispatch`,
+input `tag`) publishes an existing release, for example the first upload that claims the name.
+
+One-time setup, done by the PyPI account owner:
+
+1. On <https://pypi.org/manage/account/publishing/>, add a pending trusted publisher for project
+   `janus-assistant`, owner `thomasniebler`, repository `janus`, workflow `publish-pypi.yml`,
+   environment `pypi`; once the project exists, add a second one with workflow
+   `release-please.yml` (PyPI checks the top-level workflow, which is the caller for releases).
+2. Publish the first release by hand (`gh workflow run publish-pypi.yml -f tag=vX.Y.Z`); until
+   that upload, anyone can register the name.
+3. Set `PYPI_ENABLED=true` (`gh variable set PYPI_ENABLED --body true`) so every later release
+   publishes itself.
 
 ### Tool installs
 
