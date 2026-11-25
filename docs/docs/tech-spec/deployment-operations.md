@@ -125,9 +125,11 @@ checkout; [Tool installs](#tool-installs) covers the wheel.
 
 ### Packaging
 
-`pyproject.toml` builds with hatchling. `hatch_build.py` copies `alembic.ini`, `alembic/` and
-`frontend/dist/` into the wheel under `janus/_data`, and `src/janus/resources.py` resolves the
-migrations and the frontend there first, falling back to the repository paths in a checkout. The
+`pyproject.toml` builds with hatchling. `hatch_build.py` copies `alembic.ini`, `alembic/`,
+`frontend/dist/` and the in-app docs (`docs/docs`, `docs/zensical.toml`, `TECH_SPEC.md`,
+`CHANGELOG.md`, under `docs_root/`) into the wheel under `janus/_data`, and
+`src/janus/resources.py` resolves them there first, falling back to the repository paths in a
+checkout. The
 sdist lists `frontend/dist` as an artifact, so the wheel `uv build` makes from it still carries the
 UI. `release-please.yml` builds the frontend before `uv build`, uploads the wheel, the sdist and
 `janus-frontend-dist.tar.gz`, and first runs `scripts/wheel_smoke.sh --require-frontend` on the
@@ -166,10 +168,12 @@ One-time setup, done by the PyPI account owner:
 - **Eligibility:** `auto_update_enabled` is on and the installer (`uv` or `pipx`) is on the PATH.
   The installed version comes from the `janus` distribution metadata, not `pyproject.toml`.
 - **Install:** download the release's `janus_assistant-X.Y.Z-py3-none-any.whl` and check its SHA-256
-  `digest`; download the running release's wheel into `<state dir>/rollback/` (refused if that is
-  not possible, so a rollback never needs the network); take the pre-release snapshot in-process
+  `digest` (downloads go to a `.part` file renamed into place only after the digest matched);
+  keep the running release's wheel in `<state dir>/rollback/`, re-checked against its published
+  digest before reuse (refused if that is not possible, so a rollback never needs the network); take the pre-release snapshot in-process
   with SQLite's backup API; `uv tool install --force --python X.Y "janus-assistant[extras] @ file://…"` or
-  `pipx install --force "…whl[extras]"`, with the extras detected the same way as in a checkout
+  `pipx install --force [--suffix=…] "…whl[extras]"` (keeping the `--suffix` from
+  `pipx_metadata.json`, so the running environment is the one replaced), with the extras detected the same way as in a checkout
   (now including `postgres`); then the same import check and migration children.
 - **Rollback and boot recovery:** a failure reinstalls the kept wheel and, once migrations started,
   restores the snapshot. Bookkeeping (`janus-update.lock`, `janus-update-pending.json`,

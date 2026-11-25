@@ -49,6 +49,10 @@ if sys.argv[1] == "true":
     assert has_frontend, "the wheel has no frontend; build it before the wheel"
 assert update_service.install_kind() == update_service.UV_TOOL, update_service.install_kind()
 update_service.installed_version()  # reads the janus-assistant distribution metadata
+from janus.services import docs_service
+
+assert docs_service.resolve_doc_path("").is_file(), "the in-app docs are missing from the wheel"
+assert docs_service.NAV_CONFIG.is_file(), "docs/zensical.toml is missing from the wheel"
 database.ensure_schema_up_to_date()
 print(f"PASS  wheel installs as a uv tool, migrates a fresh database, frontend={'yes' if has_frontend else 'no'}")
 PY

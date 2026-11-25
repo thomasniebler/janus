@@ -221,3 +221,59 @@ def test_resources_fall_back_to_the_checkout(monkeypatch, tmp_path):
     assert resources.is_packaged_install()
     assert resources.alembic_ini_path() == tmp_path / "_data" / "alembic.ini"
     assert resources.frontend_dist_dir() == tmp_path / "_data" / "frontend"
+
+
+def test_a_broken_download_leaves_no_file_behind(tmp_path):
+    """A connection that drops mid-download, or a digest mismatch, leaves nothing at the target."""
+
+    def dropping(request: httpx.Request) -> httpx.Response:
+        def body():
+            yield b"partial"
+            raise httpx.ReadError("connection lost")
+
+        return httpx.Response(200, content=body())
+
+    client = httpx.Client(transport=httpx.MockTransport(dropping))
+    digest = "sha256:" + "a" * 64
+    with pytest.raises(update_service.UpdateError):
+        update_service._download_asset("https://example.invalid/w.whl", digest, "w.whl", tmp_path, client=client)
+    assert list(tmp_path.iterdir()) == []
+
+    good = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, content=b"other bytes")))
+    with pytest.raises(update_service.UpdateError, match="SHA-256"):
+        update_service._download_asset("https://example.invalid/w.whl", digest, "w.whl", tmp_path, client=good)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_corrupt_kept_wheel_is_downloaded_again(tool_install):
+    """A kept rollback wheel that no longer matches its published digest is replaced."""
+    site, _ = tool_install
+    directory = update_service.state_dir(site) / update_tool_install.ROLLBACK_WHEEL_DIR
+    directory.mkdir(parents=True)
+    (directory / "janus_assistant-1.0.0-py3-none-any.whl").write_bytes(b"truncated")
+
+    kept = update_tool_install._keep_rollback_wheel(site, client=_client())
+
+    assert kept.read_bytes() == WHEEL_OLD
+
+
+def test_pipx_reinstall_keeps_the_environment_suffix(tmp_path, monkeypatch):
+    """A `pipx install --suffix` environment is reinstalled under the same suffix."""
+    env = tmp_path / "janus-assistant@beta"
+    env.mkdir()
+    (env / "pipx_metadata.json").write_text('{"main_package": {"package": "janus-assistant", "suffix": "@beta"}}')
+    monkeypatch.setattr(sys, "prefix", str(env))
+    monkeypatch.setattr(update_service, "_is_installed", lambda dist: False)
+    wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
+
+    command = update_tool_install.install_command(update_service.PIPX, "pipx", wheel)
+
+    assert command == ["pipx", "install", "--force", "--suffix=@beta", str(wheel)]
+
+
+def test_docs_resolve_from_the_package_or_the_checkout(monkeypatch, tmp_path):
+    """The in-app docs come from janus/_data/docs_root in a wheel, else from the repository."""
+    monkeypatch.setattr(resources, "PACKAGE_DATA_DIR", tmp_path / "_data")
+    assert resources.docs_root() == resources.REPO_ROOT
+    (tmp_path / "_data" / "docs_root").mkdir(parents=True)
+    assert resources.docs_root() == tmp_path / "_data" / "docs_root"

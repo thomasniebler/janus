@@ -278,6 +278,7 @@ def _download_asset(
         raise UpdateError(f"{name} has no SHA-256 digest")
 
     path = dest / name
+    partial = dest / f".{name}.part"  # renamed into place only once the digest matched
     sha = hashlib.sha256()
     size = 0
     try:
@@ -286,7 +287,7 @@ def _download_asset(
         try:
             with http.stream("GET", url, headers={"User-Agent": "janus-auto-update"}) as response:
                 response.raise_for_status()
-                with path.open("wb") as handle:
+                with partial.open("wb") as handle:
                     for chunk in response.iter_bytes():
                         size += len(chunk)
                         if size > _MAX_ASSET_BYTES:
@@ -296,11 +297,15 @@ def _download_asset(
         finally:
             if owned:
                 http.close()
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, UpdateError) as exc:
+        partial.unlink(missing_ok=True)
+        if isinstance(exc, UpdateError):
+            raise
         raise UpdateError(f"could not download {name}: {exc}") from exc
     if sha.hexdigest() != expected:
-        path.unlink(missing_ok=True)
+        partial.unlink(missing_ok=True)
         raise UpdateError(f"{name} does not match its published SHA-256 digest")
+    partial.replace(path)
     return path
 
 
