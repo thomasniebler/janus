@@ -977,6 +977,12 @@ const stats = {
     },
     character: { totals: { proposed: 0, approved: 1, rejected: 1 }, total: 2, approval_rate: 0.5, median_hours_to_decision: 12 },
   },
+  llm: {
+    per_day: [],
+    by_surface: [{ surface: 'chat', calls: 4, input_tokens: 1200, output_tokens: 300 }],
+    by_model: [{ model: 'ollama/llama3', calls: 4, input_tokens: 1200, output_tokens: 300 }],
+    totals: { calls: 4, input_tokens: 1200, output_tokens: 300, unreported_calls: 0 },
+  },
 };
 
 describe('WhatsApp responses', () => {

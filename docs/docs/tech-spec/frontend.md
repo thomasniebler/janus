@@ -330,8 +330,10 @@ fact / topic / wiki / knowledge-source counts with new facts per day; an
 **Approvals** card (`features/stats/ApprovalStatsCard.tsx`, JAN-371) with one tile
 each for suggested automations, tool approvals in chat, and character changes
 (approval rate, outcome counts, median time to decide where recorded, and a
-note that a rate near 100% can also mean rubber-stamping); and
-WhatsApp received/sent plus chat you/Janus messages per day. Charts are
+note that a rate near 100% can also mean rubber-stamping); an **LLM usage**
+card (`features/stats/LlmUsageCard.tsx`, JAN-408) with call and token tiles
+(including calls without token counts), tokens per day, and tables by surface
+and by model; and WhatsApp received/sent plus chat you/Janus messages per day. Charts are
 `features/stats/DailyBarChart.tsx`: dependency-free SVG stacked columns with a
 per-day hover tooltip, a legend for multi-series charts, and a **Show table**
 view. Categorical series use the validated four-slot palette and run outcomes

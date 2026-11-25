@@ -5,6 +5,7 @@ import { BarChart3, RefreshCw } from 'lucide-react';
 
 import { statsApi } from '../api';
 import { ApprovalStatsCard } from '../components/features/stats/ApprovalStatsCard';
+import { LlmUsageCard } from '../components/features/stats/LlmUsageCard';
 import { DailyBarChart, VIZ_STYLE, type DailySeries } from '../components/features/stats/DailyBarChart';
 import { percent } from '../components/features/stats/format';
 import { StatTile } from '../components/features/stats/StatTile';
@@ -172,6 +173,8 @@ const StatsPage: React.FC = () => {
           </Card>
 
           <ApprovalStatsCard approvals={data.approvals} />
+
+          <LlmUsageCard usage={data.llm} days={days} />
 
           <Card>
             <CardHeader><h3 className="font-bold">Memory &amp; knowledge</h3></CardHeader>

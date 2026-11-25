@@ -79,6 +79,7 @@ from janus.models.events import (
     Event,
     EventType,
 )
+from janus.models.llm_usage import LlmUsageDay
 from janus.models.mcp import (
     MCPCredential,
     MCPDiscoveredTool,
@@ -293,4 +294,5 @@ __all__ = [
     "to_dict",
     "utcnow",
     "WebhookEndpoint",
+    "LlmUsageDay",
 ]

@@ -30,6 +30,7 @@ Scope: the `janus.models` package under `src/janus/models/`, the SQLAlchemy ORM 
 | `settings.py` | `Settings` (`settings`, per-user system and LLM settings) |
 | `mcp.py` | `MCPServer`, `MCPDiscoveredTool`, `MCPCredential` |
 | `webhooks.py` | `WebhookEndpoint` (`webhook_endpoints`, JAN-406): inbound webhook URLs with the SHA-256 of their key, a display prefix, the Fernet-encrypted HMAC secret, and a delivery counter |
+| `llm_usage.py` | `LlmUsageDay` (`llm_usage_days`, JAN-408): model calls and input/output tokens per user, UTC day, surface and model, plus calls whose provider reported no usage |
 | `a2a.py` | `A2AAgent` (`a2a_agents`, JAN-404): the user's remote A2A agents with the bounded card, JSON-RPC URL and Fernet-encrypted bearer token |
 
 ## Rules

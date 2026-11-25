@@ -41,6 +41,7 @@ nav = [
     {"Inbound Webhooks" = "feature-specs/inbound-webhooks.md"},
     {"Janus-started Conversations" = "feature-specs/agent-started-conversations.md"},
     {"Knowledge Graph and Wiki" = "feature-specs/knowledge-graph-and-wiki.md"},
+    {"LLM Usage Tracking" = "feature-specs/llm-usage-tracking.md"},
     {"Knowledge Stack Visualization" = "feature-specs/knowledge-stack-visualization.md"},
     {"MCP Tool Registry" = "feature-specs/mcp-tool-registry/feature-description.md"},
     {"Plan-driven Janus Runtime" = "feature-specs/plan-driven-janus-runtime.md"},

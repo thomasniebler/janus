@@ -42,6 +42,7 @@ from janus import (
     database,
     event_logger,
     llm_service,
+    llm_usage,
     models,
     prompt_injection,
     security,
@@ -302,6 +303,7 @@ async def ws_chat(  # noqa: C901
     user = db.merge(user, load=False)
     # Everything this connection logs belongs to its user (JAN-272).
     owner_token = event_logger.bind_owner(user.id)
+    surface_token = llm_usage.bind_surface("chat")  # usage accounting (JAN-408)
     inbox = ChatInbox(websocket)
     send = inbox.send
     try:
@@ -582,6 +584,7 @@ async def ws_chat(  # noqa: C901
     finally:
         await inbox.stop()
         event_logger.release_owner(owner_token)
+        llm_usage.release_surface(surface_token)
         db.close()
 
 

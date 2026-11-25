@@ -73,7 +73,7 @@ class StatsService(BaseService):
     def summary(
         self, user_id: int, *, days: int, tz_name: str | None = None, now: datetime | None = None
     ) -> dict[str, Any]:
-        """Return mail, trigger, memory/knowledge, and messaging statistics for the last ``days`` days."""
+        """Return mail, trigger, memory/knowledge, messaging, approval, and LLM usage statistics for ``days`` days."""
         if days not in ALLOWED_RANGES_DAYS:
             raise StatsError(f"days must be one of: {', '.join(str(value) for value in ALLOWED_RANGES_DAYS)}")
         zone = _zone(tz_name)
@@ -97,6 +97,43 @@ class StatsService(BaseService):
             "memory": self._memory(user_id, start, end, dates, day_of),
             "messaging": self._messaging(user_id, start, end, dates, day_of),
             "approvals": self._approvals(user_id, start, end),
+            "llm": self._llm(user_id, dates),
+        }
+
+    def _llm(self, user_id: int, dates: list[date]) -> dict[str, Any]:
+        """LLM calls and tokens (JAN-408); rows are kept per UTC day, so day edges follow UTC."""
+        table = models.LlmUsageDay
+        rows = self.db.execute(
+            select(
+                table.day,
+                table.surface,
+                table.model,
+                table.calls,
+                table.input_tokens,
+                table.output_tokens,
+                table.unreported_calls,
+            ).where(table.user_id == user_id, table.day >= dates[0], table.day <= dates[-1])
+        )
+        per_day: dict[date, Counter] = defaultdict(Counter)
+        by_surface: dict[str, Counter] = defaultdict(Counter)
+        by_model: dict[str, Counter] = defaultdict(Counter)
+        totals: Counter = Counter()
+        for day, surface, model, calls, input_tokens, output_tokens, unreported in rows:
+            values = {"calls": calls, "input_tokens": input_tokens, "output_tokens": output_tokens}
+            for bucket in (per_day[day], by_surface[surface], by_model[model], totals):
+                bucket.update(values)
+            totals["unreported_calls"] += unreported
+        keys = ("calls", "input_tokens", "output_tokens")
+        return {
+            "per_day": self._series(dates, per_day, keys),
+            "by_surface": [{"surface": name, **{k: c[k] for k in keys}} for name, c in sorted(by_surface.items())],
+            "by_model": [
+                {"model": name, **{k: c[k] for k in keys}}
+                for name, c in sorted(
+                    by_model.items(), key=lambda item: -item[1]["input_tokens"] - item[1]["output_tokens"]
+                )
+            ],
+            "totals": {key: totals[key] for key in (*keys, "unreported_calls")},
         }
 
     @staticmethod

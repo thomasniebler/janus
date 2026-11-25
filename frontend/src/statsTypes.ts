@@ -66,4 +66,11 @@ export interface StatsSummary {
     chat_tools: DecisionStats<'approved' | 'denied' | 'timeout' | 'disconnected' | 'unavailable'>;
     character: DecisionStats<'proposed' | 'approved' | 'rejected'>;
   };
+  /** LLM calls and tokens (JAN-408); days follow UTC. */
+  llm: {
+    per_day: { date: string; calls: number; input_tokens: number; output_tokens: number }[];
+    by_surface: { surface: string; calls: number; input_tokens: number; output_tokens: number }[];
+    by_model: { model: string; calls: number; input_tokens: number; output_tokens: number }[];
+    totals: Record<'calls' | 'input_tokens' | 'output_tokens' | 'unreported_calls', number>;
+  };
 }

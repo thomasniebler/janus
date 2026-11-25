@@ -25078,6 +25078,134 @@
         "title": "LinkGoogleRequest",
         "description": "Schema for linking a Google account to an existing user."
       },
+      "LlmUsageDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "calls",
+          "input_tokens",
+          "output_tokens"
+        ],
+        "title": "LlmUsageDay",
+        "description": "LLM calls and tokens on one (UTC) day (JAN-408)."
+      },
+      "LlmUsageModel": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "calls",
+          "input_tokens",
+          "output_tokens"
+        ],
+        "title": "LlmUsageModel",
+        "description": "LLM usage of one ``provider/model``."
+      },
+      "LlmUsageStats": {
+        "properties": {
+          "per_day": {
+            "items": {
+              "$ref": "#/components/schemas/LlmUsageDay"
+            },
+            "type": "array",
+            "title": "Per Day"
+          },
+          "by_surface": {
+            "items": {
+              "$ref": "#/components/schemas/LlmUsageSurface"
+            },
+            "type": "array",
+            "title": "By Surface"
+          },
+          "by_model": {
+            "items": {
+              "$ref": "#/components/schemas/LlmUsageModel"
+            },
+            "type": "array",
+            "title": "By Model"
+          },
+          "totals": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Totals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "per_day",
+          "by_surface",
+          "by_model",
+          "totals"
+        ],
+        "title": "LlmUsageStats",
+        "description": "LLM usage in the range; ``unreported_calls`` returned no token counts (some streamed responses)."
+      },
+      "LlmUsageSurface": {
+        "properties": {
+          "surface": {
+            "type": "string",
+            "title": "Surface"
+          },
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "surface",
+          "calls",
+          "input_tokens",
+          "output_tokens"
+        ],
+        "title": "LlmUsageSurface",
+        "description": "LLM usage of one surface: chat, trigger, delegated, or other."
+      },
       "LocalPlannerEventCreate": {
         "properties": {
           "title": {
@@ -30768,6 +30896,9 @@
           },
           "approvals": {
             "$ref": "#/components/schemas/ApprovalStats"
+          },
+          "llm": {
+            "$ref": "#/components/schemas/LlmUsageStats"
           }
         },
         "type": "object",
@@ -30781,7 +30912,8 @@
           "triggers",
           "memory",
           "messaging",
-          "approvals"
+          "approvals",
+          "llm"
         ],
         "title": "StatsSummary",
         "description": "Everything the Stats tab shows for one range, bucketed in ``timezone``."

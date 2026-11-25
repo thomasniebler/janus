@@ -60,7 +60,8 @@ CORE_MODULE_BUDGET_EXCEPTIONS = {
     # moving to services/llm_provider_clients.py (JAN-340).
     # Raised to 1172 for routing OpenAI proxies to Chat Completions unless the model is
     # Responses-only (JAN-354; the helpers live in llm_provider_clients).
-    "src/janus/llm_service.py": 1172,
+    # Raised to 1173 for attaching the LLM usage callback to every model (JAN-408; the logic is llm_usage.py).
+    "src/janus/llm_service.py": 1173,
     # Raised from 600 for the heartbeat and first-sync-limit helpers the Outlook monitor shares
     # (graph_mail_service.py).
     "src/janus/imap_service.py": 605,
