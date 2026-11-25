@@ -14,18 +14,19 @@ Get Janus running on your machine in five minutes.
 
 ### As a command (uv tool or pipx)
 
-To run Janus without working on its code, install the release wheel. It contains the web
-dashboard and the database migrations, so neither Node.js nor the source tree is needed:
+To run Janus without working on its code, install the `janus-assistant` package. It contains
+the web dashboard and the database migrations, so neither Node.js nor the source tree is needed,
+and it installs the `janus` command:
 
 ```bash
-uv tool install https://github.com/thomasniebler/janus/releases/latest/download/janus-<version>-py3-none-any.whl
-# or: pipx install <the same URL>
+uv tool install janus-assistant
+# or: pipx install janus-assistant
 ```
 
-Replace `<version>` with the latest release number from the
-[releases page](https://github.com/thomasniebler/janus/releases). Add optional extras (see below)
-as `"janus[whatsapp,desktop] @ <URL>"` with uv, or `"<URL>[whatsapp,desktop]"` with pipx. Then
-run `janus` directly wherever the steps below say `uv run janus`. `janus update` upgrades the
+Add optional extras (see below) as `uv tool install "janus-assistant[whatsapp,desktop]"`. Each
+[GitHub release](https://github.com/thomasniebler/janus/releases) also carries the same wheel
+(`janus_assistant-<version>-py3-none-any.whl`), which you can install by URL instead. Then run
+`janus` directly wherever the steps below say `uv run janus`. `janus update` upgrades the
 install to each new release; see [Automatic updates](configuration.md#automatic-updates).
 
 ### From a git checkout

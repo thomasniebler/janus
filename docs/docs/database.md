@@ -65,7 +65,7 @@ The PostgreSQL driver (`psycopg2-binary`) is the optional `postgres` extra:
 
 ```bash
 uv sync --extra postgres          # git checkout
-uv tool install "janus[postgres] @ <wheel URL>"   # tool install
+uv tool install "janus-assistant[postgres]"     # tool install
 ```
 
 Without it, `janus config doctor` reports that `DATABASE_URL` points to PostgreSQL but the driver is missing.

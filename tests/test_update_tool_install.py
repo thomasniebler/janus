@@ -17,7 +17,7 @@ WHEEL_OLD = b"old wheel"
 
 def _release_payload(tag: str, wheel: bytes) -> dict:
     version = tag.removeprefix("v")
-    name = f"janus-{version}-py3-none-any.whl"
+    name = f"janus_assistant-{version}-py3-none-any.whl"
     return {
         "tag_name": tag,
         "assets": [
@@ -109,18 +109,18 @@ def test_tool_install_version_and_eligibility(tool_install, monkeypatch):
 def test_fetch_release_reads_the_wheel_asset():
     """The release's wheel URL and digest are read next to the frontend asset."""
     release = update_service.fetch_release("v1.0.0", "o/r", client=_client())
-    assert release.wheel_name == "janus-1.0.0-py3-none-any.whl"
-    assert release.wheel_url.endswith("/v1.0.0/janus-1.0.0-py3-none-any.whl")
+    assert release.wheel_name == "janus_assistant-1.0.0-py3-none-any.whl"
+    assert release.wheel_url.endswith("/v1.0.0/janus_assistant-1.0.0-py3-none-any.whl")
     assert release.wheel_digest == "sha256:" + hashlib.sha256(WHEEL_OLD).hexdigest()
 
 
 def test_tool_install_commands_keep_the_installed_extras(tmp_path, monkeypatch):
     """Both uv and pipx reinstall from the wheel with the extras installed now."""
     monkeypatch.setattr(update_service, "_is_installed", lambda dist: dist in {"neonize", "pystray"})
-    wheel = tmp_path / "janus-1.1.0-py3-none-any.whl"
+    wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
     uv = update_tool_install.install_command(update_service.UV_TOOL, "uv", wheel)
     assert uv[:4] == ["uv", "tool", "install", "--force"]
-    assert uv[-1] == f"janus[desktop,whatsapp] @ {wheel.as_uri()}"
+    assert uv[-1] == f"janus-assistant[desktop,whatsapp] @ {wheel.as_uri()}"
     pipx = update_tool_install.install_command(update_service.PIPX, "pipx", wheel)
     assert pipx == ["pipx", "install", "--force", f"{wheel}[desktop,whatsapp]"]
 
@@ -138,10 +138,16 @@ def test_apply_update_reinstalls_the_tool_and_keeps_the_old_wheel(tool_install, 
     installed = update_service.apply_update(release, site, client=client)
 
     assert installed.kind == update_service.UV_TOOL and installed.tag == "v1.1.0"
-    kept = update_service.state_dir(site) / update_tool_install.ROLLBACK_WHEEL_DIR / "janus-1.0.0-py3-none-any.whl"
+    kept = (
+        update_service.state_dir(site)
+        / update_tool_install.ROLLBACK_WHEEL_DIR
+        / "janus_assistant-1.0.0-py3-none-any.whl"
+    )
     assert installed.previous_wheel == str(kept) and kept.read_bytes() == WHEEL_OLD
     assert recorded[0][:4] == ["uv", "tool", "install", "--force"]
-    assert recorded[0][-1].startswith("janus[whatsapp] @ file://") and "janus-1.1.0" in recorded[0][-1]
+    assert (
+        recorded[0][-1].startswith("janus-assistant[whatsapp] @ file://") and "janus_assistant-1.1.0" in recorded[0][-1]
+    )
     assert [cmd[-1] for cmd in recorded[1:]] == [
         "import janus.main",
         "from janus import database; database.ensure_schema_up_to_date()",
@@ -178,7 +184,7 @@ def test_failed_migration_reinstalls_the_previous_wheel_and_restores_the_databas
     finally:
         update_service._run = original_run
 
-    assert "janus-1.0.0-py3-none-any.whl" in recorded[-1][-1]
+    assert "janus_assistant-1.0.0-py3-none-any.whl" in recorded[-1][-1]
     tables = sqlite3.connect(db).execute("SELECT name FROM sqlite_master").fetchall()
     assert ("marker",) in tables
 

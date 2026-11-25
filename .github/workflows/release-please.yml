@@ -63,6 +63,37 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ needs.release-please.outputs.tag_name }} dist/*
+      - name: Keep the wheel and sdist for the PyPI job
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-dist
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+            !dist/janus-frontend-dist.tar.gz
+          retention-days: 7
+
+  # Publishes janus-assistant to PyPI with trusted publishing (no token). Off until the repository
+  # variable PYPI_ENABLED is "true", which is set once pypi.org trusts this workflow and the
+  # `pypi` environment (docs/docs/tech-spec/deployment-operations.md#packaging).
+  publish-pypi:
+    needs:
+      - release-please
+      - build-and-release-artifacts
+    if: ${{ needs.release-please.outputs.release_created == 'true' && vars.PYPI_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/janus-assistant/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
 
   deploy-release:
     needs:

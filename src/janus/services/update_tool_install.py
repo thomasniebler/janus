@@ -37,7 +37,7 @@ def install_command(kind: str, tool: str, wheel: Path) -> list[str]:
     """Reinstall the tool from ``wheel``, keeping the optional extras installed now."""
     extras = ",".join(extra for extra, marker in sorted(base.EXTRA_MARKERS.items()) if base._is_installed(marker))
     if kind == base.UV_TOOL:
-        spec = f"janus[{extras}] @ {wheel.as_uri()}" if extras else str(wheel)
+        spec = f"{base.DISTRIBUTION}[{extras}] @ {wheel.as_uri()}" if extras else str(wheel)
         python = f"{sys.version_info.major}.{sys.version_info.minor}"
         return [tool, "tool", "install", "--force", "--python", python, spec]
     return [tool, "install", "--force", f"{wheel}[{extras}]" if extras else str(wheel)]

@@ -27,7 +27,7 @@ if [ -z "$dist" ]; then
   dist="$work/dist"
   uv build --quiet --out-dir "$dist" "$root"
 fi
-wheel=$(ls "$dist"/janus-*-py3-none-any.whl)
+wheel=$(ls "$dist"/janus_assistant-*-py3-none-any.whl)
 
 export UV_TOOL_DIR="$work/tools" UV_TOOL_BIN_DIR="$work/bin"
 export XDG_CONFIG_HOME="$work/config" XDG_DATA_HOME="$work/data" XDG_STATE_HOME="$work/state"
@@ -36,7 +36,7 @@ uv tool install --quiet --python 3.12 "$wheel"
 
 cd "$work"
 "$work/bin/janus" --help >/dev/null
-"$work/tools/janus/bin/python" - "$require_frontend" <<'PY'
+"$work/tools/janus-assistant/bin/python" - "$require_frontend" <<'PY'
 import sys
 
 from janus import database, resources
@@ -48,6 +48,7 @@ has_frontend = (resources.frontend_dist_dir() / "index.html").is_file()
 if sys.argv[1] == "true":
     assert has_frontend, "the wheel has no frontend; build it before the wheel"
 assert update_service.install_kind() == update_service.UV_TOOL, update_service.install_kind()
+update_service.installed_version()  # reads the janus-assistant distribution metadata
 database.ensure_schema_up_to_date()
 print(f"PASS  wheel installs as a uv tool, migrates a fresh database, frontend={'yes' if has_frontend else 'no'}")
 PY

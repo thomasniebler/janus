@@ -63,6 +63,8 @@ _MAX_ASSET_BYTES = 100 * 2**20
 _COMMAND_TIMEOUT_SECONDS = 900
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+#: The distribution name on PyPI and in wheel file names (the command and package are ``janus``).
+DISTRIBUTION = "janus-assistant"
 
 #: Install kinds (``install_kind``).
 CHECKOUT = "checkout"
@@ -88,7 +90,7 @@ class Release:
     @property
     def wheel_name(self) -> str:
         """File name of the release's wheel asset."""
-        return f"janus-{format_version(self.version)}-py3-none-any.whl"
+        return wheel_name(self.version)
 
 
 @dataclass(frozen=True)
@@ -117,7 +119,7 @@ def installed_version(repo_root: Path = REPO_ROOT) -> tuple[int, int, int]:
         with pyproject.open("rb") as handle:
             raw = tomllib.load(handle)["project"]["version"]
     else:
-        raw = importlib.metadata.version("janus")
+        raw = importlib.metadata.version(DISTRIBUTION)
     match = _VERSION_RE.match(raw)
     if not match:
         raise UpdateError(f"pyproject.toml version {raw!r} is not X.Y.Z")
@@ -127,6 +129,11 @@ def installed_version(repo_root: Path = REPO_ROOT) -> tuple[int, int, int]:
 def format_version(version: tuple[int, int, int]) -> str:
     """Render a version tuple as ``X.Y.Z``."""
     return ".".join(str(part) for part in version)
+
+
+def wheel_name(version: tuple[int, int, int]) -> str:
+    """The release wheel's file name (``janus_assistant-X.Y.Z-py3-none-any.whl``)."""
+    return f"{DISTRIBUTION.replace('-', '_')}-{format_version(version)}-py3-none-any.whl"
 
 
 # --- GitHub -------------------------------------------------------------------------------
@@ -160,7 +167,7 @@ def fetch_release(tag: str, repository: str | None = None, *, client: httpx.Clie
         raise UpdateError(f"release tag {tag!r} is not vX.Y.Z")
     assets = {a.get("name"): a for a in payload.get("assets") or []}
     frontend = assets.get(FRONTEND_ASSET_NAME) or {}
-    wheel = assets.get(f"janus-{format_version(version)}-py3-none-any.whl") or {}
+    wheel = assets.get(wheel_name(version)) or {}
     return Release(
         tag=tag,
         version=version,
