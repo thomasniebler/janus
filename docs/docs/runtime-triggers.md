@@ -65,6 +65,13 @@ A trigger definition is three things:
           today's and tomorrow's calendar, so *New calendar event* fires when
           an event first enters that window, which for an event booked weeks
           ahead is the day before. Deleted or cancelled items fire nothing.
+        - **Telegram → Message to your bot** (`telegram.message_received`) —
+          you sent a text message to your own Janus bot from the chat you
+          linked (Settings → Connections → **Telegram**). Messages from
+          anyone else are ignored. The run receives `message_id`, `bot`,
+          `sender`, `received_at`, and the first 4,000 characters of `body`.
+          New triggers start with a limit of 30 runs an hour. A trigger with
+          *Telegram alerts to me* can answer you there.
         - **Webhooks → Webhook received** (`webhook.received`) — one of your
           webhook URLs (created under **Webhooks** on this page) received a
           correctly signed JSON request from an outside service. The run

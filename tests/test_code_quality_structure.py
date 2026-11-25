@@ -18,8 +18,9 @@ CORE_MODULE_LINE_LIMIT = 600
 
 API_MODULE_BUDGET_EXCEPTIONS = {
     # Raised from the 400 default for deleting a user's device tokens (action inbox; SQLite may reuse the id),
-    # then to 408 for deleting their webhooks and remote agents the same way (JAN-406, JAN-404).
-    "src/janus/api/auth.py": 408,
+    # then to 408 for deleting their webhooks and remote agents the same way (JAN-406, JAN-404),
+    # then to 410 for their Telegram bot (JAN-405).
+    "src/janus/api/auth.py": 410,
     # Raised from 771 for the Google multi-calendar selection endpoints
     # (GET/PUT /api/planner/google/calendars), then from 822 for the chat and
     # utility model fields (JAN-233; their update rules live in llm_settings),
@@ -53,8 +54,9 @@ SERVICE_MODULE_BUDGET_EXCEPTIONS = {
 
 CORE_MODULE_BUDGET_EXCEPTIONS = {
     # Documented settings.toml template for the Google/Microsoft OAuth client keys;
-    # raised to 675 for the coding agents tool's settings and template block (JAN-403).
-    "src/janus/config.py": 675,
+    # raised to 675 for the coding agents tool's settings and template block (JAN-403),
+    # then to 680 for the Telegram Bot API test seam (JAN-405).
+    "src/janus/config.py": 680,
     # 1199 after the tool-call event recording of JAN-249; 1166 after the per-provider
     # model-name helper, the GitHub Models / Azure OpenAI dispatch, and resolved_value
     # moving to services/llm_provider_clients.py (JAN-340).
@@ -133,6 +135,8 @@ API_HELPER_BASELINE = {
     },
     "src/janus/api/status.py": {"_janus_version"},
     "src/janus/api/topics.py": {"_parse_status"},
+    # JAN-405: serializes the bot without its token.
+    "src/janus/api/telegram.py": {"_status"},
     "src/janus/api/tools.py": {"_get_server_or_404", "_server_response"},
     "src/janus/api/trigger_definitions.py": {"_get_or_404", "_unprocessable", "with_outcomes"},
     # JAN-406: inbound webhooks (serialize without the secret; owner-scoped 404).

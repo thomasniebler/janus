@@ -27,6 +27,7 @@ Scope: React application source under `frontend/src/`.
 | `webhooksApi.ts` | `webhooksApi` (inbound webhooks: list, create, update, rotateSecret, remove; JAN-406), imported directly by `WebhookManager` |
 | `a2aApi.ts` | `a2aApi` (remote A2A agents: list, create, update, refresh, remove; JAN-404), imported directly by `A2AAgentManager` (kept out of `api.ts` for its line cap) | Read directly |
 | `skillSuggestionsApi.ts` | `skillSuggestionsApi` and its schema (skill suggestions: list, dismiss; JAN-407), imported directly by `SkillSuggestions` |
+| `telegramApi.ts` | `telegramApi` and its schema (status, connect, test, disconnect; JAN-405), imported directly by `TelegramConfig` |
 | `connectionsApi.ts` | `connectionsApi` (connections, calendar selection, mailbox), re-exported by `api.ts` | Read directly |
 | `statsTypes.ts` | The `GET /api/stats` summary types, re-exported by `types.ts` and kept out of the size-held `types.ts` (JAN-371) | Read directly |
 | `index.css`, `main.tsx` | Styling entrypoints and React bootstrap (`main.tsx` also installs the stale-chunk reload listener, JAN-179) | Read directly |

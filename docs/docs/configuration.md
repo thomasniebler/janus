@@ -935,6 +935,32 @@ copy/paste won't break the connection. An unknown team is reported when you
 create an issue or an agent lists issues, with the team keys the API key can
 see.
 
+## Telegram
+
+Janus can listen to, and write to, **your own Telegram bot** (JAN-405):
+
+1. In Telegram, talk to **@BotFather**, send `/newbot`, and copy the token it
+   gives you (digits, a colon, then letters).
+2. In Janus, open Settings → Connections → **Telegram**, paste the token and
+   click **Connect**. Janus checks it with Telegram and stores it encrypted;
+   it is never shown again.
+3. Janus shows a pairing code. Open your bot in Telegram and send
+   `/start <code>`. Your chat is now linked, and the bot answers
+   "Linked to Janus".
+
+From then on:
+
+- Messages you send to the bot fire **Telegram → Message to your bot**
+  triggers ([Runtime triggers](runtime-triggers.md)). Messages from anyone
+  else are ignored.
+- Trigger runs can message you with [Telegram alerts](tools.md#telegram-alerts)
+  (at most 20 a day). **Send test message** checks the link.
+- **Disconnect** forgets the token and stops listening.
+
+Janus polls Telegram (long polling), so no public URL or webhook is needed.
+The operator setting `telegram_api_base_url` (default
+`https://api.telegram.org`) exists for tests; leave it alone.
+
 ## Microsoft 365 (Outlook and Teams)
 
 Janus can read and send Outlook mail, read your calendar, and read and send
@@ -1133,6 +1159,7 @@ in-process IMAP/planner workers from conflicting concurrent execution.
 | `JANUS_PUBLIC_SETUP_ENABLED` | `public_setup_enabled` | Enable/disable public first-run setup |
 | `JANUS_RUNTIME_TRIGGER_WORKER_ENABLED` | `runtime_trigger_worker_enabled` | Enable/disable the background trigger worker |
 | `JANUS_GOOGLE_API_BASE_URL` | `google_api_base_url` | Test seam only: sends the backend's Google token, userinfo, Calendar, and Tasks calls to a fake Google at this base URL (the Playwright e2e suite's). Leave unset on a real install |
+| `JANUS_TELEGRAM_API_BASE_URL` | `telegram_api_base_url` | Telegram Bot API base URL (default `https://api.telegram.org`); a test seam for the e2e suite's fake. Leave unset on a real install |
 | `JANUS_KNOWLEDGE_INDEX_WORKER_ENABLED` | `knowledge_index_worker_enabled` | Enable/disable the background knowledge worker (source ingestion and the embedding sweep for semantic search; entity extraction is the Knowledge extraction trigger, not this worker) |
 | `JANUS_RUNTIME_TRIGGER_MAX_ATTEMPTS` | `runtime_trigger_max_attempts` | Attempts per trigger run |
 | `JANUS_RUNTIME_TRIGGER_RETRY_BACKOFF_SECONDS` | `runtime_trigger_retry_backoff_seconds` | Retry backoff base in seconds |

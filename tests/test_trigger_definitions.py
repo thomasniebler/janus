@@ -261,7 +261,7 @@ def test_definition_api_crud_run_and_history(client, db):
         assert [row["trigger_id"] for row in history.json()] == [run.json()["trigger_id"]]
 
         catalog = client.get("/api/runtime/definitions/event-catalog").json()
-        assert [row["subsystem"] for row in catalog] == ["mail", "whatsapp", "planner", "webhook"]
+        assert [row["subsystem"] for row in catalog] == ["mail", "whatsapp", "planner", "webhook", "telegram"]
         assert [event["event_type"] for event in catalog[0]["events"]] == ["mail.received"]
 
         api.dependency_overrides[security.get_current_user] = lambda: SimpleNamespace(id=user.id + 99, is_admin=False)

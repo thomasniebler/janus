@@ -316,6 +316,25 @@ Janus chooses.
 
 Unattended default: Allowed (the switch above is the real gate).
 
+
+## Telegram alerts
+
+`notify_me_on_telegram` lets a trigger run send you one short message in the
+Telegram chat you linked to your own Janus bot (Settings → Connections →
+**Telegram**; see [Configuration](configuration.md#telegram)).
+
+- **Only to you.** The recipient is not something Janus chooses: it is always
+  the chat you linked with the pairing code. The tool exists only once that
+  chat is linked.
+- **Only unattended.** Trigger runs and automations get it; in chat Janus is
+  already talking to you.
+- Plain text, at most 600 characters, no links or images, and at most 20
+  messages a day. After something in the same step looked like a prompt
+  injection, it answers `BLOCKED` and sends nothing.
+
+Unattended default: **Allowed** (it can only reach you). Switch it off under
+**Built-in Janus tools** if you never want trigger runs to message you.
+
 ## Mail processing
 
 `set_email_priority`, `create_reminder`, `track_email_topic`,

@@ -32,6 +32,7 @@ Scope: the `janus.models` package under `src/janus/models/`, the SQLAlchemy ORM 
 | `webhooks.py` | `WebhookEndpoint` (`webhook_endpoints`, JAN-406): inbound webhook URLs with the SHA-256 of their key, a display prefix, the Fernet-encrypted HMAC secret, and a delivery counter |
 | `llm_usage.py` | `LlmUsageDay` (`llm_usage_days`, JAN-408): model calls and input/output tokens per user, UTC day, surface and model, plus calls whose provider reported no usage |
 | `skill_suggestions.py` | `SkillSuggestionDismissal` (`skill_suggestion_dismissals`, JAN-407): a suggested tool pattern the user hid for 30 days |
+| `telegram.py` | `TelegramBot` (`telegram_bots`, JAN-405): a user's bot with its Fernet-encrypted token, linked chat, one-time pairing code, update offset, last error, and daily send counter |
 | `a2a.py` | `A2AAgent` (`a2a_agents`, JAN-404): the user's remote A2A agents with the bounded card, JSON-RPC URL and Fernet-encrypted bearer token |
 
 ## Rules

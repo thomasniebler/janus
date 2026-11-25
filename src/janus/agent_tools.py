@@ -36,6 +36,7 @@ from janus.agent_toolboxes.shared import ToolContext
 from janus.agent_toolboxes.shell import SHELL_ENTRY
 from janus.agent_toolboxes.skills import build_skill_tools
 from janus.agent_toolboxes.tasks import build_task_tools
+from janus.agent_toolboxes.telegram import TELEGRAM_NOTIFY_ENTRY
 from janus.agent_toolboxes.topics import build_topic_tools
 from janus.agent_toolboxes.triggers import build_trigger_tools
 from janus.agent_toolboxes.ui_actions import UI_ACTIONS_ENTRY
@@ -168,6 +169,7 @@ def _build_default_registry() -> ToolRegistry:
             WHATSAPP_ENTRY,  # read-only WhatsApp conversations and messages (JAN-347)
             WHATSAPP_SEND_ENTRY,  # send WhatsApp text messages, approved per call (JAN-360)
             WHATSAPP_NOTIFY_ENTRY,  # the Secretary's WhatsApp alert to the owner's own number
+            TELEGRAM_NOTIFY_ENTRY,  # an unattended run's alert to the owner's linked Telegram chat (JAN-405)
             ToolRegistryEntry(
                 id="calendar",
                 reads_untrusted_content=True,

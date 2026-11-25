@@ -111,6 +111,7 @@ def test_default_registry_preserves_existing_toolbox_order():
         "whatsapp",
         "whatsapp.send",
         "whatsapp.notify_me",
+        "telegram.notify",
         "calendar",
         "microsoft.mail",
         "microsoft.calendar",

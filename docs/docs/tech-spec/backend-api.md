@@ -309,6 +309,16 @@ All routes are authenticated and owner-scoped under `/api/runtime/definitions`
 - `POST /api/skills/suggestions/dismiss` with `{key}` hides one for 30 days (204).
 - The router is mounted before `skills.py`, so `/api/skills/{skill_id}` does not capture `suggestions`. See [Skill Suggestions](../feature-specs/skill-suggestions.md).
 
+## Telegram API (JAN-405)
+
+`api/telegram.py`, scoped to the signed-in user's single bot. The token is write-only and never returned.
+
+- `GET /api/telegram` returns `connected`, `bot_username`, `linked`, `pairing_code` (while unpaired) and `last_error`.
+- `POST /api/telegram/connect` with `{token}` checks it with Telegram's `getMe`, stores it encrypted, issues a new pairing code, and (re)starts the bot's polling worker. A token Telegram rejects is a 422 and nothing is stored.
+- `POST /api/telegram/test` sends a test message to the linked chat (204; 422 while unlinked).
+- `DELETE /api/telegram` stops the worker and forgets the bot (204).
+- See [Telegram Connector](../feature-specs/telegram-connector.md).
+
 ## Character API
 
 - `GET /api/character` and `PUT /api/character` require the authenticated user and

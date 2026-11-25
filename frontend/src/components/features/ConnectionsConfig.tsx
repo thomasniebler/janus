@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import type { ConnectionProvider, ConnectionStatus } from '../../types';
+import { TelegramConfig } from './TelegramConfig';
 
 /** The backend's `detail` for a failed request, else the request's own error, else `fallback`. */
 const requestErrorMessage = (error: unknown, fallback: string) =>
@@ -184,6 +185,7 @@ export const ConnectionsConfig: React.FC = () => {
       </p>
       <ProviderCard status={overview.google} signInLinked={currentUser?.google_linked ?? false} onFeedback={setFeedback} />
       <ProviderCard status={overview.microsoft} onFeedback={setFeedback} />
+      <TelegramConfig />
       {feedback && (
         <div
           role="status"

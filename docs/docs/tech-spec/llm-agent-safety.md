@@ -907,6 +907,18 @@ held to the trigger fences plus two of its own (details in the
 - **No browser in the background:** Tools only ever request tokens silently. An
   expired sign-in answers with an error naming `janus microsoft login`; no
   worker or trigger run can open a browser.
+## Telegram alerts (`telegram.notify`, JAN-405)
+
+`agent_toolboxes/telegram.py` (`TELEGRAM_NOTIFY_ENTRY`, tool `notify_me_on_telegram`), sending through `services/telegram_service.send_to_owner`.
+
+- **Tier:** `operation="write"`, `risk_level="low"`, `confirmation="recommended"` (unattended default *Allowed*).
+- **Recipient:** never an argument. It is always the chat the owner linked with their one-time pairing code, so the tool cannot write to anyone else.
+- **Availability:** offered only in `trigger` and `automation` steps with the `telegram` capability, which `capability_profile` grants once the chat is linked. Never delegable.
+- **Message rules:** at most 600 characters; URLs, links and images refused (`refuse_external_references`, like the WhatsApp alert); 20 messages a day per bot.
+- **Injection:** after a suspected prompt injection in the step it answers `BLOCKED` and sends nothing.
+- **Inbound messages:** only from the linked chat; they become `telegram.message_received` events, rendered as untrusted `<event_data>`.
+- **Token:** Fernet-encrypted, never returned, and deleted with the user.
+
 ## Shell (`shell`, JAN-353)
 
 `agent_toolboxes/shell.py` (`SHELL_ENTRY`, tool `run_shell_command`) and

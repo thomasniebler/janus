@@ -469,6 +469,11 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("JANUS_GOOGLE_API_BASE_URL", "google_api_base_url"),
     )
+    # Test seam (JAN-405): the Telegram Bot API base URL; the e2e backend points it at a local fake.
+    telegram_api_base_url: str = Field(
+        default="https://api.telegram.org",
+        validation_alias=AliasChoices("JANUS_TELEGRAM_API_BASE_URL", "telegram_api_base_url"),
+    )
     # Test seam (JAN-349): accept plain-http Azure OpenAI endpoints on loopback hosts, so the
     # Playwright e2e backend can reach its local fake. Never set on a real install, where
     # Azure endpoints must be https.
