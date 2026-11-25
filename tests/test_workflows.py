@@ -67,13 +67,24 @@ def test_ci_jobs_follow_the_selection():
         "semgrep": "semgrep",
         "dependency-audit": "dependency_audit",
     }
-    assert set(jobs) == {"changes", "e2e-report", *keys}
+    assert set(jobs) == {"changes", "e2e-report", "ci-result", *keys}
     for name, key in keys.items():
         assert jobs[name]["needs"] == "changes"
         assert jobs[name]["if"] == f"needs.changes.outputs.{key} == 'true'"
     # The report merge follows the e2e selection and also runs after failed shards (JAN-345).
     assert jobs["e2e-report"]["needs"] == ["changes", "e2e-tests"]
     assert jobs["e2e-report"]["if"] == "${{ !cancelled() && needs.changes.outputs.e2e == 'true' }}"
+
+
+def test_ci_result_gates_on_every_job():
+    """`ci-result`, the check the main ruleset requires, waits for every job and always runs."""
+    jobs = _load("ci.yml")["jobs"]
+    gate = jobs["ci-result"]
+    assert set(gate["needs"]) == set(jobs) - {"ci-result"}
+    assert gate["if"] == "${{ always() }}"
+    script = gate["steps"][0]["run"]
+    assert '"failure"' in script and '"cancelled"' in script
+    assert gate["steps"][0]["env"]["FULL"] == "${{ needs.changes.outputs.full }}"
 
 
 def test_e2e_runs_in_independent_shards():

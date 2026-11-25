@@ -176,6 +176,8 @@ A draft pull request runs only the cheap checks, so the iterations before a PR i
 
 Lint, formatting, type checks, import boundaries, dead-code scans, the Uberspace install check, the frontend build, the docs build, the OpenAPI drift check and the dependency audit still run when selected. Marking the PR ready for review (`gh pr ready`) triggers a full run (`ready_for_review`), and every later push to the non-draft PR runs the full selection. A PR is merge-ready only after a full run is green on its final commit; a green draft run is not enough.
 
+The `main` ruleset enforces this: it requires the `ci-result` and `pr-title` checks, and the branch must be up to date with `main`. `ci-result` is the last job of `ci.yml`. It needs every other job, fails when any of them failed or was cancelled (jobs the path selection skipped count as passed), and fails a pull-request run whose `full` output is false, so a draft run never satisfies the rule. Required reviews are off (a solo maintainer cannot approve their own PRs); open review threads must be resolved and CodeQL must pass.
+
 Agents open pull requests as drafts and mark them ready once the change is validated and the docs pass is pushed (CLAUDE.md, AGENTS.md).
 
 ### CI run bounds
