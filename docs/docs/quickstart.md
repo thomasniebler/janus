@@ -23,9 +23,14 @@ uv tool install janus-assistant
 # or: pipx install janus-assistant
 ```
 
-Add optional extras (see below) as `uv tool install "janus-assistant[whatsapp,desktop]"`. Each
-[GitHub release](https://github.com/thomasniebler/janus/releases) also carries the same wheel
-(`janus_assistant-<version>-py3-none-any.whl`), which you can install by URL instead. Then run
+Add optional extras (see below) as `uv tool install "janus-assistant[whatsapp,desktop]"`.
+
+!!! note "Before the first PyPI release"
+    Until `janus-assistant` is on [PyPI](https://pypi.org/project/janus-assistant/), install the
+    same wheel from the [latest GitHub release](https://github.com/thomasniebler/janus/releases/latest):
+    `uv tool install <URL of janus_assistant-<version>-py3-none-any.whl>`, or with extras
+    `uv tool install "janus-assistant[whatsapp] @ <URL>"`. Releases before 1.16.0 carry no
+    installable wheel. Then run
 `janus` directly wherever the steps below say `uv run janus`. `janus update` upgrades the
 install to each new release; see [Automatic updates](configuration.md#automatic-updates).
 

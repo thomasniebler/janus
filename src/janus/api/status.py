@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from janus import database, models, security, status_service
 from janus.schemas import status as status_schemas
-from janus.services import changelog_service
+from janus.services import changelog_service, update_service
 from janus.worker_manager import worker_manager
 
 router = APIRouter(prefix="/api/status", tags=["status"])
@@ -18,7 +18,7 @@ _HEARTBEAT_TIMEOUT = timedelta(minutes=2)
 
 def _janus_version() -> str:
     try:
-        return version("janus")
+        return version(update_service.DISTRIBUTION)
     except PackageNotFoundError:
         return "unknown"
 
