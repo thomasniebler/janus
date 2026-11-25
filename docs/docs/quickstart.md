@@ -144,6 +144,25 @@ Janus will:
 2. Print a **one-time setup token** in the log output if no admin user exists yet and public setup is enabled.
 3. Begin listening at `http://127.0.0.1:8080`.
 
+### Run in the background (Linux)
+
+To keep Janus running without a terminal and start it when you log in, install it as a
+systemd user service:
+
+```bash
+janus service install    # write ~/.config/systemd/user/janus.service, enable and start it
+janus service status     # is it running?
+janus service logs -f    # follow its log (journalctl)
+janus service uninstall  # stop it and remove the unit
+```
+
+The service runs the same `janus` you ran `service install` with, in the directory you ran it
+from (so a `.env` there is still read), with that shell's `PATH` (so automatic updates find
+`uv` or `pipx`) and its `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_STATE_HOME`, so it uses the
+same settings and database. To start it at boot without logging in, run `loginctl enable-linger $USER`.
+`janus update` restarts the service after installing a release. The setup token below then
+appears in `janus service logs`.
+
 !!! note "Single-instance runtime"
     Janus currently supports one running server process per configured runtime
     directory/database. If a second copy starts against the same paths, Janus

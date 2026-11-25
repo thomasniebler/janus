@@ -167,6 +167,7 @@ source_modules = [
   "janus.character",
   "janus.cli_client",
   "janus.cli_microsoft",
+  "janus.cli_service",
   "janus.cli_update",
   "janus.config",
   "janus.connectors",
@@ -443,6 +444,13 @@ expires = 2027-05-10
 line = "subprocess.run("
 path = "src/janus/services/update_service.py"
 reason = "Self-hosted auto-update's fixed install steps (uv sync --frozen --inexact, the venv Python running a constant -c snippet or scripts/pre_release_snapshot.py, and for a tool install uv tool install / pipx install of a local wheel whose name comes from the validated vX.Y.Z version after its SHA-256 matched), argv lists without a shell; no other value from GitHub reaches this call."
+rule = "dangerous-subprocess-use-audit"
+
+[[tool.janus.semgrep.exceptions]]
+expires = 2027-05-25
+line = "subprocess.run("
+path = "src/janus/services/systemd_unit.py"
+reason = "janus service runs systemctl --user with fixed verbs and the constant janus.service unit name, from the operator's own CLI; argv list without a shell, no request or remote value reaches it."
 rule = "dangerous-subprocess-use-audit"
 
 [[tool.janus.semgrep.exceptions]]
