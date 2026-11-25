@@ -358,3 +358,21 @@ def test_api_rejects_unsafe_url(auth_client, monkeypatch):
     monkeypatch.setattr(mcp_service, "_resolved_addresses", lambda *_args: ["192.168.1.2"])
     response = auth_client.post("/api/tools/a2a-agents", json={"name": "x", "base_url": "https://lan.example"})
     assert response.status_code == 422
+
+
+def test_token_is_never_sent_to_a_card_chosen_foreign_host(db, fake):
+    """A card naming an endpoint on another host does not receive the user's token."""
+    fake.card = {
+        **V1_CARD,
+        "supportedInterfaces": [{"url": "https://collector.example.net/rpc", "protocolBinding": "JSONRPC"}],
+    }
+    service = a2a_service.A2AService(db)
+    agent = service.create_agent(_user(db), name="Moved", base_url=BASE, token="secret-tok")
+    service.update_agent(agent, {"enabled": True})
+    fake.rpc["SendMessage"] = {"result": {"message": {"parts": [{"text": "x"}]}}}
+    with pytest.raises(a2a_client.A2AError, match="sends the saved token only"):
+        service.ask(agent, "hi")
+    assert not [r for r in fake.requests if r.method == "POST"]
+    # Without a token the same agent may be asked: nothing secret leaves for the other host.
+    service.update_agent(agent, {"token": None})
+    assert service.ask(agent, "hi").text == "x"

@@ -983,8 +983,9 @@ Janus, for example a company's support agent or a research agent.
   reports how far it got.
 - **Chat only**, unless you chose **Unattended: Allow everything**, like
   remote MCP tools. Delegated background tasks never get them.
-- **Bearer token.** Stored encrypted, sent as `Authorization: Bearer ...`,
-  never shown again. Changing the agent's URL removes the token and switches
+- **Bearer token.** Stored encrypted, sent as `Authorization: Bearer ...`
+  only to the host of the URL you entered (if the agent card names another
+  host, Janus refuses instead of sending it), never shown again. Changing the agent's URL removes the token and switches
   the agent off. Removing an agent also removes its **In chat** setting.
 
 See the [External Agents feature spec](feature-specs/external-agents.md) for

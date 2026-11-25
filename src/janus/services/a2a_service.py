@@ -4,12 +4,15 @@ A user registers a remote agent by its base URL and a label of their own;
 Janus fetches its agent card (``a2a_client.fetch_card``) and keeps a bounded
 copy. An agent is offered to chat only once its card was fetched and the user
 switched it on (``enabled``, off by default). An optional bearer token is stored
-Fernet-encrypted and never returned. Deleting an agent also drops its tool policy.
+Fernet-encrypted and never returned, and is only ever sent to the agent URL's own
+origin: a card that names a JSON-RPC endpoint on another host gets no token.
+Deleting an agent also drops its tool policy.
 """
 
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
@@ -24,6 +27,12 @@ MAX_TOKEN_CHARS = 8192
 def tool_id(agent_id: int) -> str:
     """Return the registry id of one agent's tool."""
     return f"{A2A_TOOL_ID_PREFIX}{agent_id}"
+
+
+def _origin(url: str) -> str:
+    """Scheme, host and port of ``url`` (both URLs are already normalized by ``validate_url``)."""
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}".lower()
 
 
 def _clean_name(name: str) -> str:
@@ -128,6 +137,12 @@ class A2AService:
         if not agent.enabled or not agent.rpc_url:
             raise a2a_client.A2AError("the agent is switched off")
         token = security.security_service.decrypt(agent.encrypted_token) if agent.encrypted_token else None
+        if token and _origin(agent.rpc_url) != _origin(agent.base_url):
+            # The card chose the endpoint; the user's token was given for the agent URL's host only.
+            raise a2a_client.A2AError(
+                f"the agent card points to {_origin(agent.rpc_url)}, not the agent URL's host "
+                f"{_origin(agent.base_url)}; Janus sends the saved token only to that host"
+            )
         protocol_version = str((agent.card or {}).get("protocol_version") or "")
         return a2a_client.A2AClient(agent.rpc_url, protocol_version, token=token).ask(prompt)
 

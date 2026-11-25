@@ -103,6 +103,9 @@ One admin-only, operator-opt-in toolbox, `coding_agents`, with one tool,
     **Refresh card** switches it off again.
   - A new base URL forgets the card and the token and switches the agent
     off, so a token never follows the URL to another host.
+  - The token is sent only when the card's JSON-RPC URL is on the base URL's
+    own origin (scheme, host, port). A card that points elsewhere gets an
+    error instead of the token; without a token the agent can still be asked.
   - Deleting an agent drops its tool policy row.
 - **Protocol** (`services/a2a_client.py`). The card is fetched from
   `/.well-known/agent-card.json`, falling back to the pre-0.3

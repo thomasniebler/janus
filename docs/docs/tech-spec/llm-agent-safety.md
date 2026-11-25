@@ -1191,8 +1191,9 @@ unchanged. Feature spec: [External Agents](../feature-specs/external-agents.md).
   - Both the base URL and the card's JSON-RPC URL pass
     `mcp_service.validate_mcp_endpoint`. No redirects are followed and
     responses are capped at 1 MB.
-  - The bearer token is Fernet-encrypted, write-only, and dropped when the
-    URL changes.
+  - The bearer token is Fernet-encrypted, write-only, dropped when the URL
+    changes, and sent only to the base URL's origin: a card whose JSON-RPC
+    URL is on another host gets an error instead of the token.
   - Answers come back inside an escaped `<remote_agent_output>` block and are
     spotlighted as untrusted.
   - Details: [External Agents](../feature-specs/external-agents.md).
