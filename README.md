@@ -101,6 +101,16 @@ open JanusMobile.xcodeproj
 
 The Janus API base URL is configurable from the in-app Settings screen.
 
+## Acknowledgements
+
+Some features (asking local coding agents for help, and backlog ideas such as a
+Telegram connector, signed inbound webhooks, a skill proposer, and cost
+tracking) are inspired by
+[samalgotrader7-ops/janus](https://github.com/samalgotrader7-ops/janus), an
+unrelated MIT-licensed agent project with the same name that has been
+inactive since May 2026. We reimplemented the ideas for this codebase. See
+[External Agents](docs/docs/feature-specs/external-agents.md).
+
 ## License
 
 Janus is released under the [MIT License](LICENSE).

@@ -832,8 +832,9 @@ the services, never by the prompt. Feature spec:
   — an active mail account enables `mail`, `mail.label`, `mail.send`,
   `mail.processing`, `rules`, `rules.write`; an enabled WhatsApp account
   enables `whatsapp`, JAN-347), admin status (`skills`; `shell`
-  also needs the operator setting `shell_tool_enabled`, JAN-353), and
-  plan-step identity (`delegation`, `web_search`, `web_fetch`, `shell` need a `task_id`), and task mode (`conversations.start` only in `trigger`/`automation`, JAN-319). `core`,
+  also needs the operator setting `shell_tool_enabled`, JAN-353; `coding_agents`
+  needs `coding_agents_enabled` and an installed agent CLI, JAN-403), and
+  plan-step identity (`delegation`, `web_search`, `web_fetch`, `shell`, `coding_agents` need a `task_id`), and task mode (`conversations.start` only in `trigger`/`automation`, JAN-319). `core`,
   `events`, `trigger-history`, `memory`, `topics`, `planner.local`,
   `planner.local.write`, `triggers`, and `docs` are ungated; `core`, `memory`, `topics`, `planner.local`,
   `triggers`, `skills`, and `mcp` are in `ALWAYS_GRANTED_CAPABILITIES`.
@@ -1748,10 +1749,10 @@ the services, never by the prompt. Feature spec:
     that is `required` precisely so it starts *Off*: the URL it opens is an
     outbound channel that could carry data out, so an unattended run gets it
     only when the owner switches it on or selects it on a trigger they wrote.
-    It is not locked. `shell` (JAN-353) is `required` for the same reason and
-    is also not locked: the owner may switch it on for unattended runs or
-    select it on a trigger they wrote, and it is never delegable
-    (`operation="admin"`). A user may override any unlocked built-in
+    It is not locked. `shell` (JAN-353) and `coding_agents` (JAN-403) are
+    `required` for the same reason and are also not locked: the owner may
+    switch them on for unattended runs or select them on a trigger they
+    wrote, and they are never delegable (`operation="admin"`). A user may override any unlocked built-in
     entry on Settings → Tools & Connections (`PUT /api/tools/policies/{tool_id}`
     with `{"unattended_allowed": true|false|null}`; `null` resets to the
     default, a locked entry, i.e. `triggers.propose`, `ui_actions`, `ui_blocks`, `images`, `ui_introspection`, or `character.propose`, answers `422`).

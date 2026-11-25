@@ -215,6 +215,8 @@ def test_untrusted_content_flag_marks_the_toolboxes_that_return_outside_text():
         "character",
         # Command output can echo anything (JAN-353).
         "shell",
+        # Another agent's answer can quote anything it read (JAN-403).
+        "coding_agents",
     }
 
 

@@ -46,8 +46,9 @@ SERVICE_MODULE_BUDGET_EXCEPTIONS = {
 }
 
 CORE_MODULE_BUDGET_EXCEPTIONS = {
-    # Documented settings.toml template for the Google/Microsoft OAuth client keys.
-    "src/janus/config.py": 625,
+    # Documented settings.toml template for the Google/Microsoft OAuth client keys;
+    # raised to 675 for the coding agents tool's settings and template block (JAN-403).
+    "src/janus/config.py": 675,
     # 1199 after the tool-call event recording of JAN-249; 1166 after the per-provider
     # model-name helper, the GitHub Models / Azure OpenAI dispatch, and resolved_value
     # moving to services/llm_provider_clients.py (JAN-340).
@@ -69,8 +70,9 @@ CORE_MODULE_BUDGET_EXCEPTIONS = {
     # allowlist's character-state entries (JAN-301), then to 612 for its WhatsApp entry (JAN-347),
     # then to 613 for its shell entry (JAN-353), then to 617 for its WhatsApp send entry (JAN-360)
     # and the "Allow everything" build flag of prepare_step (JAN-359), then to 618 for the
-    # secretary's WhatsApp alert in the injection-escalated tool names.
-    "src/janus/runtime_adapter.py": 618,
+    # secretary's WhatsApp alert in the injection-escalated tool names, then to 619 for the
+    # chat allowlist's coding agents entry (JAN-403).
+    "src/janus/runtime_adapter.py": 619,
     # Raised from 650 for the extra `collections.abc` import line of the pyupgrade
     # auto-fix (JAN-259); lowered to 644 when the timestamp parsing moved to
     # time_utils.epoch_to_utc (JAN-346); raised to 667 for the trigger-event hooks of the
