@@ -2,8 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mcpApi } from '../../api';
+import { injectionClassifierApi } from '../../lib/injectionClassifier';
 import type { MCPRegistry, MCPServer } from '../../types';
 import { MCPRegistryManager } from './MCPRegistryManager';
 
@@ -11,12 +12,15 @@ vi.mock('../../api', async (importOriginal) => {
   const { mockApiModule } = await import('../../test/apiMock');
   return mockApiModule(importOriginal);
 });
-// Same factory shape as InjectionClassifierCard.test: with `isolate: false` the first registration wins
-// for the worker, so a different shape here would leak into that file.
-vi.mock('../../lib/injectionClassifier', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../lib/injectionClassifier')>()),
-  injectionClassifierApi: { getStatus: vi.fn(), update: vi.fn() },
-}));
+// The registry renders InjectionClassifierCard, whose status request stays pending here. A spy on
+// the shared object, not vi.mock: with `isolate: false` a module mock registered by this file would
+// stay bound to the card for InjectionClassifierCard.test, whose own mocks it would then ignore.
+beforeEach(() => {
+  vi.spyOn(injectionClassifierApi, 'getStatus').mockReturnValue(new Promise(() => {}) as never);
+});
+afterEach(() => {
+  vi.mocked(injectionClassifierApi.getStatus).mockRestore();
+});
 
 const response = <T,>(data: T): AxiosResponse<T> => ({ data }) as AxiosResponse<T>;
 
@@ -167,4 +171,3 @@ describe('MCPRegistryManager bearer tokens', () => {
     expect(screen.getByTestId('mcp-tool-flag-7')).toHaveTextContent(/looked like a prompt injection/i);
   });
 });
-
