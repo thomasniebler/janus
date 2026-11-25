@@ -2,6 +2,7 @@
 
 import builtins
 import importlib
+import importlib.util
 import inspect
 import json
 import multiprocessing
@@ -601,6 +602,7 @@ def _run_config_doctor(monkeypatch, tmp_path, **overrides):
         allowed_hosts=["localhost", "127.0.0.1"],
         fernet_key_path=key_path,
         server_mode=False,
+        database_url=f"sqlite:///{tmp_path / 'janus.db'}",
     )
     for field, value in overrides.items():
         setattr(settings, field, value)
@@ -623,6 +625,21 @@ def test_config_doctor_placeholder_key(monkeypatch, tmp_path):
 
     assert result.exit_code == 1, result.output
     assert "secret_key is still the default placeholder" in result.output
+
+
+@pytest.mark.parametrize("installed", [True, False])
+def test_config_doctor_postgres_driver(monkeypatch, tmp_path, installed):
+    """A PostgreSQL database_url without the postgres extra installed is an error."""
+    real_find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name, *a: (object() if installed else None) if name == "psycopg2" else real_find_spec(name, *a),
+    )
+    result = _run_config_doctor(monkeypatch, tmp_path, database_url="postgresql://janus@localhost/janus")
+
+    assert ("is not installed" in result.output) is not installed, result.output
+    assert result.exit_code == (0 if installed else 1), result.output
 
 
 def test_config_doctor_port_mismatch(monkeypatch, tmp_path):

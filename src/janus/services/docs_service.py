@@ -26,7 +26,9 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+from janus import resources
+
+REPO_ROOT = resources.docs_root()
 DOCS_DIR = REPO_ROOT / "docs" / "docs"
 NAV_CONFIG = REPO_ROOT / "docs" / "zensical.toml"
 TECH_SPEC_ALIAS = "tech-spec.md"

@@ -3,7 +3,6 @@
 import concurrent.futures
 import json
 import threading
-import time
 
 import pytest
 from langchain_core.messages import AIMessage
@@ -67,11 +66,24 @@ def _usage(testing_session_local, user_id: int) -> tuple[int, int]:
         return row.tokens_used, row.calls
 
 
-def _wait_for(predicate, timeout: float = 5.0) -> None:
-    deadline = time.monotonic() + timeout
-    while not predicate():
-        assert time.monotonic() < deadline, "condition not reached in time"
-        time.sleep(0.01)
+def _late_settlement(monkeypatch) -> threading.Event:
+    """Set once a timed-out call's late settlement (``adjust_tokens``) has finished.
+
+    The test database is one SQLite connection shared by all threads (StaticPool), so polling the
+    usage row while the settlement writes it can roll that write back when the polling session
+    closes. Wait for this event, then read the row once.
+    """
+    done = threading.Event()
+    real = injection_classifier.adjust_tokens
+
+    def adjust_tokens(*args):
+        try:
+            real(*args)
+        finally:
+            done.set()
+
+    monkeypatch.setattr(injection_classifier, "adjust_tokens", adjust_tokens)
+    return done
 
 
 @pytest.fixture
@@ -324,6 +336,7 @@ def test_failures_fall_back_to_the_rules(db, fake_llm, logged_events, answer):
 def test_timeout_falls_back_to_the_rules(db, fake_llm, logged_events, monkeypatch, testing_session_local):
     """A model that does not answer in time is abandoned."""
     monkeypatch.setattr(injection_classifier, "TIMEOUT_SECONDS", 0.05)
+    settled = _late_settlement(monkeypatch)
     release = threading.Event()
     user = _user(db)
     _enable(db, user)
@@ -335,7 +348,8 @@ def test_timeout_falls_back_to_the_rules(db, fake_llm, logged_events, monkeypatc
         release.set()
     assert '"reason": "timed out"' in logged_events(injection_classifier.SOURCE)[0].details
     assert not prepared.trace.injection_suspected()
-    _wait_for(lambda: _usage(testing_session_local, user.id)[0] == 1000)
+    assert settled.wait(10), "the late call was never settled"
+    assert _usage(testing_session_local, user.id)[0] == 1000
 
 
 def test_a_timed_out_call_still_counts_against_the_budget(
@@ -343,6 +357,7 @@ def test_a_timed_out_call_still_counts_against_the_budget(
 ):
     """The estimate is reserved before the call, kept after a timeout, and settled to the real usage later."""
     monkeypatch.setattr(injection_classifier, "TIMEOUT_SECONDS", 0.05)
+    settled = _late_settlement(monkeypatch)
     user = _user(db)
     estimate = len(injection_classifier.build_prompt(PARAPHRASED)) // injection_classifier.CHARS_PER_TOKEN
     estimate += injection_classifier.ANSWER_TOKENS
@@ -359,7 +374,8 @@ def test_a_timed_out_call_still_counts_against_the_budget(
         assert len(fake_llm.prompts) == 1
     finally:
         release.set()
-    _wait_for(lambda: _usage(testing_session_local, user.id) == (1000, 1))
+    assert settled.wait(10), "the late call was never settled"
+    assert _usage(testing_session_local, user.id) == (1000, 1)
     reasons = [json.loads(event.details)["reason"] for event in logged_events(injection_classifier.SOURCE)]
     assert reasons == ["timed out", "monthly budget reached"]
 

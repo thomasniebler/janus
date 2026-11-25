@@ -260,7 +260,7 @@ def test_host_installed_version_matches_package_metadata():
     """The installed-version check compares against the distribution metadata of janus."""
     from importlib.metadata import version
 
-    assert host.check_installed_version(version("janus"))[0]
+    assert host.check_installed_version(version("janus-assistant"))[0]
     assert not host.check_installed_version("0.0.0")[0]
 
 

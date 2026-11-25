@@ -49,12 +49,13 @@ from janus.api import (
 from janus.api import status as status_api
 from janus.config import settings
 from janus.request_origin import TrustedProxyHeadersMiddleware
+from janus.resources import frontend_dist_dir
 from janus.startup import ensure_runtime_initialized, stop_runtime_trigger_worker
 from janus.websocket.briefing import register_briefing_websocket
 from janus.websocket.changes import register_changes_websocket
 from janus.websocket.chat import register_chat_websocket
 
-frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend", "dist")
+frontend_dir = str(frontend_dist_dir())
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
 templates = Jinja2Templates(directory=template_dir) if os.path.exists(template_dir) else None
 

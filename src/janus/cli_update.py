@@ -1,4 +1,4 @@
-"""The `janus update` command: install the latest GitHub release into this checkout."""
+"""The `janus update` command: install the latest GitHub release (git checkout or tool install)."""
 
 import typer
 
@@ -8,9 +8,14 @@ from janus.services import update_service
 def update(
     check: bool = typer.Option(False, "--check", help="Only report whether a newer release exists."),
 ):
-    """Install the latest GitHub release into this git checkout (restart Janus afterwards)."""
+    """Install the latest GitHub release (restart Janus afterwards).
+
+    Works in a git checkout and in a `uv tool install` / `pipx install` of the release wheel.
+    """
     status = update_service.eligibility()
     current = update_service.format_version(update_service.installed_version())
+    if check:
+        typer.echo(f"Install: {status.kind or 'unknown (not a git checkout, uv tool or pipx install)'}.")
     try:
         release = update_service.check_for_update()
     except update_service.UpdateError as exc:

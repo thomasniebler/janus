@@ -98,7 +98,7 @@ task setup
 | `coding_agents_allow_edits` | bool | `false` | Let the coding agents edit files in their working directory (otherwise read-only) |
 | `coding_agents_env_passthrough` | list | `[]` | Extra environment variable names passed to the agents, such as an API key a CLI reads (`JANUS_*` names are never passed) |
 | `coding_agents_commands` | table | `{}` | Adjust the `claude` or `codex` command: `claude = ["program", ..., "{prompt}", ...]` with exactly one `{prompt}` |
-| `auto_update_enabled` | bool | `true` | Install each new GitHub release automatically and restart. Only applies to a git checkout that is clean, on `main` or a release tag, and run from its own `.venv`. See [Automatic updates](#automatic-updates). |
+| `auto_update_enabled` | bool | `true` | Install each new GitHub release automatically and restart. Applies to a git checkout that is clean, on `main` or a release tag, and run from its own `.venv`, and to a `uv tool` or `pipx` install of the release wheel. See [Automatic updates](#automatic-updates). |
 | `auto_update_repository` | string | `thomasniebler/janus` | GitHub repository (`owner/name`) whose releases are installed |
 | `auto_update_interval_minutes` | int | `60` | Minutes between release checks (at least 15) |
 
@@ -1003,13 +1003,25 @@ the version it was running, restarts on it, and logs the error under **System Ev
 `AutoUpdate`). A release that failed to start is not installed again automatically; the next
 release is, and `janus update` can still install it by hand.
 
-Janus only updates itself when it is safe to move the checkout. Your checkout must have no
+### Installed with uv tool or pipx
+
+A Janus installed from the release wheel with `uv tool install` or `pipx install` updates the
+same way, through the same installer: it downloads the new release's wheel and checks its
+checksum, keeps the running release's wheel in `~/.local/state/janus/rollback/`, backs up the
+database, reinstalls the tool from the new wheel (keeping the optional extras you installed),
+applies the migrations, and restarts. If a step fails, or the new release does not start, it
+reinstalls the kept wheel and restores the database backup. `uv` or `pipx` must be on the
+`PATH` of the running Janus.
+
+### Git checkouts
+
+Janus only updates a checkout when it is safe to move it. Your checkout must have no
 uncommitted changes and be on `main` or at a release tag, and Janus must be running from the
 checkout's own `.venv` (as `uv run janus start` does). On a feature branch or with local edits,
 it logs why it skipped the update when it starts, and never touches the checkout.
 
 ```bash
-janus update --check   # is a newer release available, and would Janus install it?
+janus update --check   # the install kind, and is a newer release available?
 janus update           # install it now (then restart Janus yourself)
 ```
 

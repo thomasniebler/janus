@@ -42,10 +42,10 @@ class CheckResult:
 
 
 def check_installed_version(expected: str) -> tuple[bool, str]:
-    """The installed ``janus`` distribution is the release that was deployed."""
+    """The installed ``janus-assistant`` distribution is the release that was deployed."""
     from importlib.metadata import version
 
-    installed = version("janus")
+    installed = version("janus-assistant")
     return installed == expected, f"installed {installed}, expected {expected}"
 
 

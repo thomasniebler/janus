@@ -560,6 +560,8 @@ def config_doctor():  # noqa: C901
             f'Add it: allowed_hosts = ["{base_host}"]'
         )
 
+    errors_found.extend(database.driver_problems(active_settings.database_url))
+
     if not active_settings.fernet_key_path.exists():
         warnings_found.append(
             f"Fernet key file not found at {active_settings.fernet_key_path}. "

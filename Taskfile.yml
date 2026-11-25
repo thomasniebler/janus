@@ -243,6 +243,11 @@ tasks:
     cmds:
       - npm run build:css
 
+  package:smoke:
+    desc: Build the wheel and check it installs and runs as a uv tool outside the repository.
+    cmds:
+      - scripts/wheel_smoke.sh {{.CLI_ARGS}}
+
   docs:
     desc: Build documentation with Zensical.
     dir: docs
