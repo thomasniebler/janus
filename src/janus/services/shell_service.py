@@ -105,18 +105,26 @@ def _argv(command: str, allow_shell_syntax: bool) -> list[str]:
     return argv
 
 
-def validate_command(command: str, limits: ShellLimits) -> list[str]:
-    """Return the argument vector for ``command`` or raise :class:`ShellCommandError`."""
-    if not isinstance(command, str) or not command.strip():
-        raise ShellCommandError("the command is empty")
-    if len(command) > COMMAND_MAX_CHARS:
-        raise ShellCommandError(f"the command is longer than {COMMAND_MAX_CHARS} characters")
-    for char in command:
+def validate_approvable_text(text: str, label: str = "command", max_chars: int = COMMAND_MAX_CHARS) -> None:
+    """Raise :class:`ShellCommandError` unless ``text`` can be shown exactly on an approval card.
+
+    Shared with the ``coding_agents`` tool (JAN-403), whose prompt is approved the same way.
+    """
+    if not isinstance(text, str) or not text.strip():
+        raise ShellCommandError(f"the {label} is empty")
+    if len(text) > max_chars:
+        raise ShellCommandError(f"the {label} is longer than {max_chars} characters")
+    for char in text:
         if char not in _ALLOWED_CONTROL and unicodedata.category(char) in _REFUSED_CATEGORIES:
             raise ShellCommandError(
-                f"the command contains the invisible or control character U+{ord(char):04X}; "
+                f"the {label} contains the invisible or control character U+{ord(char):04X}; "
                 "use plain printable text so the approval card shows exactly what runs"
             )
+
+
+def validate_command(command: str, limits: ShellLimits) -> list[str]:
+    """Return the argument vector for ``command`` or raise :class:`ShellCommandError`."""
+    validate_approvable_text(command)
     if not limits.working_dir.is_dir():
         raise ShellCommandError(f"the working directory {limits.working_dir} does not exist")
     return _argv(command, limits.allow_shell_syntax)
@@ -146,13 +154,22 @@ def run_command(command: str, limits: ShellLimits) -> ShellResult:
     starts (empty, too long, unparsable, missing working directory, or the
     program cannot be started).
     """
-    argv = validate_command(command, limits)
+    return run_argv(validate_command(command, limits), limits, command=command)
+
+
+def run_argv(argv: list[str], limits: ShellLimits, *, command: str, env: dict[str, str] | None = None) -> ShellResult:
+    """Run an already-validated argument vector within ``limits`` (no shell).
+
+    ``command`` is what the result reports as having run; ``env`` defaults to
+    :func:`scrubbed_environment`. Raises :class:`ShellCommandError` when the
+    program cannot be started.
+    """
     started = time.monotonic()
     try:
         proc = subprocess.Popen(  # noqa: S603 - the operator opted in; every call is approved or switched on
             argv,
             cwd=limits.working_dir,
-            env=scrubbed_environment(),
+            env=scrubbed_environment() if env is None else env,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -241,7 +258,9 @@ __all__ = [
     "ShellLimits",
     "ShellResult",
     "format_result",
+    "run_argv",
     "run_command",
     "scrubbed_environment",
+    "validate_approvable_text",
     "validate_command",
 ]

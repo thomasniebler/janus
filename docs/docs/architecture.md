@@ -194,14 +194,17 @@ introspection/test helper.
 | `skills` | `skills` | `create_skill`, `list_skills`, `update_skill`, `search_remote_skills`, `import_remote_skill` | required |
 | `docs` | `docs` | `list_docs`, `read_doc`, `search_docs` (Janus's own documentation, without `reviews/`; JAN-297) | never |
 | `shell` | `shell` | `run_shell_command` (one command on the Janus host; no shell by default, scrubbed env, timeout, output cap; JAN-353) | required |
+| `coding_agents` | `coding_agents` | `ask_coding_agent` (one prompt to an installed coding-agent CLI: Claude Code or Codex; read-only presets by default, the shell tool's process fences; JAN-403) | required |
 
 Gating is by real state, not per-agent flags (agent definitions were removed
 in JAN-227): `mail*` and `rules*` need a connected mail account; `calendar`,
 `jira`, and `dashboard` need their connection; GitHub, Linear, and web search
 need their instance-wide configuration (otherwise `missing_capability`);
 `skills` is admin-only; `shell` is admin-only and needs the operator setting
-`shell_tool_enabled` (off by default); `delegation`, `web_search`, `web_fetch`,
-and `shell` exist only inside a plan step (`web_fetch` needs no configuration). `core`, `docs`, `events`, `trigger-history`, `memory`, `topics`, `knowledge`, `wiki`,
+`shell_tool_enabled` (off by default); `coding_agents` is admin-only and needs
+`coding_agents_enabled` (off by default) plus an installed agent CLI;
+`delegation`, `web_search`, `web_fetch`, `shell`, and `coding_agents` exist
+only inside a plan step (`web_fetch` needs no configuration). `core`, `docs`, `events`, `trigger-history`, `memory`, `topics`, `knowledge`, `wiki`,
 both local-planner entries, and `triggers` are always available.
 
 Every `mail*` tool acts only on the run owner's own mail (JAN-286): search,

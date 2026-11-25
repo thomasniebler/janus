@@ -147,6 +147,7 @@ def test_default_registry_preserves_existing_toolbox_order():
         "character",
         "character.propose",
         "shell",
+        "coding_agents",
     ]
 
 

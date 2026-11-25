@@ -13,6 +13,7 @@ from janus.agent_toolboxes import microsoft as microsoft_toolbox
 from janus.agent_toolboxes.automation_proposals import build_automation_proposal_tools
 from janus.agent_toolboxes.calendar import build_calendar_tools
 from janus.agent_toolboxes.character import CHARACTER_ENTRIES
+from janus.agent_toolboxes.coding_agents import CODING_AGENTS_ENTRY
 from janus.agent_toolboxes.common import build_common_tools
 from janus.agent_toolboxes.conversations import CONVERSATIONS_START_ENTRY
 from janus.agent_toolboxes.dashboard import build_dashboard_tools
@@ -466,6 +467,7 @@ def _build_default_registry() -> ToolRegistry:
             CONVERSATIONS_START_ENTRY,  # unattended runs start a conversation with their owner (JAN-319)
             *CHARACTER_ENTRIES,  # adaptive character state: read, and propose from chat only (JAN-301)
             SHELL_ENTRY,  # run a command on the Janus host: operator opt-in, admins only (JAN-353)
+            CODING_AGENTS_ENTRY,  # ask a local coding-agent CLI: operator opt-in, admins only (JAN-403)
         ]
     )
 

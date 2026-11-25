@@ -37,6 +37,7 @@ nav = [
     {"Dashboard Widget Preferences" = "feature-specs/dashboard-widget-preferences.md"},
     {"Editable Agent Definitions (removed)" = "feature-specs/editable-agent-definitions/feature-description.md"},
     {"Email Preparation Reminders" = "feature-specs/email-preparation-reminders.md"},
+    {"External Agents" = "feature-specs/external-agents.md"},
     {"Janus-started Conversations" = "feature-specs/agent-started-conversations.md"},
     {"Knowledge Graph and Wiki" = "feature-specs/knowledge-graph-and-wiki.md"},
     {"Knowledge Stack Visualization" = "feature-specs/knowledge-stack-visualization.md"},

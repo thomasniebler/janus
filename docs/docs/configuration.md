@@ -91,6 +91,13 @@ task setup
 | `shell_tool_timeout_seconds` | float | `30` | Seconds a shell command may run before it and everything it started are stopped (max 600) |
 | `shell_tool_output_max_bytes` | int | `16000` | Output (stdout + stderr) above this many bytes stops the command |
 | `shell_tool_allow_shell_syntax` | bool | `false` | Run commands through `/bin/sh -c`, so pipes, redirection, `&&`, globs, and `$VARIABLES` work |
+| `coding_agents_enabled` | bool | `false` | Lets administrators' Janus ask an installed coding-agent CLI (Claude Code or Codex) for help, each question approved in chat. Local installs only. See [Coding agents tool](#coding-agents-tool). |
+| `coding_agents_working_dir` | path | home directory | Directory the coding agents run in |
+| `coding_agents_timeout_seconds` | float | `300` | Seconds a coding agent may run before it is stopped (max 3600) |
+| `coding_agents_output_max_bytes` | int | `50000` | Answer size above which the agent is stopped |
+| `coding_agents_allow_edits` | bool | `false` | Let the coding agents edit files in their working directory (otherwise read-only) |
+| `coding_agents_env_passthrough` | list | `[]` | Extra environment variable names passed to the agents, such as an API key a CLI reads (`JANUS_*` names are never passed) |
+| `coding_agents_commands` | table | `{}` | Adjust the `claude` or `codex` command: `claude = ["program", ..., "{prompt}", ...]` with exactly one `{prompt}` |
 | `auto_update_enabled` | bool | `true` | Install each new GitHub release automatically and restart. Only applies to a git checkout that is clean, on `main` or a release tag, and run from its own `.venv`. See [Automatic updates](#automatic-updates). |
 | `auto_update_repository` | string | `thomasniebler/janus` | GitHub repository (`owner/name`) whose releases are installed |
 | `auto_update_interval_minutes` | int | `60` | Minutes between release checks (at least 15) |
@@ -714,6 +721,54 @@ approval. For unattended runs it is *Off* until you switch it on under
 
 See [Shell](tools.md#shell) for exactly what the tool does.
 
+## Coding agents tool
+
+If you use a coding-agent CLI on your own computer, Janus can ask it for help
+with the *Coding agents* tool (`ask_coding_agent`). Install and log in to the
+CLI first (for example run `claude` once), then turn the tool on in
+`settings.toml`:
+
+```toml
+coding_agents_enabled = true
+coding_agents_working_dir = "/home/you/projects"
+# Optional:
+# coding_agents_timeout_seconds = 300
+# coding_agents_output_max_bytes = 50000
+# coding_agents_allow_edits = false
+# coding_agents_env_passthrough = ["OPENAI_API_KEY"]
+```
+
+or with `JANUS_CODING_AGENTS_ENABLED=true`, then restart Janus. Janus offers
+each built-in agent whose program it finds on `PATH`:
+
+| Agent | Read-only command (default) | With `coding_agents_allow_edits` |
+|---|---|---|
+| `claude` | `claude -p <prompt> --output-format text --tools Read,Grep,Glob --strict-mcp-config --permission-mode dontAsk --no-session-persistence` | `--tools Read,Grep,Glob,Edit,Write` and `--permission-mode acceptEdits` (still no shell) |
+| `codex` | `codex exec --sandbox read-only --skip-git-repo-check <prompt>` | `--sandbox workspace-write` |
+
+These CLIs change between versions. If yours rejects a flag, adjust the
+command; exactly one argument must be `{prompt}`:
+
+```toml
+[coding_agents_commands]
+claude = ["claude", "-p", "{prompt}", "--permission-mode", "plan"]
+```
+
+Only `claude` and `codex` are supported. For another coding agent, open a
+[feature request](https://github.com/thomasniebler/janus/issues/new).
+
+As environment variables, the list and table settings are JSON, for example
+`JANUS_CODING_AGENTS_ENV_PASSTHROUGH='["OPENAI_API_KEY"]'`.
+
+!!! warning "Not for shared or hosted servers"
+    Each question goes to the agent's model provider under your account, and
+    with edits allowed the agent can change any file in its working
+    directory. Approving each prompt is the main protection, so read it
+    before you approve. Leave `coding_agents_enabled` off on any machine you
+    share.
+
+See [Coding agents](tools.md#coding-agents) for exactly what the tool does.
+
 ### `allowed_origins` and WebSocket connections
 
 `allowed_origins` controls both CORS and WebSocket origin validation. The most
@@ -1080,3 +1135,10 @@ in-process IMAP/planner workers from conflicting concurrent execution.
 | `JANUS_SHELL_TOOL_TIMEOUT_SECONDS` | `shell_tool_timeout_seconds` | Time limit per shell command |
 | `JANUS_SHELL_TOOL_OUTPUT_MAX_BYTES` | `shell_tool_output_max_bytes` | Output cap per shell command |
 | `JANUS_SHELL_TOOL_ALLOW_SHELL_SYNTAX` | `shell_tool_allow_shell_syntax` | Run shell commands through `/bin/sh -c` |
+| `JANUS_CODING_AGENTS_ENABLED` | `coding_agents_enabled` | Turn on the admin-only *Coding agents* tool (local installs) |
+| `JANUS_CODING_AGENTS_WORKING_DIR` | `coding_agents_working_dir` | Directory the coding agents run in |
+| `JANUS_CODING_AGENTS_TIMEOUT_SECONDS` | `coding_agents_timeout_seconds` | Time limit per coding-agent question |
+| `JANUS_CODING_AGENTS_OUTPUT_MAX_BYTES` | `coding_agents_output_max_bytes` | Answer size cap per question |
+| `JANUS_CODING_AGENTS_ALLOW_EDITS` | `coding_agents_allow_edits` | Let the coding agents edit files |
+| `JANUS_CODING_AGENTS_ENV_PASSTHROUGH` | `coding_agents_env_passthrough` | JSON list of extra environment variable names for the agents |
+| `JANUS_CODING_AGENTS_COMMANDS` | `coding_agents_commands` | JSON object adjusting the `claude`/`codex` commands (`{"codex": ["codex", "exec", "{prompt}"]}`) |

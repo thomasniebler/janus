@@ -414,6 +414,7 @@ def test_unattended_defaults_allow_everything_but_confirmation_required_tools(db
             "skills",
             "self_evolution",
             "shell",
+            "coding_agents",
         }
     )
     assert confirmed == frozenset(
