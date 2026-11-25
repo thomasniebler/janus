@@ -2,14 +2,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { a2aApi } from '../../a2aApi';
 import type { A2AAgent } from '../../types';
 import { A2AAgentManager } from './A2AAgentManager';
 
-vi.mock('../../a2aApi', () => ({
-  a2aApi: { list: vi.fn(), create: vi.fn(), update: vi.fn(), refresh: vi.fn(), remove: vi.fn() },
-}));
+// Spies on the shared object rather than vi.mock: with `isolate: false`, MCPRegistryManager.test or
+// Settings.test may already have loaded this component with the real module in the same worker, and a
+// module mock registered later would not reach it. A spy replaces the method on the one shared object.
+beforeEach(() => {
+  for (const method of ['list', 'create', 'update', 'refresh', 'remove'] as const) {
+    vi.spyOn(a2aApi, method);
+  }
+});
+afterEach(() => vi.restoreAllMocks());
 
 const response = <T,>(data: T): AxiosResponse<T> => ({ data }) as AxiosResponse<T>;
 

@@ -5,7 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { statusApi } from '../../api';
 import { VersionLabel } from './VersionLabel';
 
-vi.mock('../../api', () => ({ statusApi: { getVersion: vi.fn() } }));
+// The shared factory (see src/test/apiMock.ts): with `isolate: false`, a partial factory here lost to
+// Settings.test's registration whenever both ran in one worker, so VersionLabel called an unconfigured mock.
+vi.mock('../../api', async (importOriginal) => {
+  const { mockApiModule } = await import('../../test/apiMock');
+  return mockApiModule(importOriginal);
+});
 
 describe('VersionLabel', () => {
   it('links the running version to the changelog', async () => {
