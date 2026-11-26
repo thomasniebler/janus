@@ -44,7 +44,7 @@ scroll, the map has failed: it should cost far less to read than the code it poi
 
 ## Checks
 
-`python .github/skills/maintain-codemap/scripts/check_codemaps.py [--max-lines 250] [--root-max-lines 100]`
+`task codemap:check` (runs `uv run python .agents/skills/maintain-codemap/scripts/check_codemaps.py`; the script takes `--max-lines 250` and `--root-max-lines 100`)
 
 Reports maps over budget and backticked relative paths that do not exist. Wire it into the
 repository's normal check task (for example `task check` or a pre-commit hook) so drift fails fast.
