@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.17.0](https://github.com/thomasniebler/janus/compare/v1.16.0...v1.17.0) (2026-11-26)
+
+
+### Features
+
+* **planner:** bulk-dismiss suggestions, stop duplicates, per-trigger run limits ([#15](https://github.com/thomasniebler/janus/issues/15)) ([e8d8d2b](https://github.com/thomasniebler/janus/commit/e8d8d2bcb63350de9acaedc943d8139c078c194b))
+
+
+### Bug Fixes
+
+* **update:** keep packages added beside Janus in a tool install (JAN-409) ([#14](https://github.com/thomasniebler/janus/issues/14)) ([436e939](https://github.com/thomasniebler/janus/commit/436e939a67c19b67ea9278071f36f6a0d020c408))
+* **wiki:** store only the answer text, not reasoning blocks (JAN-410) ([#17](https://github.com/thomasniebler/janus/issues/17)) ([9a063dd](https://github.com/thomasniebler/janus/commit/9a063ddac275faf4ea3b991c00d64fee76dfd7c7))
+
+
+### Documentation
+
+* **codemap:** install the codemap skills and prune every map ([#18](https://github.com/thomasniebler/janus/issues/18)) ([81ce58b](https://github.com/thomasniebler/janus/commit/81ce58b0516f60b8fb955e4981fcb8f40cbdcecc))
+
 ## [1.16.0](https://github.com/thomasniebler/janus/compare/v1.15.0...v1.16.0) (2026-11-26)
 
 
