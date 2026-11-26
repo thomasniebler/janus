@@ -387,6 +387,29 @@ Then install the required platform libraries:
 
 Then ensure your `waybar` config includes the `tray` module.
 
+For a `uv tool` or `pipx` install, the tray also needs PyGObject inside Janus's own environment
+(the system `python3-gi` belongs to the system Python). Building it needs the GObject
+introspection headers (`libgirepository-2.0-dev` on Ubuntu/Debian, `gobject-introspection` on
+Arch, `gobject-introspection-devel` on Fedora) and the AppIndicator typelib
+(`gir1.2-ayatanaappindicator3-0.1` on Ubuntu/Debian). Then add it next to Janus and start with the tray:
+
+```bash
+uv tool install --force --python 3.12 --with pygobject "janus-assistant[desktop] @ <wheel URL>"
+# or: pipx inject janus-assistant pygobject
+janus start --tray
+```
+
+Automatic updates keep PyGObject installed. As a service, `janus service install` runs
+`janus start` without the tray; add it with a drop-in, `~/.config/systemd/user/janus.service.d/tray.conf`:
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/path/to/janus start --tray
+```
+
+then `systemctl --user daemon-reload && systemctl --user restart janus`.
+
 You can also start without the tray:
 
 ```bash

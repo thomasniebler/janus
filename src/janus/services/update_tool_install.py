@@ -7,7 +7,9 @@
 2. keep the running release's wheel in ``<state dir>/rollback/``, so a rollback needs no network,
 3. snapshot the SQLite database to ``janus.pre-release.db`` with SQLite's online backup,
 4. reinstall the tool from the new wheel (``uv tool install --force`` / ``pipx install --force``)
-   with the optional extras installed now,
+   with the optional extras installed now, and the extra packages added to the environment
+   (``uv tool install --with`` / ``pipx inject``) put back with ``--with`` / one ``pipx inject``
+   each (JAN-409),
 5. run the same import check and migrations as a checkout, in child processes.
 
 A failure in step 4 or later reinstalls the kept wheel and, once migrations ran, restores the
@@ -20,11 +22,14 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import shlex
 import sqlite3
 import sys
 import tempfile
+import tomllib
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit, urlunsplit
 
 import httpx
 
@@ -33,29 +38,117 @@ from janus.services import update_service as base
 logger = logging.getLogger(__name__)
 
 ROLLBACK_WHEEL_DIR = "rollback"
+#: The uv-receipt.toml requirement keys ``_uv_with_argument`` can rebuild a requirement from.
+_UV_RECEIPT_KEYS = frozenset({"name", "extras", "specifier", "marker", "url", "git", "directory", "path", "editable"})
 
 
-def install_command(kind: str, tool: str, wheel: Path) -> list[str]:
-    """Reinstall the tool from ``wheel``, keeping the optional extras installed now."""
+def install_commands(kind: str, tool: str, wheel: Path) -> list[list[str]]:
+    """Reinstall the tool from ``wheel``, keeping the optional extras and extra packages installed now.
+
+    uv takes the extra packages in the one install (``--with``). ``pipx install --force`` drops
+    injected packages, and older pipx releases reduce a ``--preinstall`` spec to its bare name, so
+    each injected package is put back with its own ``pipx inject``, as ``pipx reinstall`` does.
+    """
     extras = ",".join(extra for extra, marker in sorted(base.EXTRA_MARKERS.items()) if base._is_installed(marker))
     if kind == base.UV_TOOL:
         spec = f"{base.DISTRIBUTION}[{extras}] @ {wheel.as_uri()}" if extras else str(wheel)
         python = f"{sys.version_info.major}.{sys.version_info.minor}"
-        return [tool, "tool", "install", "--force", "--python", python, spec]
+        return [[tool, "tool", "install", "--force", "--python", python, *_uv_with_requirements(), spec]]
     command = [tool, "install", "--force"]
     suffix = _pipx_suffix()
     if suffix:  # `pipx install --suffix` names the environment; without it pipx targets another one
         command.append(f"--suffix={suffix}")
-    return [*command, f"{wheel}[{extras}]" if extras else str(wheel)]
+    command.append(f"{wheel}[{extras}]" if extras else str(wheel))
+    return [command, *_pipx_inject_commands(tool)]
+
+
+def _uv_with_requirements(prefix: str | None = None) -> list[str]:
+    """The ``--with`` / ``--with-editable`` arguments of this uv tool environment, from its receipt.
+
+    Without them a reinstall drops packages the user added next to Janus (for example PyGObject
+    for the tray icon on Wayland). An entry whose source this cannot rebuild is left out (and
+    logged) rather than passed as a bare name, which would resolve to another package.
+    """
+    try:
+        receipt = tomllib.loads((Path(prefix or sys.prefix) / "uv-receipt.toml").read_text())
+        entries = receipt["tool"]["requirements"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+    arguments = []
+    for entry in entries if isinstance(entries, list) else []:
+        name = entry.get("name") if isinstance(entry, dict) else None
+        if not isinstance(name, str) or name == base.DISTRIBUTION:
+            continue
+        argument = _uv_with_argument(name, entry)
+        if argument is None:
+            logger.warning("Auto-update cannot keep %s (unsupported uv receipt entry %s)", name, entry)
+        else:
+            arguments.append(argument)
+    return arguments
+
+
+def _uv_with_argument(name: str, entry: dict) -> str | None:
+    """One receipt requirement as a ``--with`` (or ``--with-editable``) argument, or None."""
+    if set(entry) - _UV_RECEIPT_KEYS:
+        return None
+    extras = entry.get("extras") or []
+    requirement = f"{name}[{','.join(extras)}]" if extras else name
+    if entry.get("editable"):
+        return f"--with-editable={entry['editable']}"
+    if entry.get("git"):
+        git = urlsplit(entry["git"])
+        query = parse_qs(git.query)
+        ref = next((query[key][0] for key in ("rev", "tag", "branch") if key in query), "")
+        url = urlunsplit(git._replace(query="")) + (f"@{ref}" if ref else "")
+        if "subdirectory" in query:
+            url += f"#subdirectory={query['subdirectory'][0]}"
+        requirement += f" @ git+{url}"
+    elif entry.get("directory") or entry.get("path"):
+        requirement += f" @ {Path(entry.get('directory') or entry['path']).as_uri()}"
+    elif entry.get("url"):
+        requirement += f" @ {entry['url']}"
+    elif entry.get("specifier"):
+        requirement += str(entry["specifier"])
+    if entry.get("marker"):
+        requirement += f" ; {entry['marker']}"
+    return f"--with={requirement}"
+
+
+def _pipx_metadata(prefix: str | None = None) -> dict:
+    """This pipx environment's ``pipx_metadata.json`` (empty when unreadable)."""
+    try:
+        metadata = json.loads((Path(prefix or sys.prefix) / "pipx_metadata.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _pipx_inject_commands(tool: str, prefix: str | None = None) -> list[list[str]]:
+    """One ``pipx inject`` per package injected into this environment, with its recorded options."""
+    injected = _pipx_metadata(prefix).get("injected_packages")
+    if not isinstance(injected, dict):
+        return []
+    environment = Path(prefix or sys.prefix).name  # the venv name `pipx inject` addresses (suffix included)
+    commands = []
+    for name, info in injected.items():
+        info = info if isinstance(info, dict) else {}
+        package = info.get("package_or_url")
+        command = [tool, "inject", environment]
+        if info.get("include_apps"):
+            command.append("--include-apps")
+        if info.get("include_dependencies"):
+            command.append("--include-deps")
+        pip_args = info.get("pip_args")
+        if isinstance(pip_args, list) and pip_args:
+            command.append(f"--pip-args={shlex.join(str(arg) for arg in pip_args)}")
+        commands.append([*command, package if isinstance(package, str) and package else name])
+    return commands
 
 
 def _pipx_suffix(prefix: str | None = None) -> str:
     """The ``--suffix`` this pipx environment was installed with (empty for none)."""
-    try:
-        metadata = json.loads((Path(prefix or sys.prefix) / "pipx_metadata.json").read_text())
-        return str(metadata.get("main_package", {}).get("suffix") or "")
-    except (OSError, ValueError, AttributeError):
-        return ""
+    main_package = _pipx_metadata(prefix).get("main_package")
+    return str(main_package.get("suffix") or "") if isinstance(main_package, dict) else ""
 
 
 def _snapshot_database(db_path: Path) -> None:
@@ -115,7 +208,8 @@ def apply_locked(release: base.Release, repo_root: Path, kind: str, client: http
             _snapshot_database(db_path)
         migrated = False
         try:
-            base._run(install_command(kind, tool, wheel), here, f"{kind} install")
+            for command in install_commands(kind, tool, wheel):
+                base._run(command, here, f"{kind} install")
             base._run([python, "-c", "import janus.main"], here, "import check")
             migrated = True
             base._run(
@@ -136,8 +230,8 @@ def rollback(kind: str, previous_wheel: str, db_path: Path | None) -> None:
     steps: list[tuple[str, Callable[[], object]]] = []
     tool = base.tool_executable(kind)
     if tool is not None:
-        command = install_command(kind, tool, Path(previous_wheel))
-        steps.append((f"{kind} install", lambda: base._run(command, Path.cwd(), "reinstall")))
+        commands = install_commands(kind, tool, Path(previous_wheel))
+        steps.append((f"{kind} install", lambda: [base._run(c, Path.cwd(), "reinstall") for c in commands]))
     else:
         logger.error("Auto-update rollback: %s is gone; reinstall %s by hand", kind, previous_wheel)
     if db_path is not None and db_path.with_name(base.SNAPSHOT_NAME).is_file():

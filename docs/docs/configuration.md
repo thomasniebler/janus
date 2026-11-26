@@ -1039,8 +1039,8 @@ release is, and `janus update` can still install it by hand.
 A Janus installed from the release wheel with `uv tool install` or `pipx install` updates the
 same way, through the same installer: it downloads the new release's wheel and checks its
 checksum, keeps the running release's wheel in `~/.local/state/janus/rollback/`, backs up the
-database, reinstalls the tool from the new wheel (keeping the optional extras you installed),
-applies the migrations, and restarts. If a step fails, or the new release does not start, it
+database, reinstalls the tool from the new wheel (keeping the optional extras you installed and
+any packages you added next to Janus with `uv tool install --with` or `pipx inject`), applies the migrations, and restarts. If a step fails, or the new release does not start, it
 reinstalls the kept wheel and restores the database backup. `uv` or `pipx` must be on the
 `PATH` of the running Janus.
 
