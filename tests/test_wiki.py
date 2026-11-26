@@ -16,7 +16,7 @@ class _FakeLlm:
 
     def __init__(self):
         """Starts with no answers; unanswered prompts get a generic cited page."""
-        self.answers: list[str] = []
+        self.answers: list[str | list] = []
         self.prompts: list[str] = []
 
     def invoke(self, prompt):
@@ -151,6 +151,20 @@ def test_synthesis_writes_cited_pages_and_skips_unchanged_ones(db, world, fake_l
     wiki_synthesis.run_synthesis(db, user.id, None)
     assert len(fake_llm.prompts) == calls + 1
     assert len(wiki_service.revisions(db, _page(db, "Acme renewal"))) == 2
+
+
+def test_synthesis_keeps_only_the_text_of_block_answers(db, world, fake_llm):
+    """Reasoning blocks of a Responses API answer (with encrypted content) never reach the page (JAN-410)."""
+    fake_llm.answers = [
+        [
+            {"id": "rs_1", "type": "reasoning", "summary": [], "encrypted_content": "gAAAAABsecret"},
+            {"type": "text", "text": "The renewal is due on 1 November [1].", "annotations": []},
+        ]
+    ]
+    wiki_synthesis.run_synthesis(db, world["user"].id, None)
+    page = _page(db, "Acme renewal")
+    assert page.body == "The renewal is due on 1 November [1]."
+    assert [citation["n"] for citation in page.citations] == [1]
 
 
 def test_passage_text_is_escaped(db, fake_llm):
@@ -426,3 +440,58 @@ def test_search_matches_slugs(db):
         "acme-renewal"
     ]
     assert wiki_service.list_pages(db, user.id, query="globex") == []
+
+
+def test_migration_repairs_block_list_bodies(db):
+    """Bodies saved as a block-list repr keep only their text and the citations it still uses (JAN-410)."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parents[1] / "alembic/versions/d7a9c1e3f5b8_repair_wiki_block_bodies_jan_410.py"
+    spec = importlib.util.spec_from_file_location("jan410_migration", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    user = _user(db)
+    blocks = [
+        {"id": "rs_1", "type": "reasoning", "summary": [], "encrypted_content": "gAAAAABsecret"},
+        {"type": "text", "text": "Due in November [2].", "annotations": []},
+    ]
+    broken = models.WikiPage(user_id=user.id, slug="broken", title="Broken", subject_type="topic", subject_id=1)
+    broken.body, broken.citations = str(blocks), [{"n": 1, "chunk_id": 5}, {"n": 2, "chunk_id": 6}]
+    fine = models.WikiPage(user_id=user.id, slug="fine", title="Fine", subject_type="topic", subject_id=2)
+    fine.body, fine.citations = "[{not a list", []
+    db.add_all([broken, fine])
+    db.commit()
+
+    assert migration.repair(db.connection()) == 1
+    db.commit()
+    db.expire_all()
+    assert broken.body == "Due in November [2]."
+    assert broken.citations == [{"n": 2, "chunk_id": 6}]
+    assert fine.body == "[{not a list"
+
+
+def test_migration_requeues_extraction_only_for_users_without_mentions(db):
+    """Chunks of a user whose extraction never produced a mention are extracted again; others keep their mark."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parents[1] / "alembic/versions/d7a9c1e3f5b8_repair_wiki_block_bodies_jan_410.py"
+    spec = importlib.util.spec_from_file_location("jan410_migration", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    lost, working = _user(db, "lost"), _user(db, "working")
+    lost_chunk = _chunk(db, lost, "Nothing found here")
+    working_chunk = _chunk(db, working, "Northwind news")
+    _entity(db, working, "Northwind", [working_chunk])
+    for chunk in (lost_chunk, working_chunk):
+        chunk.extracted_hash = chunk.content_hash
+    db.commit()
+
+    assert migration.requeue_extraction(db.connection()) == 1
+    db.commit()
+    db.expire_all()
+    assert lost_chunk.extracted_hash is None
+    assert working_chunk.extracted_hash == working_chunk.content_hash

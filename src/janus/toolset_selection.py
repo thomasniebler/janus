@@ -49,6 +49,7 @@ from typing import Any
 from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field
 
+from janus.services.llm_messages import message_text
 from janus.tool_registry import ToolRegistryEntry, ToolSelection
 
 logger = logging.getLogger(__name__)
@@ -286,13 +287,6 @@ def build_selector_messages(objective: str, candidates: Sequence[ToolRegistryEnt
     return system, "Select the toolboxes for the task above. Answer with the JSON object only."
 
 
-def _message_text(message: object) -> object:
-    content = getattr(message, "content", message)
-    if isinstance(content, list):
-        return "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in content)
-    return content
-
-
 def llm_selector(llm: Any) -> ToolsetSelector:
     """Return a selector that asks a LangChain chat model (the utility model) once."""
     from langchain_core.messages import HumanMessage, SystemMessage
@@ -300,7 +294,7 @@ def llm_selector(llm: Any) -> ToolsetSelector:
     def select_tools(objective: str, candidates: Sequence[ToolRegistryEntry]) -> tuple[tuple[str, ...], str]:
         system, human = build_selector_messages(objective, candidates)
         answer = llm.invoke([SystemMessage(content=system), HumanMessage(content=human)])
-        return parse_selection(_message_text(answer))
+        return parse_selection(message_text(answer))
 
     return select_tools
 
