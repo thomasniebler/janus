@@ -280,15 +280,24 @@ def test_docs_resolve_from_the_package_or_the_checkout(monkeypatch, tmp_path):
 
 
 def test_uv_reinstall_keeps_the_packages_added_with_with(tmp_path, monkeypatch):
-    """`uv tool install --with` packages from the receipt are passed back, so a tray's PyGObject survives (JAN-409)."""
+    """`uv tool install --with` packages from the receipt are passed back with their sources (JAN-409).
+
+    The receipt below is the shape uv itself writes for each kind of source; reinstalling with
+    the rebuilt arguments was checked to give back the same receipt.
+    """
     env = tmp_path / "janus-assistant"
     env.mkdir()
     (env / "uv-receipt.toml").write_text(
         "[tool]\nrequirements = [\n"
         '    { name = "janus-assistant", extras = ["desktop"], url = "https://example.invalid/janus.whl" },\n'
         '    { name = "pygobject" },\n'
-        '    { name = "rich", extras = ["jupyter"], specifier = ">=13" },\n'
+        '    { name = "six", marker = "python_full_version >= \'3.1\'", specifier = ">=1.16" },\n'
+        '    { name = "rich", extras = ["jupyter"] },\n'
         '    { name = "mylib", url = "https://example.invalid/mylib.whl" },\n'
+        '    { name = "localpkg", directory = "/src/localpkg" },\n'
+        '    { name = "sample", git = "https://github.com/pypa/sampleproject?rev=main&subdirectory=pkg" },\n'
+        '    { name = "edpkg", editable = "/src/edpkg" },\n'
+        '    { name = "future", index = "https://example.invalid/simple" },\n'
         "]\n"
     )
     monkeypatch.setattr(sys, "prefix", str(env))
@@ -299,10 +308,14 @@ def test_uv_reinstall_keeps_the_packages_added_with_with(tmp_path, monkeypatch):
 
     assert command[6:] == [
         "--with=pygobject",
-        "--with=rich[jupyter]>=13",
+        "--with=six>=1.16 ; python_full_version >= '3.1'",
+        "--with=rich[jupyter]",
         "--with=mylib @ https://example.invalid/mylib.whl",
+        "--with=localpkg @ file:///src/localpkg",
+        "--with=sample @ git+https://github.com/pypa/sampleproject@main#subdirectory=pkg",
+        "--with-editable=/src/edpkg",
         f"janus-assistant[desktop] @ {wheel.as_uri()}",
-    ]
+    ]  # `future` has a key this cannot rebuild, so it is left out rather than passed as a bare name
 
 
 @pytest.mark.parametrize("receipt", [None, "[tool]\n", "not toml [", '[tool]\nrequirements = "x"\n'])

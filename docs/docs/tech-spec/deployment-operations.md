@@ -176,7 +176,9 @@ One-time setup, done by the PyPI account owner:
   `pipx_metadata.json`, so the running environment is the one replaced), with the extras detected the same way as in a checkout
   (now including `postgres`). Packages added to the environment beside Janus are kept too (JAN-409):
   each non-Janus requirement in the tool's `uv-receipt.toml` (`uv tool install --with`) is passed back
-  as `--with`, and each `injected_packages` entry of `pipx_metadata.json` (`pipx inject`, which
+  as `--with` with its source (`specifier`, `marker`, `url`, `git` with its `rev`/`tag`/`branch` and
+  `subdirectory`, `directory`/`path`) or as `--with-editable`; an entry with any other key is left
+  out and logged rather than passed as a bare name, which would resolve to another package; and each `injected_packages` entry of `pipx_metadata.json` (`pipx inject`, which
   `pipx install --force` drops) as `--preinstall`; an unreadable receipt or metadata adds none. Then the same import check and migration children.
 - **Rollback and boot recovery:** a failure reinstalls the kept wheel and, once migrations started,
   restores the snapshot. Bookkeeping (`janus-update.lock`, `janus-update-pending.json`,

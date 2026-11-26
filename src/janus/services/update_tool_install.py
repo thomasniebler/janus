@@ -28,6 +28,7 @@ import tempfile
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit, urlunsplit
 
 import httpx
 
@@ -36,6 +37,8 @@ from janus.services import update_service as base
 logger = logging.getLogger(__name__)
 
 ROLLBACK_WHEEL_DIR = "rollback"
+#: The uv-receipt.toml requirement keys ``_uv_with_argument`` can rebuild a requirement from.
+_UV_RECEIPT_KEYS = frozenset({"name", "extras", "specifier", "marker", "url", "git", "directory", "path", "editable"})
 
 
 def install_command(kind: str, tool: str, wheel: Path) -> list[str]:
@@ -44,8 +47,7 @@ def install_command(kind: str, tool: str, wheel: Path) -> list[str]:
     if kind == base.UV_TOOL:
         spec = f"{base.DISTRIBUTION}[{extras}] @ {wheel.as_uri()}" if extras else str(wheel)
         python = f"{sys.version_info.major}.{sys.version_info.minor}"
-        with_args = [f"--with={requirement}" for requirement in _uv_with_requirements()]
-        return [tool, "tool", "install", "--force", "--python", python, *with_args, spec]
+        return [tool, "tool", "install", "--force", "--python", python, *_uv_with_requirements(), spec]
     command = [tool, "install", "--force"]
     suffix = _pipx_suffix()
     if suffix:  # `pipx install --suffix` names the environment; without it pipx targets another one
@@ -55,29 +57,55 @@ def install_command(kind: str, tool: str, wheel: Path) -> list[str]:
 
 
 def _uv_with_requirements(prefix: str | None = None) -> list[str]:
-    """The ``--with`` requirements of this uv tool environment, from its ``uv-receipt.toml``.
+    """The ``--with`` / ``--with-editable`` arguments of this uv tool environment, from its receipt.
 
     Without them a reinstall drops packages the user added next to Janus (for example PyGObject
-    for the tray icon on Wayland).
+    for the tray icon on Wayland). An entry whose source this cannot rebuild is left out (and
+    logged) rather than passed as a bare name, which would resolve to another package.
     """
     try:
         receipt = tomllib.loads((Path(prefix or sys.prefix) / "uv-receipt.toml").read_text())
         entries = receipt["tool"]["requirements"]
     except (OSError, ValueError, KeyError, TypeError):
         return []
-    requirements = []
+    arguments = []
     for entry in entries if isinstance(entries, list) else []:
         name = entry.get("name") if isinstance(entry, dict) else None
         if not isinstance(name, str) or name == base.DISTRIBUTION:
             continue
-        extras = entry.get("extras") or []
-        requirement = f"{name}[{','.join(extras)}]" if extras else name
-        if entry.get("url"):
-            requirement += f" @ {entry['url']}"
-        elif entry.get("specifier"):
-            requirement += str(entry["specifier"])
-        requirements.append(requirement)
-    return requirements
+        argument = _uv_with_argument(name, entry)
+        if argument is None:
+            logger.warning("Auto-update cannot keep %s (unsupported uv receipt entry %s)", name, entry)
+        else:
+            arguments.append(argument)
+    return arguments
+
+
+def _uv_with_argument(name: str, entry: dict) -> str | None:
+    """One receipt requirement as a ``--with`` (or ``--with-editable``) argument, or None."""
+    if set(entry) - _UV_RECEIPT_KEYS:
+        return None
+    extras = entry.get("extras") or []
+    requirement = f"{name}[{','.join(extras)}]" if extras else name
+    if entry.get("editable"):
+        return f"--with-editable={entry['editable']}"
+    if entry.get("git"):
+        git = urlsplit(entry["git"])
+        query = parse_qs(git.query)
+        ref = next((query[key][0] for key in ("rev", "tag", "branch") if key in query), "")
+        url = urlunsplit(git._replace(query="")) + (f"@{ref}" if ref else "")
+        if "subdirectory" in query:
+            url += f"#subdirectory={query['subdirectory'][0]}"
+        requirement += f" @ git+{url}"
+    elif entry.get("directory") or entry.get("path"):
+        requirement += f" @ {Path(entry.get('directory') or entry['path']).as_uri()}"
+    elif entry.get("url"):
+        requirement += f" @ {entry['url']}"
+    elif entry.get("specifier"):
+        requirement += str(entry["specifier"])
+    if entry.get("marker"):
+        requirement += f" ; {entry['marker']}"
+    return f"--with={requirement}"
 
 
 def _pipx_metadata(prefix: str | None = None) -> dict:
