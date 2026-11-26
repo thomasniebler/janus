@@ -174,7 +174,10 @@ One-time setup, done by the PyPI account owner:
   with SQLite's backup API; `uv tool install --force --python X.Y "janus-assistant[extras] @ file://…"` or
   `pipx install --force [--suffix=…] "…whl[extras]"` (keeping the `--suffix` from
   `pipx_metadata.json`, so the running environment is the one replaced), with the extras detected the same way as in a checkout
-  (now including `postgres`); then the same import check and migration children.
+  (now including `postgres`). Packages added to the environment beside Janus are kept too (JAN-409):
+  each non-Janus requirement in the tool's `uv-receipt.toml` (`uv tool install --with`) is passed back
+  as `--with`, and each `injected_packages` entry of `pipx_metadata.json` (`pipx inject`, which
+  `pipx install --force` drops) as `--preinstall`; an unreadable receipt or metadata adds none. Then the same import check and migration children.
 - **Rollback and boot recovery:** a failure reinstalls the kept wheel and, once migrations started,
   restores the snapshot. Bookkeeping (`janus-update.lock`, `janus-update-pending.json`,
   `janus-update-skip`) lives in the XDG state directory (`update_service.state_dir`) instead of

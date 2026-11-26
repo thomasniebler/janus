@@ -7,7 +7,9 @@
 2. keep the running release's wheel in ``<state dir>/rollback/``, so a rollback needs no network,
 3. snapshot the SQLite database to ``janus.pre-release.db`` with SQLite's online backup,
 4. reinstall the tool from the new wheel (``uv tool install --force`` / ``pipx install --force``)
-   with the optional extras installed now,
+   with the optional extras installed now, and the extra packages added to the environment
+   (``uv tool install --with`` / ``pipx inject``) passed back as ``--with`` / ``--preinstall``
+   (JAN-409),
 5. run the same import check and migrations as a checkout, in child processes.
 
 A failure in step 4 or later reinstalls the kept wheel and, once migrations ran, restores the
@@ -23,6 +25,7 @@ import logging
 import sqlite3
 import sys
 import tempfile
+import tomllib
 from collections.abc import Callable
 from pathlib import Path
 
@@ -36,26 +39,72 @@ ROLLBACK_WHEEL_DIR = "rollback"
 
 
 def install_command(kind: str, tool: str, wheel: Path) -> list[str]:
-    """Reinstall the tool from ``wheel``, keeping the optional extras installed now."""
+    """Reinstall the tool from ``wheel``, keeping the optional extras and extra packages installed now."""
     extras = ",".join(extra for extra, marker in sorted(base.EXTRA_MARKERS.items()) if base._is_installed(marker))
     if kind == base.UV_TOOL:
         spec = f"{base.DISTRIBUTION}[{extras}] @ {wheel.as_uri()}" if extras else str(wheel)
         python = f"{sys.version_info.major}.{sys.version_info.minor}"
-        return [tool, "tool", "install", "--force", "--python", python, spec]
+        with_args = [f"--with={requirement}" for requirement in _uv_with_requirements()]
+        return [tool, "tool", "install", "--force", "--python", python, *with_args, spec]
     command = [tool, "install", "--force"]
     suffix = _pipx_suffix()
     if suffix:  # `pipx install --suffix` names the environment; without it pipx targets another one
         command.append(f"--suffix={suffix}")
+    command += [f"--preinstall={package}" for package in _pipx_injected_packages()]
     return [*command, f"{wheel}[{extras}]" if extras else str(wheel)]
+
+
+def _uv_with_requirements(prefix: str | None = None) -> list[str]:
+    """The ``--with`` requirements of this uv tool environment, from its ``uv-receipt.toml``.
+
+    Without them a reinstall drops packages the user added next to Janus (for example PyGObject
+    for the tray icon on Wayland).
+    """
+    try:
+        receipt = tomllib.loads((Path(prefix or sys.prefix) / "uv-receipt.toml").read_text())
+        entries = receipt["tool"]["requirements"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+    requirements = []
+    for entry in entries if isinstance(entries, list) else []:
+        name = entry.get("name") if isinstance(entry, dict) else None
+        if not isinstance(name, str) or name == base.DISTRIBUTION:
+            continue
+        extras = entry.get("extras") or []
+        requirement = f"{name}[{','.join(extras)}]" if extras else name
+        if entry.get("url"):
+            requirement += f" @ {entry['url']}"
+        elif entry.get("specifier"):
+            requirement += str(entry["specifier"])
+        requirements.append(requirement)
+    return requirements
+
+
+def _pipx_metadata(prefix: str | None = None) -> dict:
+    """This pipx environment's ``pipx_metadata.json`` (empty when unreadable)."""
+    try:
+        metadata = json.loads((Path(prefix or sys.prefix) / "pipx_metadata.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _pipx_injected_packages(prefix: str | None = None) -> list[str]:
+    """The packages ``pipx inject`` added to this environment, which ``pipx install --force`` drops."""
+    injected = _pipx_metadata(prefix).get("injected_packages")
+    if not isinstance(injected, dict):
+        return []
+    packages = []
+    for name, info in injected.items():
+        package = info.get("package_or_url") if isinstance(info, dict) else None
+        packages.append(package if isinstance(package, str) and package else name)
+    return packages
 
 
 def _pipx_suffix(prefix: str | None = None) -> str:
     """The ``--suffix`` this pipx environment was installed with (empty for none)."""
-    try:
-        metadata = json.loads((Path(prefix or sys.prefix) / "pipx_metadata.json").read_text())
-        return str(metadata.get("main_package", {}).get("suffix") or "")
-    except (OSError, ValueError, AttributeError):
-        return ""
+    main_package = _pipx_metadata(prefix).get("main_package")
+    return str(main_package.get("suffix") or "") if isinstance(main_package, dict) else ""
 
 
 def _snapshot_database(db_path: Path) -> None:

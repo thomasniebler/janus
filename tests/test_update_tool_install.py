@@ -277,3 +277,60 @@ def test_docs_resolve_from_the_package_or_the_checkout(monkeypatch, tmp_path):
     assert resources.docs_root() == resources.REPO_ROOT
     (tmp_path / "_data" / "docs_root").mkdir(parents=True)
     assert resources.docs_root() == tmp_path / "_data" / "docs_root"
+
+
+def test_uv_reinstall_keeps_the_packages_added_with_with(tmp_path, monkeypatch):
+    """`uv tool install --with` packages from the receipt are passed back, so a tray's PyGObject survives (JAN-409)."""
+    env = tmp_path / "janus-assistant"
+    env.mkdir()
+    (env / "uv-receipt.toml").write_text(
+        "[tool]\nrequirements = [\n"
+        '    { name = "janus-assistant", extras = ["desktop"], url = "https://example.invalid/janus.whl" },\n'
+        '    { name = "pygobject" },\n'
+        '    { name = "rich", extras = ["jupyter"], specifier = ">=13" },\n'
+        '    { name = "mylib", url = "https://example.invalid/mylib.whl" },\n'
+        "]\n"
+    )
+    monkeypatch.setattr(sys, "prefix", str(env))
+    monkeypatch.setattr(update_service, "_is_installed", lambda dist: dist == "pystray")
+    wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
+
+    command = update_tool_install.install_command(update_service.UV_TOOL, "uv", wheel)
+
+    assert command[6:] == [
+        "--with=pygobject",
+        "--with=rich[jupyter]>=13",
+        "--with=mylib @ https://example.invalid/mylib.whl",
+        f"janus-assistant[desktop] @ {wheel.as_uri()}",
+    ]
+
+
+@pytest.mark.parametrize("receipt", [None, "[tool]\n", "not toml [", '[tool]\nrequirements = "x"\n'])
+def test_uv_reinstall_without_readable_extra_packages_adds_none(tmp_path, monkeypatch, receipt):
+    """A missing, empty or broken receipt adds no `--with`."""
+    if receipt is not None:
+        (tmp_path / "uv-receipt.toml").write_text(receipt)
+    monkeypatch.setattr(sys, "prefix", str(tmp_path))
+    monkeypatch.setattr(update_service, "_is_installed", lambda dist: False)
+    wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
+
+    command = update_tool_install.install_command(update_service.UV_TOOL, "uv", wheel)
+
+    assert not any(arg.startswith("--with") for arg in command)
+
+
+def test_pipx_reinstall_keeps_the_injected_packages(tmp_path, monkeypatch):
+    """`pipx inject` packages, which `pipx install --force` drops, are passed back as `--preinstall` (JAN-409)."""
+    env = tmp_path / "janus-assistant"
+    env.mkdir()
+    (env / "pipx_metadata.json").write_text(
+        '{"main_package": {"package": "janus-assistant", "suffix": ""},'
+        ' "injected_packages": {"pygobject": {"package_or_url": "pygobject==3.58.1"}, "rich": {}}}'
+    )
+    monkeypatch.setattr(sys, "prefix", str(env))
+    monkeypatch.setattr(update_service, "_is_installed", lambda dist: False)
+    wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
+
+    command = update_tool_install.install_command(update_service.PIPX, "pipx", wheel)
+
+    assert command == ["pipx", "install", "--force", "--preinstall=pygobject==3.58.1", "--preinstall=rich", str(wheel)]
