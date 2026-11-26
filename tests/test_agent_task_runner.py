@@ -151,7 +151,7 @@ def test_run_agent_task_rejects_a_run_that_used_every_allowed_iteration(monkeypa
 def test_run_agent_task_bounds_wall_clock_time_not_just_iterations(monkeypatch):
     """A single round against a slow local model has no inherent time limit, so the default caps time too.
 
-    The worker renews its lease while a run works (``trigger_service.lease_heartbeat``),
+    The worker renews its lease while a run works (``trigger_lease.lease_heartbeat``),
     but the default still stays under the 300s lease as a second line of defence.
     """
     captured: dict = {}

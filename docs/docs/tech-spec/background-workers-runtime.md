@@ -120,8 +120,8 @@ JAN-235).
   result was recorded, the worker reports a failed attempt with durable claim
   loss rather than false completion.
 - While a handler runs, `DurableTriggerWorker` and `DurableTriggerDispatcher`
-  keep its claim alive with `trigger_service.lease_heartbeat`: a daemon thread
-  that calls `renew_trigger_claim` (moves `claimed_at` to now while the claim
+  keep its claim alive with `trigger_lease.lease_heartbeat`: a daemon thread
+  that calls `trigger_lease.renew_trigger_claim` (moves `claimed_at` to now while the claim
   token still matches) every third of `lease_seconds`, in its own short-lived
   session, and stops when the handler returns or the claim is lost. A run may
   therefore outlive the lease (a slow model, or a definition with its run
@@ -240,7 +240,10 @@ validation, scheduling, event fan-out, and enqueueing.
   (default `UTC`), `event_type`, `enabled`, `origin` (`user` | `system` |
   `agent`), `builtin_key` (unique per user; `None` unless Janus seeded it),
   optional `llm_provider`/`llm_model` (JAN-233; validated by
-  `validate_model_choice()`, `NULL` = default backend), `next_run_at`,
+  `trigger_run_settings.validate_model_choice()`, `NULL` = default backend),
+  the run limits `max_tool_calls`/`max_run_seconds` (validated by
+  `trigger_run_settings.validate_run_limits()`, `NULL` = default, `0` = no
+  limit), `next_run_at`,
   `last_run_at`.
 - **Schedules:** `{"type": "daily", "time": "HH:MM", "days": [0-6]}` (0 =
   Monday; empty or omitted = every day), evaluated in the definition's
@@ -2063,7 +2066,7 @@ Authorization", narrowed by a selection the brain makes per task.
 - **Rich context:** Chat LLM context includes planner summary and recent emails with sender, subject, and snippet.
 - **Topic-aware digest:** The built-in **Afternoon digest** trigger prefers structured topic groupings when linked tracked topics are available, while preserving an other-updates bucket for ungrouped mail; its `finalize` hook sends the desktop digest notification. `janus digest` runs it inline (emails since the last digest; the old `--hours` option is gone).
 - **Digest planner upkeep:** The digest run may propose planner items with `suggest_planner_item`, which only creates pending suggestions that stay in the review queue until the user approves them.
-- **Planner suggestion dedupe and bulk review:** `LocalPlannerService._upsert_suggestion` merges a new suggestion into a pending one that targets the same task/event, shares its dedupe key, or has the same type and title, keys and titles compared after `normalize_suggestion_text` (case, punctuation and spacing ignored); a merge keeps the stored title and key, so later rewordings keep matching. A suggestion matching one the user dismissed or applied within `REVIEWED_SUGGESTION_MEMORY_DAYS` (90) for the same day (due/scheduled/start date, or both undated) is returned unchanged instead of re-proposed. The built-in Mail processing run (`builtin_triggers._prepare_mail`) and the digest run get the newest 40 pending suggestions (type, title, day, dedupe hint) as a `<prepared_context>` block so the model updates instead of re-proposing. Bulk review: `search_pending_suggestions`, `dismiss_suggestions` (ids and/or text/type/source-email/created-before filters, all of which must match; no filter only with `all_pending`), `duplicate_suggestion_groups` / `dismiss_duplicate_suggestions` (union of dedupe-key and type+title matches, newest kept), and `restore_suggestions`. These back the `planner.suggestions` (read) and `planner.suggestions.review` (write, `confirmation="recommended"`, allowed in chat and unattended by default) toolboxes in `agent_toolboxes/planner_suggestions.py` and the bulk endpoints in [backend API](backend-api.md).
+- **Planner suggestion dedupe and bulk review (`services/planner_suggestion_review.py`):** `LocalPlannerService._upsert_suggestion` asks `matching_pending_suggestion` / `matching_reviewed_suggestion`, and merges a new suggestion into a pending one that targets the same task/event, shares its dedupe key, or has the same type and title, keys and titles compared after `normalize_suggestion_text` (case, punctuation and spacing ignored); a merge keeps the stored title and key, so later rewordings keep matching. A suggestion matching one the user dismissed or applied within `REVIEWED_SUGGESTION_MEMORY_DAYS` (90) for the same day (due/scheduled/start date, or both undated) is returned unchanged instead of re-proposed. The built-in Mail processing run (`builtin_triggers._prepare_mail`) and the digest run get the newest 40 pending suggestions (type, title, day, dedupe hint) as a `<prepared_context>` block so the model updates instead of re-proposing. Bulk review: `search_pending_suggestions`, `dismiss_suggestions` (ids and/or text/type/source-email/created-before filters, all of which must match; no filter only with `all_pending`), `duplicate_suggestion_groups` / `dismiss_duplicate_suggestions` (union of dedupe-key and type+title matches, newest kept), and `restore_suggestions`. These back the `planner.suggestions` (read) and `planner.suggestions.review` (write, `confirmation="recommended"`, allowed in chat and unattended by default) toolboxes in `agent_toolboxes/planner_suggestions.py` and the bulk endpoints in `api/planner_suggestions.py` ([backend API](backend-api.md)).
 
 ## Live UI Refresh From Background Work (JAN-104)
 

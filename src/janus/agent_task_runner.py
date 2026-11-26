@@ -42,7 +42,7 @@ AGENT_TASK_MAX_ITERATIONS = 8
 #: An iteration cap alone is not enough: a single round against a slow local
 #: model has no inherent time limit. A run longer than the trigger worker's
 #: claim lease is safe only because the worker renews the lease while the run
-#: works (``trigger_service.lease_heartbeat``); the lease no longer bounds this.
+#: works (``trigger_lease.lease_heartbeat``); the lease no longer bounds this.
 AGENT_TASK_MAX_SECONDS = 180.0
 
 #: Upper bound on how much of one tool's output is kept in the recorded trace.

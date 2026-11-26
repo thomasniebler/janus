@@ -5,7 +5,7 @@ from threading import Event
 
 import pytest
 
-from janus import models, trigger_service
+from janus import models, trigger_lease, trigger_service
 from janus.triggers import TerminalTriggerError, TriggerEnvelope, TriggerKind
 
 
@@ -308,9 +308,9 @@ def test_renewing_a_claim_keeps_a_long_run_from_being_reclaimed(db):
     start = datetime(2026, 1, 1, tzinfo=UTC)
     token = trigger_service.claim_trigger(db, record.id, now=start)
 
-    assert trigger_service.renew_trigger_claim(db, record.id, token, now=start + timedelta(seconds=280))
+    assert trigger_lease.renew_trigger_claim(db, record.id, token, now=start + timedelta(seconds=280))
     assert not trigger_service.claim_trigger(db, record.id, now=start + timedelta(seconds=400))
-    assert not trigger_service.renew_trigger_claim(db, record.id, "someone-else")
+    assert not trigger_lease.renew_trigger_claim(db, record.id, "someone-else")
     assert trigger_service.claim_trigger(db, record.id, now=start + timedelta(seconds=600))
 
 
@@ -319,15 +319,15 @@ def test_lease_heartbeat_renews_while_the_block_runs(db, monkeypatch, testing_se
     record, _ = trigger_service.enqueue_trigger(db, _trigger())
     token = trigger_service.claim_trigger(db, record.id, now=datetime(2026, 1, 1, tzinfo=UTC))
     renewed = Event()
-    real_renew = trigger_service.renew_trigger_claim
+    real_renew = trigger_lease.renew_trigger_claim
 
     def renew(session, trigger_id, claim_token, **kwargs):
         result = real_renew(session, trigger_id, claim_token, **kwargs)
         renewed.set()
         return result
 
-    monkeypatch.setattr(trigger_service, "renew_trigger_claim", renew)
-    with trigger_service.lease_heartbeat(testing_session_local, record.id, token, lease_seconds=3):
+    monkeypatch.setattr(trigger_lease, "renew_trigger_claim", renew)
+    with trigger_lease.lease_heartbeat(testing_session_local, record.id, token, lease_seconds=3):
         assert renewed.wait(5)
 
     db.expire_all()

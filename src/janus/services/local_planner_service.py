@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from janus import llm_service, models, time_utils
+from janus.services import planner_suggestion_review as review
 from janus.services.base import BaseService
 from janus.services.email_service import EmailService
 from janus.services.topic_service import TopicService
@@ -15,8 +15,6 @@ from janus.services.topic_text import strip_candidate_topics
 _RECENT_EMAIL_CONTEXT_LIMIT = 100
 _TASK_CONTEXT_LIMIT = 25
 _UPCOMING_EVENT_CONTEXT_DAYS = 42
-#: How long a dismissed or applied suggestion keeps the same suggestion from being proposed again.
-REVIEWED_SUGGESTION_MEMORY_DAYS = 90
 _URGENCY_RANK = {
     models.TaskUrgency.LOW: 0,
     models.TaskUrgency.NORMAL: 1,
@@ -31,24 +29,6 @@ def _utc_naive(value: datetime | str | None) -> datetime | None:
     if normalized is None:
         return None
     return normalized.astimezone(UTC).replace(tzinfo=None)
-
-
-_NON_WORD = re.compile(r"[\W_]+", re.UNICODE)
-
-
-def normalize_suggestion_text(value: str | None) -> str:
-    """Fold a suggestion title or dedupe key for matching: case, punctuation and spacing are ignored."""
-    return " ".join(_NON_WORD.sub(" ", (value or "").casefold()).split())
-
-
-def _suggestion_day(row: models.PlannerSuggestion | dict[str, Any]) -> Any:
-    """The calendar day a suggestion is about (due, scheduled, or start), or ``None`` when undated."""
-    if isinstance(row, dict):
-        moment = row.get("due_at") or row.get("scheduled_for") or row.get("start_time")
-        moment = _utc_naive(moment) if moment else None
-    else:
-        moment = row.due_at or row.scheduled_for or row.start_time
-    return moment.date() if moment else None
 
 
 class LocalPlannerService(BaseService):
@@ -611,153 +591,6 @@ class LocalPlannerService(BaseService):
         self.db.refresh(suggestion)
         return self._serialize_suggestion(suggestion)
 
-    def _pending_suggestion_query(
-        self,
-        user_id: int,
-        *,
-        suggestion_ids: list[int] | None = None,
-        text: str | None = None,
-        suggestion_type: models.PlannerSuggestionType | None = None,
-        source_email_id: int | None = None,
-        created_before: datetime | str | None = None,
-    ):
-        query = self.db.query(models.PlannerSuggestion).filter(
-            models.PlannerSuggestion.user_id == user_id,
-            models.PlannerSuggestion.status == models.PlannerSuggestionStatus.PENDING,
-        )
-        if suggestion_ids is not None:
-            query = query.filter(models.PlannerSuggestion.id.in_(suggestion_ids))
-        if suggestion_type is not None:
-            query = query.filter(models.PlannerSuggestion.suggestion_type == suggestion_type)
-        if source_email_id is not None:
-            query = query.filter(models.PlannerSuggestion.source_email_id == source_email_id)
-        if created_before is not None:
-            query = query.filter(models.PlannerSuggestion.created_at < _utc_naive(created_before))
-        rows = query.order_by(models.PlannerSuggestion.created_at.desc(), models.PlannerSuggestion.id.desc()).all()
-        needle = normalize_suggestion_text(text)
-        if needle:
-            rows = [
-                row
-                for row in rows
-                if needle in normalize_suggestion_text(" ".join(filter(None, (row.title, row.description, row.reason))))
-            ]
-        return rows
-
-    def search_pending_suggestions(
-        self,
-        user_id: int,
-        *,
-        text: str | None = None,
-        suggestion_type: models.PlannerSuggestionType | None = None,
-        source_email_id: int | None = None,
-    ) -> list[dict[str, Any]]:
-        """Return pending suggestions, newest first, narrowed by text (title/description/reason), type, or email."""
-        rows = self._pending_suggestion_query(
-            user_id, text=text, suggestion_type=suggestion_type, source_email_id=source_email_id
-        )
-        return [self._serialize_suggestion(row) for row in rows]
-
-    def dismiss_suggestions(
-        self,
-        user_id: int,
-        *,
-        suggestion_ids: list[int] | None = None,
-        text: str | None = None,
-        suggestion_type: models.PlannerSuggestionType | None = None,
-        source_email_id: int | None = None,
-        created_before: datetime | str | None = None,
-        all_pending: bool = False,
-    ) -> list[int]:
-        """Dismiss every pending suggestion matching all given filters; returns the dismissed ids.
-
-        At least one filter is required unless ``all_pending`` is set, so an
-        empty call can never clear the whole review list by accident.
-        """
-        has_filter = any(
-            value is not None for value in (suggestion_ids, suggestion_type, source_email_id, created_before)
-        ) or bool(normalize_suggestion_text(text))
-        if not has_filter and not all_pending:
-            raise ValueError("give suggestion ids or a filter, or set all_pending to dismiss every pending suggestion")
-        rows = self._pending_suggestion_query(
-            user_id,
-            suggestion_ids=suggestion_ids,
-            text=text,
-            suggestion_type=suggestion_type,
-            source_email_id=source_email_id,
-            created_before=created_before,
-        )
-        now = self._now()
-        for row in rows:
-            row.status = models.PlannerSuggestionStatus.DISMISSED
-            row.updated_at = now
-        self.db.commit()
-        return [row.id for row in rows]
-
-    def restore_suggestions(self, user_id: int, suggestion_ids: list[int]) -> list[int]:
-        """Put dismissed suggestions back into the review list; returns the restored ids."""
-        rows = (
-            self.db.query(models.PlannerSuggestion)
-            .filter(
-                models.PlannerSuggestion.user_id == user_id,
-                models.PlannerSuggestion.id.in_(suggestion_ids),
-                models.PlannerSuggestion.status == models.PlannerSuggestionStatus.DISMISSED,
-            )
-            .all()
-        )
-        now = self._now()
-        for row in rows:
-            row.status = models.PlannerSuggestionStatus.PENDING
-            row.updated_at = now
-        self.db.commit()
-        return [row.id for row in rows]
-
-    def duplicate_suggestion_groups(self, user_id: int) -> list[list[models.PlannerSuggestion]]:
-        """Group pending suggestions that propose the same change, newest first within each group.
-
-        Two suggestions are duplicates when they share a dedupe key, or have
-        the same type and title, ignoring case, punctuation and spacing.
-        """
-        rows = self._pending_suggestion_query(user_id)
-        parent = list(range(len(rows)))
-
-        def find(index: int) -> int:
-            while parent[index] != index:
-                parent[index] = parent[parent[index]]
-                index = parent[index]
-            return index
-
-        first_by_key: dict[tuple[str, ...], int] = {}
-        for index, row in enumerate(rows):
-            keys = []
-            dedupe_key = normalize_suggestion_text(row.dedupe_key)
-            if dedupe_key:
-                keys.append(("key", dedupe_key))
-            title = normalize_suggestion_text(row.title)
-            if title:
-                keys.append(("title", row.suggestion_type.value, title))
-            for key in keys:
-                if key in first_by_key:
-                    parent[find(index)] = find(first_by_key[key])
-                else:
-                    first_by_key[key] = index
-        groups: dict[int, list[models.PlannerSuggestion]] = {}
-        for index, row in enumerate(rows):
-            groups.setdefault(find(index), []).append(row)
-        return [group for group in groups.values() if len(group) > 1]
-
-    def dismiss_duplicate_suggestions(self, user_id: int) -> dict[str, Any]:
-        """Keep the newest suggestion of every duplicate group and dismiss the rest."""
-        groups = self.duplicate_suggestion_groups(user_id)
-        now = self._now()
-        dismissed: list[int] = []
-        for group in groups:
-            for row in group[1:]:
-                row.status = models.PlannerSuggestionStatus.DISMISSED
-                row.updated_at = now
-                dismissed.append(row.id)
-        self.db.commit()
-        return {"groups": len(groups), "kept_ids": [group[0].id for group in groups], "dismissed_ids": dismissed}
-
     def _ensure_link(
         self,
         *,
@@ -979,86 +812,15 @@ class LocalPlannerService(BaseService):
             return self.db.get(models.User, account.user_id)
         return TopicService(self.db).get_default_user()
 
-    @staticmethod
-    def _same_suggestion(row: models.PlannerSuggestion, payload: dict[str, Any]) -> bool:
-        """Whether ``row`` proposes the same planner change as ``payload``.
-
-        The model words a suggestion anew for every email that mentions it, so
-        exact matches let the same task pile up: dedupe keys and titles are
-        compared case-, punctuation- and spacing-insensitively, and a title
-        match requires the same suggestion type.
-        """
-        key = normalize_suggestion_text(payload.get("dedupe_key"))
-        if key and key == normalize_suggestion_text(row.dedupe_key):
-            return True
-        title = normalize_suggestion_text(payload.get("title"))
-        return (
-            bool(title)
-            and row.suggestion_type == payload["suggestion_type"]
-            and (title == normalize_suggestion_text(row.title))
-        )
-
-    def _matching_pending_suggestion(self, payload: dict[str, Any]) -> models.PlannerSuggestion | None:
-        query = self.db.query(models.PlannerSuggestion).filter(
-            models.PlannerSuggestion.user_id == payload["user_id"],
-            models.PlannerSuggestion.status == models.PlannerSuggestionStatus.PENDING,
-        )
-        if payload.get("target_task_id") is not None and payload["suggestion_type"] in (
-            models.PlannerSuggestionType.TASK,
-            models.PlannerSuggestionType.TASK_UPDATE,
-        ):
-            match = query.filter(
-                models.PlannerSuggestion.target_task_id == payload["target_task_id"],
-                models.PlannerSuggestion.suggestion_type.in_(
-                    [models.PlannerSuggestionType.TASK, models.PlannerSuggestionType.TASK_UPDATE]
-                ),
-            ).first()
-            if match is not None:
-                return match
-        if payload.get("target_event_id") is not None and payload["suggestion_type"] in (
-            models.PlannerSuggestionType.EVENT,
-            models.PlannerSuggestionType.EVENT_UPDATE,
-        ):
-            match = query.filter(
-                models.PlannerSuggestion.target_event_id == payload["target_event_id"],
-                models.PlannerSuggestion.suggestion_type.in_(
-                    [models.PlannerSuggestionType.EVENT, models.PlannerSuggestionType.EVENT_UPDATE]
-                ),
-            ).first()
-            if match is not None:
-                return match
-        rows = query.order_by(models.PlannerSuggestion.created_at.desc(), models.PlannerSuggestion.id.desc()).all()
-        return next((row for row in rows if self._same_suggestion(row, payload)), None)
-
-    def _matching_reviewed_suggestion(self, payload: dict[str, Any]) -> models.PlannerSuggestion | None:
-        """A recently dismissed or applied suggestion for the same change on the same day, which must not come back."""
-        day = _suggestion_day(payload)
-        rows = (
-            self.db.query(models.PlannerSuggestion)
-            .filter(
-                models.PlannerSuggestion.user_id == payload["user_id"],
-                models.PlannerSuggestion.status.in_(
-                    [models.PlannerSuggestionStatus.DISMISSED, models.PlannerSuggestionStatus.APPLIED]
-                ),
-                models.PlannerSuggestion.updated_at >= self._now() - timedelta(days=REVIEWED_SUGGESTION_MEMORY_DAYS),
-            )
-            .order_by(models.PlannerSuggestion.updated_at.desc(), models.PlannerSuggestion.id.desc())
-            .all()
-        )
-        return next(
-            (row for row in rows if self._same_suggestion(row, payload) and _suggestion_day(row) == day),
-            None,
-        )
-
     def _upsert_suggestion(self, payload: dict[str, Any]) -> models.PlannerSuggestion:
         """Merge ``payload`` into the matching pending suggestion, or record a new one.
 
         A suggestion the user already dismissed or applied for the same day is
         returned unchanged instead of being proposed again.
         """
-        suggestion = self._matching_pending_suggestion(payload)
+        suggestion = review.matching_pending_suggestion(self.db, payload)
         if suggestion is None:
-            reviewed = self._matching_reviewed_suggestion(payload)
+            reviewed = review.matching_reviewed_suggestion(self.db, payload)
             if reviewed is not None:
                 return reviewed
         identity_fields: tuple[str, ...] = ("dedupe_key", "title")

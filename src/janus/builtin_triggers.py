@@ -230,9 +230,9 @@ _PENDING_SUGGESTION_CONTEXT_LIMIT = 40
 
 def _pending_suggestions_context(db: Session, user_id: int) -> str | None:
     """List the pending planner suggestions, so a run updates one instead of proposing it again."""
-    from janus.services.local_planner_service import LocalPlannerService
+    from janus.services.planner_suggestion_review import search_pending_suggestions
 
-    rows = LocalPlannerService(db).search_pending_suggestions(user_id)
+    rows = search_pending_suggestions(db, user_id)
     if not rows:
         return None
     lines = []

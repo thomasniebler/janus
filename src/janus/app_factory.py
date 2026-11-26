@@ -35,6 +35,7 @@ from janus.api import (
     planner,
     planner_items,
     planner_sources,
+    planner_suggestions,
     runtime_tasks,
     runtime_triggers,
     self_evolution,
@@ -158,6 +159,7 @@ def create_fastapi_app() -> FastAPI:
     api.include_router(a2a.router, dependencies=csrf_dependencies)
     api.include_router(tools.router, dependencies=csrf_dependencies)
     api.include_router(connections.router, dependencies=csrf_dependencies)
+    api.include_router(planner_suggestions.router, dependencies=csrf_dependencies)
     api.include_router(planner.router, dependencies=csrf_dependencies)
     api.include_router(planner_sources.router, dependencies=csrf_dependencies)
     api.include_router(planner_items.router, dependencies=csrf_dependencies)

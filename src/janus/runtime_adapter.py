@@ -75,7 +75,6 @@ TASK_MODE_ALLOWED_TOOL_IDS: dict[str, frozenset[str]] = {
             "jira",
             "planner.local",
             "planner.local.write",
-            # Bulk review of pending planner suggestions: dismissal never touches the planner itself.
             "planner.suggestions",
             "planner.suggestions.review",
             "dashboard",
@@ -125,8 +124,7 @@ TASK_MODE_ALLOWED_TOOL_IDS: dict[str, frozenset[str]] = {
 KNOWN_TASK_MODES: frozenset[str] = frozenset(TASK_MODE_ALLOWED_TOOL_IDS) | UNATTENDED_TASK_MODES
 
 #: Registry confirmation levels that must be explicitly confirmed by the
-#: caller before the adapter will build the tool, regardless of whether the
-#: tool was otherwise authorized.
+#: caller before the adapter will build the tool, regardless of whether the tool was otherwise authorized.
 _CONFIRMATION_GATED_LEVELS = {"required"}
 
 #: Individual tool *names* withheld per task mode even when their registry
@@ -485,8 +483,7 @@ class RuntimeAdapter:
         # `granted_capabilities` policy input: enabled_when must stay
         # fail-closed against what's actually connected, not spoofable by a
         # caller-supplied capability set (which remains its own, separately
-        # testable tier -- see ToolRegistry.authorize()'s missing_capability
-        # check).
+        # testable tier -- see ToolRegistry.authorize()'s missing_capability check).
         connected_capabilities = user_connected_capabilities(self.db, self.user)
 
         trace = TurnTrace()

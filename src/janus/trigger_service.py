@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
-from threading import Event, Thread
+from threading import Event
 from typing import TypeAlias
 
 from sqlalchemy import and_, or_, select, update
@@ -15,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from janus import models
+from janus.trigger_lease import lease_heartbeat
 from janus.triggers import (
     TerminalTriggerError,
     TriggerDispatchResult,
@@ -261,55 +261,6 @@ def claim_trigger(db: Session, trigger_id: int, *, now: datetime | None = None, 
     )
     db.commit()
     return claim_token if result.rowcount == 1 else None
-
-
-def renew_trigger_claim(db: Session, trigger_id: int, claim_token: str, *, now: datetime | None = None) -> bool:
-    """Push a running trigger's lease forward while this worker still owns its claim."""
-    _require_claim_token(claim_token)
-    result = db.execute(
-        update(models.RuntimeTrigger)
-        .where(
-            models.RuntimeTrigger.id == trigger_id,
-            models.RuntimeTrigger.status == models.RuntimeTriggerStatus.RUNNING.value,
-            models.RuntimeTrigger.claim_token == claim_token,
-        )
-        .values(claimed_at=_database_time(now))
-    )
-    db.commit()
-    return result.rowcount == 1
-
-
-@contextmanager
-def lease_heartbeat(
-    session_factory: SessionFactory, trigger_id: int, claim_token: str, *, lease_seconds: int
-) -> Iterator[None]:
-    """Renew a claim's lease every third of ``lease_seconds`` while the block runs.
-
-    Without it a run longer than the lease -- a slow model, or a definition
-    whose run limits are switched off -- would be re-claimed as abandoned and
-    executed a second time concurrently. A crashed worker stops renewing, so
-    its run is still re-claimed once the lease lapses.
-    """
-    stop = Event()
-
-    def _beat() -> None:
-        while not stop.wait(max(1.0, lease_seconds / 3)):
-            db = session_factory()
-            try:
-                if not renew_trigger_claim(db, trigger_id, claim_token):
-                    return
-            except Exception:  # noqa: BLE001 - a missed beat must not kill the run; the next one retries
-                logger.exception("Renewing the lease of trigger %s failed", trigger_id)
-            finally:
-                db.close()
-
-    thread = Thread(target=_beat, name=f"trigger-lease-{trigger_id}", daemon=True)
-    thread.start()
-    try:
-        yield
-    finally:
-        stop.set()
-        thread.join(timeout=5)
 
 
 def _require_claim_token(claim_token: str) -> None:

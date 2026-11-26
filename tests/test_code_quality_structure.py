@@ -38,7 +38,7 @@ SERVICE_MODULE_BUDGET_EXCEPTIONS = {
     # the owner-scoped email query/outgoing-account resolver (JAN-286) and the
     # per-owner correction-rule scope (JAN-287).
     "src/janus/services/email_service.py": 701,
-    "src/janus/services/local_planner_service.py": 992,
+    "src/janus/services/local_planner_service.py": 981,
     # Raised from 638 for the bearer token hooks (JAN-342; see mcp_static_token.py and mcp_status.py),
     # then to 652 for storing discovered tool annotations (JAN-343; see mcp_metadata.py).
     "src/janus/services/mcp_service.py": 651,
@@ -72,7 +72,7 @@ CORE_MODULE_BUDGET_EXCEPTIONS = {
     # lifecycle in trigger_proposal_service.py. Raised to 660 to thread the event filter and
     # rate limit (JAN-363) through validation, create/update and emit_event; their logic
     # lives in trigger_event_filters.py.
-    "src/janus/trigger_definition_service.py": 660,
+    "src/janus/trigger_definition_service.py": 654,
     # Raised from 600 for start_conversation in INJECTION_ESCALATED_TOOL_NAMES (JAN-319),
     # then to 608 for the brain-selected toolset hook of prepare_step (JAN-300; the
     # selection itself lives in toolset_selection.py), then to 611 for the chat

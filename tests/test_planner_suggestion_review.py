@@ -10,6 +10,7 @@ from janus.agent_toolboxes.planner_suggestions import (
     build_planner_suggestion_review_tools,
 )
 from janus.agent_toolboxes.shared import ToolContext
+from janus.services import planner_suggestion_review as review
 from janus.services.local_planner_service import LocalPlannerService
 
 
@@ -84,10 +85,10 @@ def test_bulk_dismiss_needs_a_filter_or_all_pending(db):
     _suggest(service, emails[2], user, suggestion_type="event", title="Team offsite", start_time="2026-12-03T09:00:00")
 
     with pytest.raises(ValueError):
-        service.dismiss_suggestions(user.id)
-    assert len(service.dismiss_suggestions(user.id, text="passport")) == 1
-    assert len(service.dismiss_suggestions(user.id, suggestion_type=models.PlannerSuggestionType.EVENT)) == 1
-    assert len(service.dismiss_suggestions(user.id, all_pending=True)) == 1
+        review.dismiss_suggestions(db, user.id)
+    assert len(review.dismiss_suggestions(db, user.id, text="passport")) == 1
+    assert len(review.dismiss_suggestions(db, user.id, suggestion_type=models.PlannerSuggestionType.EVENT)) == 1
+    assert len(review.dismiss_suggestions(db, user.id, all_pending=True)) == 1
     assert _pending(db) == []
 
 
@@ -105,15 +106,14 @@ def test_duplicate_cleanup_keeps_the_newest_of_each_group_and_restore_undoes_it(
             )
         )
     db.commit()
-    service = LocalPlannerService(db)
 
-    groups = service.duplicate_suggestion_groups(user.id)
+    groups = review.duplicate_suggestion_groups(db, user.id)
     assert [len(group) for group in groups] == [3]
-    result = service.dismiss_duplicate_suggestions(user.id)
+    result = review.dismiss_duplicate_suggestions(db, user.id)
     assert result["groups"] == 1 and len(result["dismissed_ids"]) == 2
     assert sorted(row.title for row in _pending(db)) == ["Call plumber", "Pay  Invoice"]
 
-    assert sorted(service.restore_suggestions(user.id, result["dismissed_ids"])) == sorted(result["dismissed_ids"])
+    assert sorted(review.restore_suggestions(db, user.id, result["dismissed_ids"])) == sorted(result["dismissed_ids"])
     assert len(_pending(db)) == 4
 
 
