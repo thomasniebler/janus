@@ -442,8 +442,7 @@ def test_search_matches_slugs(db):
     assert wiki_service.list_pages(db, user.id, query="globex") == []
 
 
-def test_migration_repairs_block_list_bodies(db):
-    """Bodies saved as a block-list repr keep only their text and the citations it still uses (JAN-410)."""
+def _jan410_migration():
     import importlib.util
     from pathlib import Path
 
@@ -451,47 +450,52 @@ def test_migration_repairs_block_list_bodies(db):
     spec = importlib.util.spec_from_file_location("jan410_migration", path)
     migration = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration)
+    return migration
 
+
+def test_migration_repairs_block_list_bodies(db):
+    """Block-list bodies keep their text and used citations; text-less ones are emptied or deleted (JAN-410)."""
+    migration = _jan410_migration()
     user = _user(db)
-    blocks = [
-        {"id": "rs_1", "type": "reasoning", "summary": [], "encrypted_content": "gAAAAABsecret"},
-        {"type": "text", "text": "Due in November [2].", "annotations": []},
-    ]
+    reasoning = {"id": "rs_1", "type": "reasoning", "summary": [], "encrypted_content": "gAAAAABsecret"}
+    blocks = [reasoning, {"type": "text", "text": "Due in November [2].", "annotations": []}]
     broken = models.WikiPage(user_id=user.id, slug="broken", title="Broken", subject_type="topic", subject_id=1)
     broken.body, broken.citations = str(blocks), [{"n": 1, "chunk_id": 5}, {"n": 2, "chunk_id": 6}]
+    empty = models.WikiPage(user_id=user.id, slug="empty", title="Empty", subject_type="topic", subject_id=3)
+    empty.body, empty.citations, empty.input_hash = str([reasoning]), [{"n": 1}], "old"
     fine = models.WikiPage(user_id=user.id, slug="fine", title="Fine", subject_type="topic", subject_id=2)
     fine.body, fine.citations = "[{not a list", []
-    db.add_all([broken, fine])
+    db.add_all([broken, empty, fine])
+    db.flush()
+    revision = models.WikiPageRevision(
+        page_id=empty.id, user_id=user.id, body=str([reasoning]), citations=[], author="janus", kind="published"
+    )
+    db.add(revision)
     db.commit()
+    revision_id = revision.id
 
-    assert migration.repair(db.connection()) == 1
+    assert migration.repair(db.connection()) == 3
     db.commit()
     db.expire_all()
-    assert broken.body == "Due in November [2]."
-    assert broken.citations == [{"n": 2, "chunk_id": 6}]
+    assert (broken.body, broken.citations) == ("Due in November [2].", [{"n": 2, "chunk_id": 6}])
+    assert (empty.body, empty.citations, empty.input_hash) == ("", [], None)
+    assert db.get(models.WikiPageRevision, revision_id) is None
     assert fine.body == "[{not a list"
 
 
-def test_migration_requeues_extraction_only_for_users_without_mentions(db):
-    """Chunks of a user whose extraction never produced a mention are extracted again; others keep their mark."""
-    import importlib.util
-    from pathlib import Path
-
-    path = Path(__file__).parents[1] / "alembic/versions/d7a9c1e3f5b8_repair_wiki_block_bodies_jan_410.py"
-    spec = importlib.util.spec_from_file_location("jan410_migration", path)
-    migration = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(migration)
-
-    lost, working = _user(db, "lost"), _user(db, "working")
-    lost_chunk = _chunk(db, lost, "Nothing found here")
-    working_chunk = _chunk(db, working, "Northwind news")
-    _entity(db, working, "Northwind", [working_chunk])
-    for chunk in (lost_chunk, working_chunk):
+def test_migration_requeues_chunks_without_mentions(db):
+    """Every chunk marked extracted without a mention is extracted again; chunks with mentions keep their mark."""
+    migration = _jan410_migration()
+    user = _user(db)
+    found = _chunk(db, user, "Northwind news")
+    lost = _chunk(db, user, "Initech news")
+    _entity(db, user, "Northwind", [found])
+    for chunk in (found, lost):
         chunk.extracted_hash = chunk.content_hash
     db.commit()
 
     assert migration.requeue_extraction(db.connection()) == 1
     db.commit()
     db.expire_all()
-    assert lost_chunk.extracted_hash is None
-    assert working_chunk.extracted_hash == working_chunk.content_hash
+    assert lost.extracted_hash is None
+    assert found.extracted_hash == found.content_hash
