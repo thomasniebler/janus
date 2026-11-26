@@ -6,7 +6,7 @@ Each router delegates to the like-named service in `../services/` (`memory.py` -
 | Routers | Look next |
 | --- | --- |
 | `auth.py`, `character.py`, `conversations.py`, `dashboard.py`, `desktop.py`, `inbox.py`, `emails.py`, `errors.py`, `events.py`, `memory.py`, `topics.py`, `stats.py`, `docs.py`, `github.py`, `linear.py`, `web_search.py`, `self_evolution.py`, `telegram.py`, `whatsapp.py`, `webhooks.py`, `wiki.py`, `a2a.py`, `runtime_tasks.py` | like-named service; auth also `../security.py` |
-| `planner*.py` | `../planner_service.py`, `../connectors/` |
+| `planner*.py` | `../planner_service.py`, `../services/planner_*.py`, `../connectors/` |
 | `connections.py` | `../services/connect_providers.py` (OAuth connect) |
 | `runtime_triggers.py`, `trigger_definitions.py` | `../trigger_service.py`, `../trigger_definition_service.py` |
 | `tools.py` | `../services/mcp_service.py`, `../tool_policy.py` |
