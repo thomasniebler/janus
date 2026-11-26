@@ -27,6 +27,12 @@ task openapi:generate   # after an API change: schema + frontend/src/generated/a
 task openapi:check      # drift check (CI)
 task docs           # build the docs site (Zensical)
 task codemap:check  # CODEMAP size and stale-path check
+task security:semgrep  # Semgrep with the rules in .semgrep/
+task audit:deps     # pip-audit + npm audit
+task coverage:frontend  # Vitest with V8 coverage floors
+task quality:report # every quality check in one JSON report (also quality:history, quality:duplication)
+task quality:review-bundle  # monthly structural review input (then quality:review-check / quality:review-record)
+task ops:verify-version  # hosted health endpoint reports the expected version (also ops:probe, ops:metrics, ops:export)
 
 cd frontend && npm run dev     # :5173, proxies the API
 cd frontend && npm run build
@@ -58,7 +64,7 @@ uv run alembic revision --autogenerate -m "description"
 ## Tests
 
 - Bug fixes ship with a regression test for the original failure, including upgrades against existing databases.
-- New behavior ships with meaningful tests.
+- New behavior ships with meaningful tests. Aim for roughly 90–95% coverage over time, but never at the expense of behavioral relevance.
 - UI: every new page, route, form or flow gets a Playwright test under `frontend/e2e/`; every component under `components/ui/`, `features/` and `layout*/` has a `*.stories.tsx` covering its meaningful states.
 
 ## Delivery
@@ -68,8 +74,18 @@ uv run alembic revision --autogenerate -m "description"
 - **CI budget:** open PRs as drafts (`gh pr create --draft`); drafts run only cheap checks. Mark ready (`gh pr ready`) once validated; a PR is merge-ready only after a full green run on its final commit. `main` gets a nightly run. See [`architecture-overview.md#draft-pull-requests`](docs/docs/tech-spec/architecture-overview.md#draft-pull-requests).
 - **Dependabot:** never merge bumps one by one; combine them with the `combine-dependabot-prs` skill.
 - **Production host:** there is no SSH from agent sessions. Add a read-only probe to `scripts/deployment_capabilities.py` and dispatch the `Deployment capability checks` workflow; never add free-form remote commands to workflows.
-- **History branches** (`ops-metrics`, `quality-history`) are append-only through `scripts/history_branch.py`: never rewrite, force-push, or write secrets to them.
+- Once a task is actionable, keep questions to the user to a minimum; push + PR is the default way to finish.
+- If validation hits an unrelated, pre-existing failure that makes the result untrustworthy, fix that blocker first or file it right away as a blocking follow-up.
 - Finished work is pushed and has a PR. If that is impossible, say so explicitly and name the local branch and commit.
+
+## Quality gates and history
+
+- **Gates only ratchet.** Never lower a coverage floor, a quality baseline or any other gate to get CI green; that only happens in a reviewed commit made for that purpose.
+- **Weekly quality report** (`scripts/quality_report.py`, schema `janus.quality-report/1`): add a metric to its `METRICS` table and to the docs together, never ad hoc. A check that could not run is reported as `error` or `unavailable`, never dropped.
+- **Monthly structural review:** the bundle (`scripts/structural_review.py`) is read-only; the review itself runs in an agent session and produces `review.json` checked by `task quality:review-check`. The review never changes code, merges, or files issues; the person who asked files the proposed ones. `task quality:review-record` appends a checked review of `main` once per window.
+- **History branches** (`ops-metrics`, `quality-history`) are append-only through `scripts/history_branch.py`: never rewrite, force-push or merge them, and never write secrets or e-mail addresses to them. Keep such logic in tested scripts under `scripts/` and the workflow YAML thin.
+- A deploy is done only when the health endpoint reports the expected release version, not on HTTP 200 alone.
+- Details: [`architecture-overview.md#weekly-quality-report`](docs/docs/tech-spec/architecture-overview.md#weekly-quality-report), [`#monthly-structural-review`](docs/docs/tech-spec/architecture-overview.md#monthly-structural-review), [`deployment-operations.md#deploy-and-availability-metrics`](docs/docs/tech-spec/deployment-operations.md#deploy-and-availability-metrics).
 
 ## Issues
 
