@@ -1,6 +1,6 @@
 # LLM Usage Tracking
 
-**Status:** Shipped (counting and display; budgets and alerts are planned, not built)
+**Status:** Shipped (call and token counts; money, balances and budgets are not supported)
 **Linear:** JAN-408
 **Depends on:** `LLMService` (every chat model is built there), the owner context of `event_logger` (JAN-272), the Stats tab (JAN-258)
 
@@ -41,8 +41,26 @@ tokens than it should. Inspired by the cost tracking of
   - a tokens-per-day chart;
   - tables by surface and by model.
 
-## Not built (follow-ups)
+## Not supported
 
-- **Budgets and alerts.** A monthly token budget with notices at 50/80/100% (part of JAN-408's original idea) is not built in this slice.
-- **Prices.** Converting tokens to money needs per-model prices, which change often and differ per provider and contract.
+Janus counts calls and tokens. It does not show money, and we don't plan to
+add that for now. If you need it, open a
+[feature request](https://github.com/thomasniebler/janus/issues/new).
+
+- **Cost in money.** Tokens times a price needs per-model prices, which change
+  often and differ per provider and contract. No provider publishes them as an
+  API.
+- **Remaining balance or plan limits.** No provider offers a public endpoint
+  that reads them with the key Janus already has:
+  - Anthropic and OpenAI report past spend only through admin APIs, which need
+    an organization admin key and lag by up to a day. Neither returns a
+    remaining prepaid balance.
+  - Subscription limits (Claude Pro/Max, ChatGPT plans) are shown by the
+    vendors' own apps from endpoints tied to the user's login, which are not
+    documented for other programs.
+- **Budgets and alerts.** A monthly budget with notices at 50/80/100% would
+  depend on one of the two above, so it is not built either.
+
+## Not built
+
 - **Forcing streamed usage.** `stream_usage=True` is not forced on OpenAI-compatible endpoints, because some proxies reject `stream_options`.
