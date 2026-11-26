@@ -6,108 +6,100 @@ Scope: the main Python package in `src/janus/`.
 
 - define the FastAPI app and Typer CLI entrypoint
 - hold persistence, security, domain services, and background worker orchestration
-- implement email ingestion, planner sync, briefing/chat flows, and dashboard APIs
+- run the plan-driven agent runtime, triggers, and delegation
+
+Behavior detail lives in [`docs/docs/tech-spec/`](../../docs/docs/tech-spec/), especially
+[`background-workers-runtime.md`](../../docs/docs/tech-spec/background-workers-runtime.md).
 
 ## Import boundaries
 
-Enforced by import-linter (`task lint:imports`, JAN-263; contracts in `pyproject.toml`). The full description is in [`architecture-overview.md`](../../docs/docs/tech-spec/architecture-overview.md#cross-cutting-architecture-rules).
+Enforced by import-linter (`task lint:imports`, contracts in `pyproject.toml`); see
+[`architecture-overview.md`](../../docs/docs/tech-spec/architecture-overview.md#cross-cutting-architecture-rules).
 
 - Only `main.py`, `app_factory.py`, and `cli.py` may import `api/` and `websocket/`.
-- `models`, `models_knowledge`, `database`, and `schemas/` depend on no behavior modules.
-- `services/` does not directly import `agent_toolboxes/`, `agent_tools`, or the runtime. The declared exceptions are `dashboard_service` → `runtime_adapter` and `tool_approval` → `runtime_adapter` / `agent_toolboxes.shared` (the JAN-254 chat approval gate).
-- `connectors/` is a leaf: it imports no services, toolboxes, runtime, or workers.
+- `models/`, `models_knowledge.py`, `database.py`, and `schemas/` depend on no behavior modules.
+- `services/` does not import `agent_toolboxes/` or the runtime, except the exceptions declared in `pyproject.toml`.
+- `connectors/` is a leaf: no services, toolboxes, runtime, or workers.
+
+## Child maps
+
+| Path | Responsibility |
+| --- | --- |
+| `api/` | Thin FastAPI routers -> [`api/CODEMAP.md`](api/CODEMAP.md) |
+| `services/` | Focused domain services used by routers, runtime, and workers -> [`services/CODEMAP.md`](services/CODEMAP.md) |
+| `models/` | SQLAlchemy ORM schema, one module per domain -> [`models/CODEMAP.md`](models/CODEMAP.md) |
+| `connectors/` | Planner provider connectors and Graph/Azure clients -> [`connectors/CODEMAP.md`](connectors/CODEMAP.md) |
 
 ## File and submodule map
 
-| Path | Responsibility | Read next |
-| --- | --- | --- |
-| `main.py` | Compatibility entrypoint that re-exports the Typer CLI, FastAPI app, startup helpers, worker callbacks, and WebSocket handlers from focused modules | Read directly |
-| `app_factory.py` | FastAPI app factory: middleware, router registration, frontend/static serving, docs/status/events routes, WebSocket registration, and the 422 handler that omits each validation error's `input` so submitted secrets are not echoed (JAN-342) | Read directly |
-| `cli.py` | Typer CLI command tree and command implementations | Read directly |
-| `cli_service.py` | The `janus service install/uninstall/status/logs` commands (systemd user service; see `services/systemd_unit.py`), mounted by `cli.py` | Read directly |
-| `cli_update.py` | The `janus update [--check]` command (install the latest GitHub release into a git checkout or a `uv tool`/`pipx` install; `--check` also names the install kind; restarts an active `janus service` after an install; see `services/update_service.py`), mounted by `cli.py` | Read directly |
-| `cli_microsoft.py` | The `janus microsoft login/status/logout` sub-commands (Microsoft 365 sign-in), mounted by `cli.py` | Read directly |
-| `startup.py` | Shared one-time runtime initialization for CLI start and API startup, including the trigger worker and its scheduler tick (built-in seeding + due schedules), the knowledge-search capability check and keyword-table preparation, and the knowledge-index worker (JAN-241) | Read directly |
-| `websocket/` | WebSocket endpoint modules: `briefing.py` (today's Morning briefing trigger run, run inline on demand), `chat.py` (streamed chat; forwards structured `__TOOL_EVENT__` frames and the turn's `__PLAN_EVENT__` step timeline (JAN-316) to clients that opt in with `?tool_events=1` and stores each turn's tool calls with the assistant message, JAN-249; pauses `confirmation="required"` tools for a per-call approval, JAN-254, unless the user chose Always allow or Allow all, JAN-359 (the card's Always allow button stores it), and withholds those the user switched Off in chat, JAN-306; prepends each message's page snapshot as an untrusted `<page_context>` block for that turn only, JAN-250, via `services/page_context.py`; sends the `__UI_ACTION__` page actions of the chat-only `ui_actions` tools to opted-in clients through a per-connection `UIActionBroker`, JAN-251, via `services/ui_actions.py`; asks opted-in clients for their page outline and element styles for the chat-only `ui_introspection` tools through a per-connection `UIIntrospectionBroker`, JAN-284, via `services/ui_introspection.py`; streams the validated `__UI_BLOCK__` blocks of the chat-only `render_ui` tool (and the image blocks of `generate_image`, JAN-253) after their call and stores them with the reply, JAN-252, via `services/ui_blocks.py`; links the turn's generated images to the reply, via `services/image_store.py`; ends the socket with a plain `This conversation was deleted.` notice, rolling the turn's writes back, when its conversation is deleted mid-turn), `chat_inbox.py` (`ChatInbox`: the chat socket's background reader that routes `tool_approval` answers to the approval broker, `ui_action_result` frames to the page-action broker, JAN-251, and `ui_introspection_result` frames to the introspection broker, JAN-284, and queues every other frame as the next message, plus a send that turns into a no-op once the client is gone, JAN-254), `changes.py` (`/ws/changes`, the owner-scoped domain-change stream for live UI cache invalidation, JAN-104), and `closing.py` (sends the `__ERROR__` frame, a provider-safe error or a caller-chosen notice, and closes the briefing and chat sockets only while the client is still connected, JAN-293) | Read directly |
-| `workers/` | Background worker loops and callbacks for IMAP/email, planner sync, WhatsApp connector supervision (plus `send_text_message` over an account's live connector, JAN-360), Telegram bot long-polling (`telegram.py`, one supervised worker per linked bot, started at startup and on connect, JAN-405), error compaction, and the self-hosted auto-update loop (`workers/update.py`) | Read directly |
-| `desktop/` | Desktop-only integrations such as the optional tray icon | Read directly |
-| `api/` | Thin API routers (auth, dashboard, emails, planner, character, skills, memory, topics, tools, runtime triggers and trigger definitions, and more) | [`api/CODEMAP.md`](api/CODEMAP.md) |
-| `services/` | Focused domain services used by routers and workflows | [`services/CODEMAP.md`](services/CODEMAP.md) |
-| `connectors/` | Planner provider connector implementations and shared abstractions (a regular package since JAN-263, so the import contracts can see it) | [`connectors/CODEMAP.md`](connectors/CODEMAP.md) |
-| `database.py` | SQLAlchemy engine/session setup and schema upgrade helpers | Read directly |
-| `models/` | ORM schema package, one module per domain (JAN-136): shared enums, users, agent identity (character profiles, skills), email and rules, planner data, WhatsApp, reminders, topics, chat conversations with their messages, per-message tool calls (`ConversationToolCall`, JAN-249) and UI blocks (`ConversationUIBlock`, JAN-252), status events, trigger definitions/runs and tool policies, delegation and plan state, memory, auth state, settings, the MCP registry, and the remote A2A agent registry (JAN-404). `__init__.py` re-exports every name (and the `models_*.py` modules below), so `models.X` and `from janus.models import X` keep working | [`models/CODEMAP.md`](models/CODEMAP.md) |
-| `security.py` | Auth dependencies, bcrypt password hashing, credential encryption, and request/WebSocket identity helpers (`get_websocket_user_or_none` authenticates a socket on a short-lived DB session, JAN-336) | Read directly |
-| `resources.py` | Paths of the files shipped next to the code: `alembic_ini_path()`, `frontend_dist_dir()` and `docs_root()` prefer the wheel's `janus/_data` (copied in by `hatch_build.py`) and fall back to the repository; `is_packaged_install()` | Read directly |
-| `request_origin.py` | Trusted proxy header handling and helpers for reconstructing the external request origin | Read directly |
-| `models_self_evolution.py` | `SelfEvolutionSettings` (`self_evolution_settings`: the per-user opt-in switch, Claude Code Routine trigger id and encrypted token, repository, production base URL) and `SelfEvolutionAction` (`self_evolution_actions`: the loop's audit trail and daily-cap source), JAN-320; imported through `models` | Read directly |
-| `models_toolsets.py` | `RuntimeToolSelection` (`runtime_tool_selections`: the brain-selected toolset of one plan step, its source, reason, raw proposal, trimmed and widened ids, unique per owner/task/step), JAN-300; imported through `models` | Read directly |
-| `models_safety.py` | `InjectionClassifierSettings` (`injection_classifier_settings`: the per-user opt-in switch, monthly token budget, and this month's usage) and `InjectionClassification` (`injection_classifications`: cached verdicts keyed by the SHA-256 of the classified text, never the text) of the optional model-based prompt-injection classifier, JAN-289; imported through `models` | Read directly |
-| `models_character.py` | Adaptive character state (JAN-301), re-exported from `models`: `CharacterStateRecord` (`character_states`, one current state per user with a revision), `CharacterStateProposal` (`character_state_proposals`, Janus's inert chat proposals), and `CharacterStateChange` (`character_state_changes`, the audit trail for history and rollback) | Read directly |
-| `models_images.py` | `GeneratedImage` (`generated_images`, JAN-253): metadata of one chat-generated image (owner, conversation, message, prompt, provider, model, relative file path, sniffed type and size); the bytes are files under `image_storage_dir`; imported through `models` | Read directly |
-| `models_knowledge.py` | Knowledge-layer ORM models: `KnowledgeEmbedding` (JAN-241), `KnowledgeSource`/`KnowledgeChunk` and their type/status enums (JAN-242), the graph, merge-suggestion, LLM-usage, and preference models (JAN-243), and the wiki page and revision models (JAN-244); imported through `models` | Read directly |
-| `processor.py` | Email classification pipeline: the mail owner's regex rules (JAN-295) and regex safety, hand-off of new mail to `mail.received` trigger definitions, the synchronous classifier/extractor fallback, and staging of document attachments as knowledge sources (JAN-242) | Read directly |
-| `graph_mail_service.py` | Outlook mailboxes read over Microsoft Graph (`Mail.Read`): a polling monitor with the IMAP monitor's surface for the email worker, a `sync_cursor` instead of UIDs | Read directly |
-| `imap_service.py` | IMAP monitor lifecycle, syncing, mailbox interaction, and attachment extraction for knowledge staging | Read directly |
-| `planner_service.py` | External planner aggregation/sync orchestration over provider connectors (Google Calendar/Tasks, Jira only; Azure DevOps and O365 are not implemented); records new/changed items for planner trigger events (JAN-362) | Read directly |
-| `planner_trigger_events.py` | Planner trigger events (JAN-362): change detection against stored tasks/calendar events and publishing `planner.*` events after an account's sync committed (first sync is a baseline) | Read directly |
-| `llm_service.py` | LLM backend selection, JSON extractors, chat streaming (text plus `__TOOL_EVENT__` tool-call frames built by `services/tool_call_events.py`, the turn's `__PLAN_EVENT__` step frames built by `services/plan_step_events.py` (JAN-316), and the deprecated `__TOOL_CALL__`/`__TOOL_RESULT__` markers), and the post-turn memory suggester (no briefing/digest generation; those are trigger runs) | Read directly |
-| `llm_usage.py` | LLM token accounting (JAN-408): the `UsageCallback` `LLMService` attaches to every model, the surface context (`bind_surface`/`usage_surface`: chat, trigger, delegated, other), and the error-swallowing per-day upsert into `llm_usage_days` | Read directly |
-| `agent_tools.py` | `DEFAULT_TOOL_REGISTRY`: one entry per tool capability (read/write halves split), gated by real connection state, admin status, and plan-step identity | Read directly |
-| `agent_task_runner.py` | Synchronous, bounded tool-calling loop for human-absent runs (triggers, delegated tasks); default limits of 8 tool-calling rounds and 180 s, either liftable per definition; returns the trace of tools that ran | Read directly |
-| `agent_runtime.py` | Shared runtime helpers: the single Janus system prompt (character + skill library + guardrails + untrusted-content policy), and the durable `PlanDrivenRuntime` that advances a `Plan`/`PlanGraph` step by step | Read directly |
-| `plan_graph.py` | Stable plan-graph contracts (`Plan`, `PlanGraph`, `PlanStep`, state transitions, including `await_external`/`resolve_external`/`revise_pending_step` and the `waiting` step status for work happening outside the plan, JAN-207) with no LLM/DB/transport integration | Read directly |
-| `plan_state.py` | Durable, owner-scoped persistence of plan graph state snapshots (`PlanRuntimeState`) | Read directly |
-| `runtime_adapter.py` | `RuntimeAdapter`: turns an inbound task/message into a plan step and an authorized, task-scoped toolset via `tool_registry`, with a pre-execution confirmation gate, `BLOCKED` refusal stubs, tool-error guards, and the prompt-injection guard (per-step `TurnTrace`, spotlighting of untrusted output, escalation after a detection, JAN-127), and `PreparedStep.tool_ids_by_name` (registry id of each offered tool, for chat tool-call events, JAN-249); `prepare_step(page_actions=...)` puts a chat turn's page-action channel on `ToolContext.page_actions` (JAN-251) and `prepare_step(ui_introspection=...)` the connection's introspection broker on `ToolContext.ui_introspection` (JAN-284), and locked (chat-only) entries are never part of `authorized_tool_ids`; the single production entrypoint for chat, trigger/automation runs, delegated tasks, and the audit-only briefing/ingestion steps | Read directly |
-| `tool_registry.py` | Registry/metadata for Janus-internal toolboxes (including the `reads_untrusted_content` flag) and task-scoped tool selection (`build_authorized_tool_set`) | Read directly |
-| `prompt_injection.py` | Prompt-injection guardrails (JAN-127): `re2` rule-based detector (`scan_text`/`scan_output`/`scan_objective_blocks`), `<untrusted_tool_output>` spotlighting, `<prepared_context>` blocks for built-in run context, the shared `UNTRUSTED_CONTENT_POLICY` system-prompt text (which also names chat's `<page_context>` block, JAN-250, and the character state's `<character_focus>` block, `character_focus_block`, JAN-301), the chat safety notice, and the borderline cues (`is_borderline`), `merge_scans`, and text helpers the optional classifier uses (JAN-289) | Read directly |
-| `capability_profile.py` | Real per-user tool-capability signal (live email/planner/GitHub/Linear/web-search connections, a capable image provider with a stored key (JAN-253), the self-evolution switch with GitHub and Linear (JAN-320), plus always-granted capabilities) for the plan-driven runtime's capability gate | Read directly |
-| `character.py` | Stable Janus character constitution, bounded adaptive trait state, and the typed `CharacterState` dimensions (tone, verbosity, proactivity, current focus, JAN-301) it renders into the system prompt | Read directly |
-| `triggers.py` | Normalized `TriggerEnvelope`/`TriggerKind` types and process-local dispatch-once guarantees | Read directly |
-| `trigger_adapters.py` | Deterministic adapters that build trigger envelopes for scheduled and external-event activations | Read directly |
-| `trigger_service.py` | Durable trigger storage and atomic execution claims (`RuntimeTrigger` rows, retry state); handlers run inside `trigger_lease.lease_heartbeat` | Read directly |
-| `trigger_runtime.py` | Production `TriggerHandler` connecting durable trigger ingress to `RuntimeAdapter`/`PlanDrivenRuntime` execution; runs built-in prepare/finalize hooks, stores each run's output, and `run_definition_inline` for callers that wait (dashboard briefing, CLI) | Read directly |
-| `trigger_event_filters.py` | Payload filters and per-definition rate limits on event trigger definitions (JAN-363): validation, the catalog-default limit, and `admit()`, which `emit_event` and the mail processor ask before a run is enqueued | Read directly |
-| `trigger_events.py` | The trigger event catalog (JAN-210; producers: mail, WhatsApp, planner, and inbound webhooks' `webhook.received`, JAN-406): `TriggerSubsystem` and `TriggerEvent` enums, per-event label/description/payload fields, `parse_event()`, and `catalog()` for `GET /api/runtime/definitions/event-catalog`; producers emit its members and definition validation uses it | Read directly |
-| `trigger_definition_service.py` | Saved trigger definitions (objective + tools + manual/schedule/event activation): validation, next-run computation, the scheduler tick (`run_due_schedules`), event fan-out (`emit_event`, e.g. `mail.received`), run enqueueing, Janus's one-time `once` follow-up definitions (`is_agent_follow_up`, `cancel_pending_runs`, JAN-257), and the `409` guards that keep non-approved Janus proposals inert (JAN-235) | Read directly |
-| `trigger_lease.py` | Keeps a running trigger's claim alive while its handler works: `renew_trigger_claim` and the `lease_heartbeat` context manager used by `DurableTriggerWorker` and `DurableTriggerDispatcher`, so a long run is not re-claimed and executed twice | Read directly |
-| `trigger_run_settings.py` | How a definition's runs execute: `validate_model_choice` (JAN-233) and the run limits `validate_run_limits` / `RUN_LIMIT_FIELDS` (`max_tool_calls`, `max_run_seconds`; `NULL` = default, `0` = no limit) | Read directly |
-| `trigger_approval.py` | Which definitions may run and when a Janus proposal's approval is still valid (JAN-235): the content `approval_fingerprint`, `is_runnable`/`runnable_filter`, and `has_valid_approval` (read by the definition service, `tool_policy`, and `trigger_runtime`) | Read directly |
-| `trigger_proposal_service.py` | Agent-proposed automations (JAN-235): Janus's side (`create_proposal`, `revise_proposal`, `withdraw_proposal`, `list_proposals`) with the limits, proposable-tool allowlist, and dedupe; the user's side (`approve_proposal`, `reject_proposal`) with the supersede flow; and the review data for the API | Read directly |
-| `builtin_triggers.py` | Janus-seeded definitions (morning briefing, afternoon digest, mail processing, the hourly proactive Secretary, and the opt-in knowledge extraction and wiki synthesis) with their context (`prepare`) and delivery (`finalize`) hooks; also maps the unseeded `selfevo.check:<id>` self-check definitions to their code-run `prepare` hook (JAN-321) | Read directly |
-| `tool_policy.py` | Per-user, per-tool "Unattended: Allowed / Off" switch (JAN-255) and "In chat: Ask every time / Always allow / Off in chat" switch for `confirmation="required"` tools (`chat_withheld_tool_ids`, JAN-306; `chat_preconfirmed_tool_ids`, JAN-359), the per-user blanket modes "Unattended: Allow everything" and "In chat: Allow all" (`get_modes`/`set_modes`, `tool_policy_modes`, JAN-359; Allow everything also lifts the `images` and remote MCP locks via `unattended_locked_reason`), the `LOCKED_UNATTENDED` set (the chat-only `triggers.propose`, JAN-235, `ui_actions`, JAN-251, `ui_blocks`, JAN-252, `images`, JAN-253, `ui_introspection`, JAN-283, and `character.propose`, JAN-301; `events` and `triggers` left it in JAN-272/274), the `SWITCH_GOVERNED` entries whose allowance is a dedicated opt-in (`self_evolution`, JAN-320), the remote MCP lock (`locked_reason`: every `mcp.*` id is locked for unattended runs, JAN-343), and the offered/confirmed tool sets of each unattended run (ad-hoc trigger, saved definition incl. an approved Janus proposal, delegated child) | Read directly |
-| `runtime_trigger_handler.py` | Guarded adapter from durable triggers into the plan-driven runtime (context building, resume/retry) | Read directly |
-| `toolset_selection.py` | Brain-selected, task-scoped toolsets (JAN-300): the utility-model selector (strict JSON from registry metadata, bounded by `tool_selection_timeout_seconds`), `narrow()` (intersects a choice with a step's authorized entries; unauthorized ids are trimmed, an empty or failed selection falls back to the full set; `core`/`docs` anchors), `authorized_candidates()` (what a selector may pick from), `narrow_selection()` (the hook `RuntimeAdapter.prepare_step(toolset=...)` calls), the persisted choice (`services/toolset_store.py`, reused by a retried or resumed step), and chat's `request_tools` widening tool | Read directly |
-| `unattended_execution.py` | Shared authorize-and-execute path for one human-absent plan step (tools offered and confirmed per the unattended switch, refusal stubs, denial policy, result recording incl. refused/failed tool calls, and a definition's run limits via `run_limits_for`), used by trigger execution and delegated child tasks | Read directly |
-| `delegation_service.py` | Durable `runtime_delegations` records (parent task -> child task), claim tokens, the depth/fan-out caps for plan-driven delegation (JAN-200), and the requeue-once rule for interrupted delegations (JAN-207) | Read directly |
-| `delegation_runtime.py` | Runs a delegated child task through `PlanDrivenRuntime` on the `DELEGATION_RUNNER` pool, records its outcome, releases a parent waiting on it, and `run_delegation_maintenance` (durable re-pickup and parent release on every trigger-worker poll, JAN-207) | Read directly |
-| `delegation_wait.py` | A trigger run waiting on its delegated children (JAN-207): the per-step wait sink behind `wait_for_delegated_tasks`, releasing `waiting` runs whose children finished, and resolving their results into the plan before resume | Read directly |
-| `background_tasks.py` | Minimal submit/status abstraction over thread workers (`BackgroundTaskRunner`, `ThreadPoolTaskRunner`; JAN-138): key-deduplicated submissions, not a durable or distributed queue | Read directly |
-| `agent_toolboxes/` | Focused tool collections for mail, calendar, planner/local tasks, dashboard widgets, GitHub, Linear, web search, reading one explicit web page (`web_fetch.py`, with its `WEB_FETCH_ENTRY`, JAN-329), WhatsApp for the user's own accounts (`whatsapp.py`: the read-only `WHATSAPP_ENTRY`, JAN-347, `WHATSAPP_SEND_ENTRY`, sending text messages over the live connector, approved per call, JAN-360, and `WHATSAPP_NOTIFY_ENTRY`, the Secretary's capped alert to the owner's own number), the user's discovered remote MCP tools as chat-only registry entries with schema-derived arguments and confirmation by `readOnlyHint` (`remote_mcp.py`, JAN-343), the user's switched-on remote A2A agents as chat-only `ask_agent_<id>` tools that always ask first (`remote_agents.py`, JAN-404), memory, topics, knowledge search (JAN-243), the wiki (JAN-244), Janus's own documentation (`docs.py`, JAN-297), Microsoft 365 Outlook mail/calendar and Teams chats (`microsoft.py`), read-only Azure resources (`azure.py`), triggers, chat-only automation proposals (`automation_proposals.py`, JAN-235), chat-only page actions that ask the user's open web page to navigate, filter, open, highlight, scroll, or prefill a form (`ui_actions.py`, which also defines its `UI_ACTIONS_ENTRY` registry entry, JAN-251), the chat-only `render_ui` tool that shows a validated UI block in the reply (`ui_blocks.py`, with its `UI_BLOCKS_ENTRY`, JAN-252), the chat-only, read-only `get_ui_snapshot`/`get_element_styles` tools that read the outline and element styles of the user's open web page as untrusted output (`ui_introspection.py`, with its `UI_INTROSPECTION_ENTRY`, JAN-284), the chat-only `generate_image` tool that draws a picture with the configured cloud image model and shows it inline (`images.py`, with its `IMAGES_ENTRY`, JAN-253), the opt-in autonomous self-evolution loop (`self_evolution.py`, with its `SELF_EVOLUTION_ENTRY`, JAN-320), the unattended-only `start_conversation` tool that opens a new chat for the run's owner (`conversations.py`, with its `CONVERSATIONS_START_ENTRY`, JAN-319), the adaptive character state (`character.py`, with its `CHARACTER_ENTRIES`: the read-only `character` and the chat-only `character.propose`, JAN-301), the admin-only, operator-opt-in `run_shell_command` tool that runs one command on the Janus host (`shell.py`, with its `SHELL_ENTRY`, JAN-353), the unattended-only `notify_me_on_telegram` alert to the owner's linked Telegram chat (`telegram.py`, with its `TELEGRAM_NOTIFY_ENTRY`, JAN-405), the admin-only, operator-opt-in `ask_coding_agent` tool that asks an installed coding-agent CLI (Claude Code or Codex) for help (`coding_agents.py`, with its `CODING_AGENTS_ENTRY`, JAN-403), rules, mail processing (`mail.received` tools), bulk review of pending planner suggestions (`planner_suggestions.py`: the read `PLANNER_SUGGESTIONS_ENTRY`, the dismiss/restore `PLANNER_SUGGESTIONS_REVIEW_ENTRY`, and `PLANNER_SUGGEST_ENTRY` with the Secretary's `propose_planner_item`), task delegation, and the admin skill library, plus shared/common helpers and event/trigger introspection | Read directly |
-| `domain_changes.py` | Owner-scoped domain-change notifications (JAN-104): the tracked model -> UI domain registry, SQLAlchemy session hooks that record committed writes (incl. ORM bulk updates/deletes) from every surface, and the in-process bus `/ws/changes` subscribes to | Read directly |
-| `reminder_service.py` | Reminder memory logic and calendar-style reminder materialization; reminders are owned through their source email's account and every read takes the owner (JAN-296) | Read directly |
-| `status_service.py` | Persisted system-health aggregation (including the Knowledge search service, JAN-241) and LLM probe support | Read directly |
-| `worker_manager.py` | Supervises background worker threads for monitored services | Read directly |
-| `runtime.py` | Persistent runtime path preparation, server logging, and single-instance lock enforcement | Read directly |
-| `whatsapp_neonize.py` | Neonize WhatsApp integration: setup-time device pairing and the live per-account connector, which hands new incoming live messages to `whatsapp_trigger_events.py` (JAN-361) | Read directly |
-| `whatsapp_trigger_events.py` | WhatsApp trigger events (JAN-361): mention detection (`referenced_users`, `own_users`) and publishing the `whatsapp.*` direct/group/mention events for a new incoming live message | Read directly |
-| `schemas/` | Pydantic request/response models shared across routers | Read directly |
-| `config.py` | Centralized application settings via `pydantic-settings` (including the chat approval and page-action timeouts, JAN-254/JAN-251, and the generated-image directory and per-user cap, JAN-253) | Read directly |
-| `notifications.py`, `event_logger.py`, `time_utils.py`, `cli_client.py` | Supporting utilities for notifications, structured events (each attributed to the user it concerns via an explicit `user_id` or an `owned_by` scope, JAN-272), time handling, and CLI-to-API communication | Read directly |
+| Path | Responsibility |
+| --- | --- |
+| `main.py` | Compatibility entrypoint re-exporting the CLI, app, startup helpers, and WebSocket handlers |
+| `app_factory.py` | FastAPI app factory: middleware, router registration, static/frontend serving, WebSocket registration |
+| `startup.py` | One-time runtime initialization shared by CLI start and API startup (trigger worker, knowledge index) |
+| `cli.py` | Typer CLI command tree |
+| `cli_*.py` | CLI sub-commands mounted by `cli.py`: `service` (systemd), `update`, `microsoft` login; `cli_client.py` talks to the API |
+| `websocket/` | WebSocket endpoints: `briefing.py`, `chat.py` (streamed chat, tool approvals, page actions, UI blocks), `chat_inbox.py`, `changes.py` (`/ws/changes`), `closing.py` |
+| `workers/` | Background worker loops: email, planner, WhatsApp, Telegram, error compaction, auto-update |
+| `worker_manager.py` | Supervises background worker threads |
+| `desktop/` | Optional desktop tray icon |
+| `schemas/` | Pydantic request/response models shared across routers |
+| `database.py` | SQLAlchemy engine/session setup and schema upgrade helpers |
+| `models_*.py` | Feature ORM modules re-exported through `models/`: character state, images, knowledge, safety classifier, self-evolution, toolsets |
+| `config.py` | Application settings via `pydantic-settings` |
+| `security.py` | Auth dependencies, password hashing, credential encryption, request/WebSocket identity |
+| `request_origin.py` | Trusted proxy headers and external request origin |
+| `resources.py` | Paths of shipped files (Alembic config, frontend dist, docs) for wheel and repo installs |
+| `runtime.py` | Runtime path preparation, server logging, single-instance lock |
+| `processor.py` | Email classification: regex rules, hand-off to mail trigger definitions, LLM fallback, attachment staging |
+| `imap_service.py` | IMAP monitor lifecycle, syncing, attachment extraction |
+| `graph_mail_service.py` | Outlook mailbox polling monitor over Microsoft Graph |
+| `reminder_service.py` | Reminder memory and calendar-style reminder materialization |
+| `planner_service.py` | Planner sync orchestration over `connectors/` (Google, Jira, Microsoft) |
+| `planner_trigger_events.py`, `whatsapp_trigger_events.py` | Change detection and publishing of `planner.*` / `whatsapp.*` trigger events |
+| `whatsapp_neonize.py` | Neonize WhatsApp pairing and live per-account connector |
+| `llm_service.py` | LLM backend selection, JSON extractors, chat streaming, memory suggester |
+| `llm_usage.py` | LLM token accounting per user, day, surface, and model |
+| `agent_runtime.py` | Janus system prompt and the durable `PlanDrivenRuntime` |
+| `plan_graph.py`, `plan_state.py` | Plan-graph contracts (no LLM/DB) and their durable persistence |
+| `runtime_adapter.py` | `RuntimeAdapter`: single entrypoint turning a task/message into a plan step with an authorized toolset and confirmation gate |
+| `agent_tools.py` | `DEFAULT_TOOL_REGISTRY`: one entry per tool capability, gated by connection state and role |
+| `tool_registry.py` | Toolbox registry metadata and task-scoped tool selection |
+| `toolset_selection.py` | Model-selected, task-scoped toolsets narrowed to the authorized set |
+| `tool_policy.py` | Per-user per-tool unattended and in-chat switches, blanket modes, chat-only locked tools |
+| `capability_profile.py` | Per-user capability signal (live connections, providers) for the runtime's capability gate |
+| `prompt_injection.py` | Prompt-injection detection, untrusted-output spotlighting, shared untrusted-content policy text |
+| `character.py` | Character constitution, adaptive trait state, and its system-prompt rendering |
+| `agent_toolboxes/` | One module per tool collection (mail, calendar, planner, memory, knowledge, triggers, UI, integrations...); `shared.py`/`common.py` helpers |
+| `agent_task_runner.py` | Bounded tool-calling loop for human-absent runs |
+| `unattended_execution.py` | Shared authorize-and-execute path for one human-absent plan step |
+| `triggers.py`, `trigger_adapters.py` | Trigger envelope types and adapters for scheduled/event activations |
+| `trigger_service.py` | Durable `RuntimeTrigger` storage and execution claims |
+| `trigger_runtime.py` | Trigger handler executing runs through the runtime; inline runs for briefing/CLI |
+| `runtime_trigger_handler.py` | Guarded adapter from durable triggers into the runtime (resume/retry) |
+| `trigger_definition_service.py` | Saved trigger definitions: validation, scheduling tick, event fan-out, run enqueueing |
+| `trigger_events.py` | Trigger event catalog (mail, WhatsApp, planner, webhook events) |
+| `trigger_event_filters.py` | Payload filters and rate limits on event definitions |
+| `trigger_proposal_service.py`, `trigger_approval.py` | Janus-proposed automations, user approval, approval fingerprint |
+| `builtin_triggers.py` | Seeded built-in definitions (briefing, digest, mail, Secretary, knowledge) with prepare/finalize hooks |
+| `delegation_service.py`, `delegation_runtime.py`, `delegation_wait.py` | Delegated child tasks: records and caps, execution on a thread pool, parent waiting |
+| `background_tasks.py` | Minimal submit/status abstraction over thread workers |
+| `domain_changes.py` | Owner-scoped domain-change notifications feeding `/ws/changes` |
+| `status_service.py` | Persisted system-health aggregation and LLM probe |
+| `notifications.py`, `event_logger.py`, `time_utils.py` | Notifications, structured event log, time helpers |
 
 ## Read-next guidance
 
-- HTTP route or response-shape change -> `api/CODEMAP.md`
-- Auth, session, or user-management behavior -> `services/CODEMAP.md`, then `security.py`
-- Planner provider or sync change -> `connectors/CODEMAP.md`, then `planner_service.py` (Google/Jira only; ADO/O365 unimplemented)
-- Email ingestion, classification, or reminder flow -> `processor.py`, `imap_service.py`, and related tests in `tests/CODEMAP.md`
-- Agent-tool or MCP-style capability change -> `agent_tools.py`, `agent_toolboxes/`, then `services/CODEMAP.md`
-- Plan-driven runtime, trigger execution, or task-scoped tool authorization -> `runtime_adapter.py`, `agent_runtime.py`, `plan_graph.py`, `plan_state.py`, `tool_registry.py`, `tool_policy.py`, `prompt_injection.py`, `capability_profile.py`, `unattended_execution.py`, `toolset_selection.py`, then `triggers.py`/`trigger_adapters.py`/`trigger_service.py`/`trigger_runtime.py`/`runtime_trigger_handler.py`
-- Trigger definitions, schedules, events, or the briefing/digest/mail/secretary/knowledge built-ins -> `trigger_events.py` (which events exist), `trigger_definition_service.py`, `builtin_triggers.py`, `services/secretary_service.py` (the Secretary's gates and context), then `trigger_runtime.py` and `api/trigger_definitions.py`
-- The autonomous self-evolution loop, its gates, scope fence, or caps (JAN-320) -> `services/self_evolution_service.py` (`SCOPE_FENCE`, `DAILY_CAPS`, switch), `services/self_evolution_intake.py`, `services/self_evolution_merge.py`, `services/self_evolution_provenance.py`, `services/self_evolution_checks.py`, `agent_toolboxes/self_evolution.py`, then `tool_policy.py` (`SWITCH_GOVERNED`) and `api/self_evolution.py`
-- Adaptive character state, its envelope, proposals, audit, or rollback (JAN-301) -> `services/character_state_service.py`, `models_character.py`, `character.py`, `agent_toolboxes/character.py`, then `api/character.py`
-- Janus-proposed automations, their approval, or the approval fingerprint (JAN-235) -> `trigger_proposal_service.py`, `trigger_approval.py`, `agent_toolboxes/automation_proposals.py`, then `tool_policy.py` and `api/trigger_definitions.py`
+- HTTP route or response shape -> `api/CODEMAP.md`
 - App boot or router wiring -> `app_factory.py`, then `startup.py`
-- CLI behavior -> `cli.py`
-- WebSocket behavior -> `websocket/`
-- Live UI refresh after a backend write (which domains a model emits, owner resolution) -> `domain_changes.py`, then `websocket/changes.py`
-- Background worker behavior -> `workers/`
+- Auth or sessions -> `security.py`, then `services/CODEMAP.md`
+- Email ingestion/classification -> `processor.py`, `imap_service.py`, `graph_mail_service.py`
+- Planner provider or sync -> `connectors/CODEMAP.md`, then `planner_service.py`
+- Runtime, tool authorization, or prompt -> `runtime_adapter.py`, `agent_runtime.py`, `tool_registry.py`, `tool_policy.py`, `agent_toolboxes/`
+- Triggers, schedules, events, built-ins -> `trigger_definition_service.py`, `trigger_events.py`, `builtin_triggers.py`, `trigger_runtime.py`
+- Janus-proposed automations -> `trigger_proposal_service.py`, `trigger_approval.py`, `agent_toolboxes/automation_proposals.py`
+- Delegated tasks -> `delegation_*.py`
+- Chat socket behavior -> `websocket/chat.py`
+- Live UI refresh after a write -> `domain_changes.py`, then `websocket/changes.py`
+- Background workers -> `workers/`, `worker_manager.py`
+- Tests -> [`tests/CODEMAP.md`](../../tests/CODEMAP.md)

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Janus is a privacy-first, local-first personal AI agent platform. It started as an IMAP email assistant (LLM + regex classification) and has grown into a single always-on agent with a plan-driven tool-calling runtime, durable scheduled/event triggers, background task delegation, durable memory facts, structured topic tracking, an MCP tool registry, and a WhatsApp connector — surfaced through a web dashboard (three interchangeable UI shells), a CLI, and a native iOS client scaffold. It runs entirely locally (SQLite + optional Ollama) with optional cloud integrations (Google Calendar, Jira, OpenAI; Azure DevOps and O365 connectors are planned but not yet implemented — `planner_service.py` only has a placeholder for them). For the authoritative, actively-maintained architecture detail behind this summary, start at [`TECH_SPEC.md`](TECH_SPEC.md) and its children under `docs/docs/tech-spec/`.
+Janus is a privacy-first, local-first personal AI agent platform. It started as an IMAP email assistant (LLM + regex classification) and has grown into a single always-on agent with a plan-driven tool-calling runtime, durable scheduled/event triggers, background task delegation, durable memory facts, structured topic tracking, an MCP tool registry, and a WhatsApp connector — surfaced through a web dashboard (three interchangeable UI shells), a CLI, and a native iOS client scaffold. It runs entirely locally (SQLite + optional Ollama) with optional cloud integrations (Google Calendar, Microsoft/Outlook calendar, Jira, OpenAI; an Azure DevOps connector is planned but not yet implemented — `planner_service.py` only has a placeholder for it). For the authoritative, actively-maintained architecture detail behind this summary, start at [`TECH_SPEC.md`](TECH_SPEC.md) and its children under `docs/docs/tech-spec/`.
 
 ## Commands
 
@@ -51,6 +51,7 @@ Every `CODEMAP.md`, `TECH_SPEC.md`, and its child docs under `docs/docs/tech-spe
 - Any change that adds, removes, renames, or moves a file, module, service, or directory MUST update every `CODEMAP.md` whose file-and-submodule table references it, in the same change.
 - Any change to architecture, a service boundary, a schema, or an integration MUST update the relevant `docs/docs/tech-spec/` child doc(s) first (see "Spec-first" below), then refresh `TECH_SPEC.md`'s own index/links if its summaries or links changed.
 - Before considering a task done, check whether the diff touched anything a `CODEMAP.md` or tech-spec doc describes; if so, fix the doc in the same change. A stale codemap or tech spec is a defect, on par with a failing test.
+- A `CODEMAP.md` says where to look, not how things work: one short clause per row, no ticket history or behavior detail (that belongs in the tech spec). Follow the `maintain-codemap` skill (`.claude/skills/`, a symlink to `.agents/skills/maintain-codemap/SKILL.md`) and check with `task codemap:check`.
 - When asked for a housekeeping or documentation-audit pass (not tied to one specific change), walk every `CODEMAP.md` and tech-spec doc against the real, current repository state and fix whatever has drifted.
 
 ## Architecture
@@ -67,7 +68,7 @@ Every `CODEMAP.md`, `TECH_SPEC.md`, and its child docs under `docs/docs/tech-spe
 - `llm_service.py` — LangChain abstraction over the LLM providers; streams chat via WebSocket and runs the JSON extractors and memory suggester (briefings and digests are trigger runs, not `llm_service` methods)
 - `imap_service.py` — persistent IMAP connections with IDLE support; one background thread per account
 - `processor.py` — applies `Rule` patterns (regex) to classify emails as IMPORTANT/DIGEST/IGNORE/SPAM, then hands new mail to `mail.received` trigger definitions or falls back to the synchronous LLM classifier
-- `planner_service.py` — factory over calendar connectors (Google, Jira); Azure DevOps and O365 are placeholders, not implemented; syncs every 30 min
+- `planner_service.py` — factory over calendar connectors (Google, Microsoft/Outlook, Jira); Azure DevOps is a placeholder, not implemented; syncs every 30 min
 
 **Plan-driven agent runtime** (`runtime_adapter.py`, `tool_registry.py`, `tool_policy.py`, `character.py`, `agent_task_runner.py`) is the live execution path for chat, triggers, and delegated tasks: it turns an inbound task/message into an authorized, per-message toolset (`agent_toolboxes/`) gated by task mode, real connection state, and a confirmation gate. Every surface renders the same system prompt: the user's `CharacterProfile` constitution (plus its optional `additional_instructions`) and the full flat skill library. There are no agent definitions, skill assignments, or handoffs any more (removed in JAN-169/JAN-227, migration `d5e8f1a2b3c4`); the skill-library tools survive as the admin-only `skills` toolbox. See [`docs/docs/tech-spec/background-workers-runtime.md`](docs/docs/tech-spec/background-workers-runtime.md).
 

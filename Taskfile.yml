@@ -118,6 +118,11 @@ tasks:
     cmds:
       - uv run lint-imports
 
+  codemap:check:
+    desc: Report CODEMAP.md files over their size budget and paths they name that do not exist.
+    cmds:
+      - uv run python .agents/skills/maintain-codemap/scripts/check_codemaps.py
+
   lint:dead:
     desc: Find dead code and unused dependencies (backend + frontend).
     deps: [lint:dead:backend, lint:dead:frontend]

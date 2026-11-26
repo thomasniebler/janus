@@ -1,42 +1,25 @@
 # Documentation Code Map
 
-Scope: documentation sources and Zensical configuration under `docs/`.
-
-## Responsibilities
-
-- define the in-app documentation content served by the backend and read by Janus's `docs` toolbox
-- configure navigation and theme settings for Zensical
-- maintain the focused child technical specifications exposed through in-app docs
-- archive periodic comprehensive codebase review reports
-- hold generated static site output when docs are built locally
+Scope: documentation sources and Zensical configuration under `docs/`. These pages are also served in-app and read by Janus's `docs` toolbox.
 
 ## File and submodule map
 
 | Path | Responsibility |
 | --- | --- |
-| `zensical.toml` | Navigation structure and theme/site configuration for docs rendering |
-| `docs/index.md` | Documentation landing page |
-| `docs/changelog.md` | Symlink to the root `CHANGELOG.md` (release-please), published as the Changelog page |
-| `docs/quickstart.md` | Five-minute quickstart setup guide |
-| `docs/configuration.md` | Configuration reference (env vars, `.env`, precedence, integrations, and the per-tool Unattended and In chat switches) |
-| `docs/architecture.md` | System architecture and module-overview reference |
-| `docs/database.md` | Database backend configuration (SQLite default, optional PostgreSQL) |
-| `docs/desktop-widget.md` | Desktop widget API/CLI docs for status-bar integrations (Waybar, Sway) |
-| `docs/runtime-triggers.md` | User guide to triggers: trigger definitions, the built-in briefing/digest/mail-processing triggers, `mail.received` processing, the per-tool Unattended switch and refusals, suggested automations from Janus and their review (JAN-235), run history, and worker settings |
-| `docs/tools.md` | User reference for every tool-registry entry (one heading per entry, the target of each entry's `docs_ref`, e.g. `tools.md#send-mail`), how the Unattended switch works, the In chat "Ask every time"/"Always allow"/"Off in chat" switch for tools that ask before every call and the blanket "Allow everything"/"Allow all" modes (JAN-306, JAN-359), and what each `BLOCKED` answer means; `tests/test_docs_tools.py` fails if an entry has no section (JAN-297) |
-| `docs/tech-spec/` | Focused child technical specifications linked from root `TECH_SPEC.md` and docs navigation |
-| `docs/feature-specs/` | Detailed feature specifications shipped as docs content |
-| `docs/roadmap/` | Roadmap and phase-planning documents |
-| `docs/features/planned/` | Planned feature specs and implementation plans, including the Linear → GitHub Issues migration plan (JAN-393) |
-| `docs/reviews/` | Archived point-in-time comprehensive codebase review reports; served by `/api/docs` but never offered to Janus's `docs` toolbox |
-| `screenshots/` | UI screenshot assets referenced by docs pages |
-| `site/` | Generated documentation output; not the source of truth |
+| `zensical.toml` | Navigation and theme configuration |
+| `docs/` | User-facing pages (index, quickstart, configuration, architecture, database, triggers, tools, inbox, desktop widget); `docs/changelog.md` is a symlink to the root `CHANGELOG.md` |
+| `docs/tools.md` | One section per tool-registry entry; each entry's `docs_ref` points here |
+| `docs/tech-spec/` | Technical-spec child docs linked from root `TECH_SPEC.md` |
+| `docs/feature-specs/` | Feature specifications |
+| `docs/features/planned/` | Planned-feature specs and implementation plans |
+| `docs/roadmap/` | Roadmap and phase planning |
+| `screenshots/` | UI screenshots referenced by docs pages |
 
-## Read-next guidance
+Generated output (`site`) is not the source of truth.
 
-- In-app docs navigation or rendering issue -> `zensical.toml`, then `src/janus/api/docs.py`, `src/janus/services/docs_service.py`, and `frontend/src/pages/Documentation.tsx`
-- New or renamed agent tool -> add its section to `docs/tools.md` and point the registry entry's `docs_ref` at it
-- Architecture or technical requirement change -> root `../TECH_SPEC.md`, then the relevant `docs/tech-spec/` child spec
-- Feature-spec content change -> `docs/feature-specs/`
-- Roadmap or planned-work doc change -> `docs/roadmap/` or `docs/features/planned/`
-- Setup/onboarding doc change -> `docs/quickstart.md` or `docs/configuration.md`
+## Where to look
+
+- In-app docs rendering -> `zensical.toml`, `src/janus/api/docs.py`, `src/janus/services/docs_service.py`, `frontend/src/pages/Documentation.tsx`
+- New or renamed agent tool -> add a section to `docs/tools.md`
+- Architecture change -> `../TECH_SPEC.md`, then `docs/tech-spec/`
+- Setup docs -> `docs/quickstart.md`, `docs/configuration.md`
