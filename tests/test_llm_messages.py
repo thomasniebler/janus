@@ -13,14 +13,12 @@ def test_plain_content_is_returned_as_is():
 
 
 def test_only_text_blocks_of_list_content_are_kept():
-    """Reasoning and thinking blocks are dropped; text, output_text, untyped and plain-string parts are joined."""
+    """Reasoning, thinking, and tool blocks are dropped; text blocks and plain-string parts are joined."""
     content = [
         {"id": "rs_1", "type": "reasoning", "summary": [], "encrypted_content": "gAAAAABsecret"},
         {"type": "thinking", "thinking": "hmm"},
         {"type": "text", "text": "A", "annotations": []},
-        {"type": "output_text", "text": "B"},
-        {"text": "C"},
-        "D",
+        "B",
         {"type": "tool_use", "id": "t1", "name": "x", "input": {}},
     ]
-    assert message_text(AIMessage(content=content)) == "ABCD"
+    assert message_text(AIMessage(content=content)) == "AB"

@@ -59,14 +59,14 @@ def repair(bind: sa.engine.Connection) -> int:
             if text is None:
                 continue
             changed += 1
-            if not text and table == "wiki_page_revisions":
-                bind.execute(sa.text("DELETE FROM wiki_page_revisions WHERE id = :id"), {"id": row_id})
-                continue
             if not text:
-                bind.execute(
-                    sa.text("UPDATE wiki_pages SET body = '', citations = '[]', input_hash = NULL WHERE id = :id"),
-                    {"id": row_id},
-                )
+                if table == "wiki_page_revisions":
+                    bind.execute(sa.text("DELETE FROM wiki_page_revisions WHERE id = :id"), {"id": row_id})
+                else:
+                    bind.execute(
+                        sa.text("UPDATE wiki_pages SET body = '', citations = '[]', input_hash = NULL WHERE id = :id"),
+                        {"id": row_id},
+                    )
                 continue
             cited = {int(number) for number in re.findall(r"\[(\d+)\]", text)}
             kept = json.loads(citations) if isinstance(citations, str) else (citations or [])
