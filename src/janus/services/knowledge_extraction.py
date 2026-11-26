@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from janus import builtin_triggers, llm_service, models, trigger_definition_service
 from janus.llm_service import ModelChoice
 from janus.models_knowledge import DEFAULT_MONTHLY_TOKEN_BUDGET
-from janus.services import knowledge_graph, model_locality
+from janus.services import knowledge_graph, llm_messages, model_locality
 from janus.time_utils import utcnow
 
 #: Chunks sent in one model call.
@@ -110,7 +110,7 @@ def record_usage(db: Session, user_id: int, input_tokens: int, output_tokens: in
 def message_usage(message: object, prompt: str) -> tuple[int, int]:
     """Provider-reported (input, output) tokens, else character estimates."""
     metadata = getattr(message, "usage_metadata", None) or {}
-    content = str(getattr(message, "content", "") or "")
+    content = llm_messages.message_text(message)
     input_tokens = int(metadata.get("input_tokens") or 0) or len(prompt) // CHARS_PER_TOKEN
     output_tokens = int(metadata.get("output_tokens") or 0) or len(content) // CHARS_PER_TOKEN
     return input_tokens, output_tokens
@@ -231,7 +231,7 @@ def run_extraction(db: Session, user_id: int, definition: models.TriggerDefiniti
             service = llm_service.build_llm_service(db, model_choice(db, definition), purpose="utility")
         message = service.llm.invoke(prompt)
         record_usage(db, user_id, *message_usage(message, prompt))
-        output = parse_output(str(getattr(message, "content", "") or ""))
+        output = parse_output(llm_messages.message_text(message))
         if output is None:
             # Marked as extracted anyway, so an unusable answer does not burn the budget run after run.
             summary.unparseable += 1

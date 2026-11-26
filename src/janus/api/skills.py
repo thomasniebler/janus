@@ -15,6 +15,7 @@ from janus import database, models, security, time_utils
 from janus.llm_service import LLMService
 from janus.schemas import skill as skill_schemas
 from janus.services import skill_catalog_service
+from janus.services.llm_messages import message_text
 
 router = APIRouter(prefix="/api", tags=["skills"])
 
@@ -154,7 +155,7 @@ Current draft content:
 """
     try:
         response = llm.llm.invoke(prompt)
-        parsed = _extract_json_payload(getattr(response, "content", str(response)))
+        parsed = _extract_json_payload(message_text(response))
         suggested_name = skill_catalog_service.normalize_skill_name(
             str(parsed.get("suggested_name") or body.draft_name or "")
         )

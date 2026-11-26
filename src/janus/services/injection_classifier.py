@@ -51,7 +51,7 @@ from sqlalchemy.orm import Session
 from janus import database, event_logger, llm_service, models, prompt_injection
 from janus.models_safety import DEFAULT_INJECTION_CLASSIFIER_BUDGET
 from janus.prompt_injection import InjectionScan
-from janus.services import model_locality
+from janus.services import llm_messages, model_locality
 from janus.time_utils import utcnow
 
 #: Part of the cache key: bump it when the prompt or label set changes.
@@ -183,7 +183,7 @@ def parse_verdict(content: str) -> tuple[str, ...]:
 def message_tokens(message: object, prompt: str) -> int:
     """Provider-reported input plus output tokens of one answer, else character estimates."""
     metadata = getattr(message, "usage_metadata", None) or {}
-    content = str(getattr(message, "content", "") or "")
+    content = llm_messages.message_text(message)
     used = int(metadata.get("input_tokens") or 0) or len(prompt) // CHARS_PER_TOKEN
     return used + (int(metadata.get("output_tokens") or 0) or len(content) // CHARS_PER_TOKEN)
 
@@ -294,7 +294,7 @@ class InjectionClassifier:
             raise ClassifierUnavailable("timed out") from error
         # A provider error keeps the reservation; an answer replaces it with the real usage.
         adjust_tokens(self.user_id, period, message_tokens(message, prompt) - estimate)
-        labels = parse_verdict(str(getattr(message, "content", "") or ""))
+        labels = parse_verdict(llm_messages.message_text(message))
         self._store(digest, labels, model)
         return labels
 

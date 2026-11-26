@@ -16,7 +16,7 @@ class _FakeLlm:
 
     def __init__(self):
         """Starts with no answers; unanswered prompts get a generic cited page."""
-        self.answers: list[str] = []
+        self.answers: list[str | list] = []
         self.prompts: list[str] = []
 
     def invoke(self, prompt):
@@ -151,6 +151,20 @@ def test_synthesis_writes_cited_pages_and_skips_unchanged_ones(db, world, fake_l
     wiki_synthesis.run_synthesis(db, user.id, None)
     assert len(fake_llm.prompts) == calls + 1
     assert len(wiki_service.revisions(db, _page(db, "Acme renewal"))) == 2
+
+
+def test_synthesis_keeps_only_the_text_of_block_answers(db, world, fake_llm):
+    """Reasoning blocks of a Responses API answer (with encrypted content) never reach the page (JAN-410)."""
+    fake_llm.answers = [
+        [
+            {"id": "rs_1", "type": "reasoning", "summary": [], "encrypted_content": "gAAAAABsecret"},
+            {"type": "text", "text": "The renewal is due on 1 November [1].", "annotations": []},
+        ]
+    ]
+    wiki_synthesis.run_synthesis(db, world["user"].id, None)
+    page = _page(db, "Acme renewal")
+    assert page.body == "The renewal is due on 1 November [1]."
+    assert [citation["n"] for citation in page.citations] == [1]
 
 
 def test_passage_text_is_escaped(db, fake_llm):
@@ -426,3 +440,62 @@ def test_search_matches_slugs(db):
         "acme-renewal"
     ]
     assert wiki_service.list_pages(db, user.id, query="globex") == []
+
+
+def _jan410_migration():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parents[1] / "alembic/versions/d7a9c1e3f5b8_repair_wiki_block_bodies_jan_410.py"
+    spec = importlib.util.spec_from_file_location("jan410_migration", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    return migration
+
+
+def test_migration_repairs_block_list_bodies(db):
+    """Block-list bodies keep their text and used citations; text-less ones are emptied or deleted (JAN-410)."""
+    migration = _jan410_migration()
+    user = _user(db)
+    reasoning = {"id": "rs_1", "type": "reasoning", "summary": [], "encrypted_content": "gAAAAABsecret"}
+    blocks = [reasoning, {"type": "text", "text": "Due in November [2].", "annotations": []}]
+    broken = models.WikiPage(user_id=user.id, slug="broken", title="Broken", subject_type="topic", subject_id=1)
+    broken.body, broken.citations = str(blocks), [{"n": 1, "chunk_id": 5}, {"n": 2, "chunk_id": 6}]
+    empty = models.WikiPage(user_id=user.id, slug="empty", title="Empty", subject_type="topic", subject_id=3)
+    empty.body, empty.citations, empty.input_hash = str([reasoning]), [{"n": 1}], "old"
+    fine = models.WikiPage(user_id=user.id, slug="fine", title="Fine", subject_type="topic", subject_id=2)
+    fine.body, fine.citations = "[{not a list", []
+    db.add_all([broken, empty, fine])
+    db.flush()
+    revision = models.WikiPageRevision(
+        page_id=empty.id, user_id=user.id, body=str([reasoning]), citations=[], author="janus", kind="published"
+    )
+    db.add(revision)
+    db.commit()
+    revision_id = revision.id
+
+    assert migration.repair(db.connection()) == 3
+    db.commit()
+    db.expire_all()
+    assert (broken.body, broken.citations) == ("Due in November [2].", [{"n": 2, "chunk_id": 6}])
+    assert (empty.body, empty.citations, empty.input_hash) == ("", [], None)
+    assert db.get(models.WikiPageRevision, revision_id) is None
+    assert fine.body == "[{not a list"
+
+
+def test_migration_requeues_chunks_without_mentions(db):
+    """Every chunk marked extracted without a mention is extracted again; chunks with mentions keep their mark."""
+    migration = _jan410_migration()
+    user = _user(db)
+    found = _chunk(db, user, "Northwind news")
+    lost = _chunk(db, user, "Initech news")
+    _entity(db, user, "Northwind", [found])
+    for chunk in (found, lost):
+        chunk.extracted_hash = chunk.content_hash
+    db.commit()
+
+    assert migration.requeue_extraction(db.connection()) == 1
+    db.commit()
+    db.expire_all()
+    assert lost.extracted_hash is None
+    assert found.extracted_hash == found.content_hash

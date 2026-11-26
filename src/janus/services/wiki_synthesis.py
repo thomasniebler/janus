@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from janus import builtin_triggers, llm_service, models, trigger_definition_service
 from janus.services import knowledge_extraction as budget
-from janus.services import knowledge_retrieval, wiki_service
+from janus.services import knowledge_retrieval, llm_messages, wiki_service
 from janus.time_utils import utcnow
 
 #: Pages rewritten per run, passages per page, and pages checked for staleness per run.
@@ -379,7 +379,7 @@ def run_synthesis(db: Session, user_id: int, definition: models.TriggerDefinitio
             service = llm_service.build_llm_service(db, budget.model_choice(db, definition), purpose="utility")
         message = service.llm.invoke(prompt)
         budget.record_usage(db, user_id, *budget.message_usage(message, prompt))
-        text, citations = cite(db, str(getattr(message, "content", "") or ""), inputs.chunks, inputs.facts)
+        text, citations = cite(db, llm_messages.message_text(message), inputs.chunks, inputs.facts)
         if not text:
             summary.skipped.append(page.title)
             page.input_hash = inputs.input_hash
