@@ -1,21 +1,3 @@
 # Alembic Code Map
 
-Scope: migration wiring and schema history under `alembic/`.
-
-## Responsibilities
-
-- configure the Alembic migration environment
-- track the schema history for Janus database changes
-
-## File and submodule map
-
-| Path | Responsibility |
-| --- | --- |
-| `env.py` | Alembic environment configuration and metadata loading; excludes the runtime-managed `knowledge_fts_*` FTS5 tables from autogenerate |
-| `script.py.mako` | Migration file template |
-| `versions/` | Ordered migration history for Janus schema changes (latest: `e1b3d5f7a9c2`, the `JANUS_AGENT` planner item source and `planner.suggest` on existing Secretary definitions; before it `d8a0c2e4f6b8`, the per-definition run limits `trigger_definitions.max_tool_calls`/`max_run_seconds`; before it `c6f8d0e2a4b7`, the `telegram_bots` table for the Telegram connector, JAN-405; before it `b5e7c9d1f3a6`, the `skill_suggestion_dismissals` table for skill suggestions, JAN-407; before it `a4d6b8c0e2f5`, the `llm_usage_days` table for LLM token accounting, JAN-408; before it `f3c5a7e9b1d4`, the `webhook_endpoints` table for inbound webhooks, JAN-406; before it `e7a1b3c5d9f2`, the `a2a_agents` table for remote A2A agents, JAN-404; before it `d1a7c3e5f9b2`, the `device_tokens` table for the action inbox; before it `c9e3a5b7d1f2`, the proactive secretary's `notification_preferences.secretary_*` settings and `whatsapp_messages.origin_trigger_id`; before it `b7d2e4a6c8f1`, `email_accounts.sync_cursor` and `emails.graph_message_id` for Outlook mail over Graph; before it `a1c4e7f9b3d5`, the `oauth_connections` table, OAuth mailbox columns and the removal of the DB-held Google client; before it `c3f8a1d6e9b2`, the data-only planner baseline that lets the next sync rewrite stored times as UTC, JAN-394) |
-
-## Read-next guidance
-
-- New schema change or migration debugging -> `versions/`
-- Alembic environment or metadata wiring -> `env.py`
+`env.py` (environment), `script.py.mako` (template), `versions/` (migrations).
