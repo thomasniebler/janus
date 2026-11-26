@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.16.0](https://github.com/thomasniebler/janus/compare/v1.15.0...v1.16.0) (2026-11-26)
+
+
+### Features
+
+* **install:** installable janus-assistant wheel, PyPI publishing, and janus update for tool installs ([#2](https://github.com/thomasniebler/janus/issues/2)) ([7b2059e](https://github.com/thomasniebler/janus/commit/7b2059e5b613168ea7af46ddb4afc73140513d5d))
+* **service:** janus service install/status/logs/uninstall as a systemd user service ([#3](https://github.com/thomasniebler/janus/issues/3)) ([63543b3](https://github.com/thomasniebler/janus/commit/63543b3453f56dd93df8c7f9899e0fe1d71797dc))
+* **skills:** suggest skills from repeated tool routines in chats (JAN-407) ([#11](https://github.com/thomasniebler/janus/issues/11)) ([9f344c8](https://github.com/thomasniebler/janus/commit/9f344c8684006c6ecf3ce7bb1cfe53ce363f245c))
+* **stats:** count LLM calls and tokens per user, surface and model (JAN-408) ([#10](https://github.com/thomasniebler/janus/issues/10)) ([9c38423](https://github.com/thomasniebler/janus/commit/9c38423079796a2467d98c43a9fb0359b67baa80))
+* **telegram:** connect your own bot, trigger on its messages, and get alerts (JAN-405) ([#12](https://github.com/thomasniebler/janus/issues/12)) ([c52f53f](https://github.com/thomasniebler/janus/commit/c52f53fe75a6831d4a082d87847dff5702f4f9cb))
+* **tools:** ask local coding-agent CLIs for help (JAN-403) ([#4](https://github.com/thomasniebler/janus/issues/4)) ([4d7aef3](https://github.com/thomasniebler/janus/commit/4d7aef30a5019f746486493692e869654c615c2a))
+* **tools:** ask remote A2A agents for help (JAN-404) ([#6](https://github.com/thomasniebler/janus/issues/6)) ([25a047e](https://github.com/thomasniebler/janus/commit/25a047ebea39299e5f8086d1789a2b1d301e2daa))
+* **triggers:** inbound webhooks that fire webhook.received (JAN-406) ([#8](https://github.com/thomasniebler/janus/issues/8)) ([3cdda1c](https://github.com/thomasniebler/janus/commit/3cdda1c6ae889d9ab7c0bf71ee8c5065d143a927))
+
+
+### Documentation
+
+* **usage:** say that cost, balances and budgets are not supported (JAN-408) ([#13](https://github.com/thomasniebler/janus/issues/13)) ([4965c69](https://github.com/thomasniebler/janus/commit/4965c69ed8c646337404c55a194dd2d02924a0ae))
+
 ## [1.15.0](https://github.com/thomasniebler/janus/releases/tag/v1.15.0) (2026-11-24)
 
 First public release. Janus is now open source under the MIT license.
