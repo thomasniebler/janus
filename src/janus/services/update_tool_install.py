@@ -8,8 +8,8 @@
 3. snapshot the SQLite database to ``janus.pre-release.db`` with SQLite's online backup,
 4. reinstall the tool from the new wheel (``uv tool install --force`` / ``pipx install --force``)
    with the optional extras installed now, and the extra packages added to the environment
-   (``uv tool install --with`` / ``pipx inject``) passed back as ``--with`` / ``--preinstall``
-   (JAN-409),
+   (``uv tool install --with`` / ``pipx inject``) put back with ``--with`` / one ``pipx inject``
+   each (JAN-409),
 5. run the same import check and migrations as a checkout, in child processes.
 
 A failure in step 4 or later reinstalls the kept wheel and, once migrations ran, restores the
@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import shlex
 import sqlite3
 import sys
 import tempfile
@@ -41,19 +42,24 @@ ROLLBACK_WHEEL_DIR = "rollback"
 _UV_RECEIPT_KEYS = frozenset({"name", "extras", "specifier", "marker", "url", "git", "directory", "path", "editable"})
 
 
-def install_command(kind: str, tool: str, wheel: Path) -> list[str]:
-    """Reinstall the tool from ``wheel``, keeping the optional extras and extra packages installed now."""
+def install_commands(kind: str, tool: str, wheel: Path) -> list[list[str]]:
+    """Reinstall the tool from ``wheel``, keeping the optional extras and extra packages installed now.
+
+    uv takes the extra packages in the one install (``--with``). ``pipx install --force`` drops
+    injected packages, and older pipx releases reduce a ``--preinstall`` spec to its bare name, so
+    each injected package is put back with its own ``pipx inject``, as ``pipx reinstall`` does.
+    """
     extras = ",".join(extra for extra, marker in sorted(base.EXTRA_MARKERS.items()) if base._is_installed(marker))
     if kind == base.UV_TOOL:
         spec = f"{base.DISTRIBUTION}[{extras}] @ {wheel.as_uri()}" if extras else str(wheel)
         python = f"{sys.version_info.major}.{sys.version_info.minor}"
-        return [tool, "tool", "install", "--force", "--python", python, *_uv_with_requirements(), spec]
+        return [[tool, "tool", "install", "--force", "--python", python, *_uv_with_requirements(), spec]]
     command = [tool, "install", "--force"]
     suffix = _pipx_suffix()
     if suffix:  # `pipx install --suffix` names the environment; without it pipx targets another one
         command.append(f"--suffix={suffix}")
-    command += [f"--preinstall={package}" for package in _pipx_injected_packages()]
-    return [*command, f"{wheel}[{extras}]" if extras else str(wheel)]
+    command.append(f"{wheel}[{extras}]" if extras else str(wheel))
+    return [command, *_pipx_inject_commands(tool)]
 
 
 def _uv_with_requirements(prefix: str | None = None) -> list[str]:
@@ -117,16 +123,26 @@ def _pipx_metadata(prefix: str | None = None) -> dict:
     return metadata if isinstance(metadata, dict) else {}
 
 
-def _pipx_injected_packages(prefix: str | None = None) -> list[str]:
-    """The packages ``pipx inject`` added to this environment, which ``pipx install --force`` drops."""
+def _pipx_inject_commands(tool: str, prefix: str | None = None) -> list[list[str]]:
+    """One ``pipx inject`` per package injected into this environment, with its recorded options."""
     injected = _pipx_metadata(prefix).get("injected_packages")
     if not isinstance(injected, dict):
         return []
-    packages = []
+    environment = Path(prefix or sys.prefix).name  # the venv name `pipx inject` addresses (suffix included)
+    commands = []
     for name, info in injected.items():
-        package = info.get("package_or_url") if isinstance(info, dict) else None
-        packages.append(package if isinstance(package, str) and package else name)
-    return packages
+        info = info if isinstance(info, dict) else {}
+        package = info.get("package_or_url")
+        command = [tool, "inject", environment]
+        if info.get("include_apps"):
+            command.append("--include-apps")
+        if info.get("include_dependencies"):
+            command.append("--include-deps")
+        pip_args = info.get("pip_args")
+        if isinstance(pip_args, list) and pip_args:
+            command.append(f"--pip-args={shlex.join(str(arg) for arg in pip_args)}")
+        commands.append([*command, package if isinstance(package, str) and package else name])
+    return commands
 
 
 def _pipx_suffix(prefix: str | None = None) -> str:
@@ -192,7 +208,8 @@ def apply_locked(release: base.Release, repo_root: Path, kind: str, client: http
             _snapshot_database(db_path)
         migrated = False
         try:
-            base._run(install_command(kind, tool, wheel), here, f"{kind} install")
+            for command in install_commands(kind, tool, wheel):
+                base._run(command, here, f"{kind} install")
             base._run([python, "-c", "import janus.main"], here, "import check")
             migrated = True
             base._run(
@@ -213,8 +230,8 @@ def rollback(kind: str, previous_wheel: str, db_path: Path | None) -> None:
     steps: list[tuple[str, Callable[[], object]]] = []
     tool = base.tool_executable(kind)
     if tool is not None:
-        command = install_command(kind, tool, Path(previous_wheel))
-        steps.append((f"{kind} install", lambda: base._run(command, Path.cwd(), "reinstall")))
+        commands = install_commands(kind, tool, Path(previous_wheel))
+        steps.append((f"{kind} install", lambda: [base._run(c, Path.cwd(), "reinstall") for c in commands]))
     else:
         logger.error("Auto-update rollback: %s is gone; reinstall %s by hand", kind, previous_wheel)
     if db_path is not None and db_path.with_name(base.SNAPSHOT_NAME).is_file():

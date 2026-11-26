@@ -118,14 +118,14 @@ def test_tool_install_commands_keep_the_installed_extras(tmp_path, monkeypatch):
     """Both uv and pipx reinstall from the wheel with the extras installed now."""
     monkeypatch.setattr(update_service, "_is_installed", lambda dist: dist in {"neonize", "pystray"})
     wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
-    uv = update_tool_install.install_command(update_service.UV_TOOL, "uv", wheel)
+    [uv] = update_tool_install.install_commands(update_service.UV_TOOL, "uv", wheel)
     assert uv[:4] == ["uv", "tool", "install", "--force"]
     assert uv[-1] == f"janus-assistant[desktop,whatsapp] @ {wheel.as_uri()}"
-    pipx = update_tool_install.install_command(update_service.PIPX, "pipx", wheel)
+    [pipx] = update_tool_install.install_commands(update_service.PIPX, "pipx", wheel)
     assert pipx == ["pipx", "install", "--force", f"{wheel}[desktop,whatsapp]"]
 
     monkeypatch.setattr(update_service, "_is_installed", lambda dist: False)
-    assert update_tool_install.install_command(update_service.UV_TOOL, "uv", wheel)[-1] == str(wheel)
+    assert update_tool_install.install_commands(update_service.UV_TOOL, "uv", wheel)[0][-1] == str(wheel)
 
 
 def test_apply_update_reinstalls_the_tool_and_keeps_the_old_wheel(tool_install, commands):
@@ -266,9 +266,9 @@ def test_pipx_reinstall_keeps_the_environment_suffix(tmp_path, monkeypatch):
     monkeypatch.setattr(update_service, "_is_installed", lambda dist: False)
     wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
 
-    command = update_tool_install.install_command(update_service.PIPX, "pipx", wheel)
+    commands = update_tool_install.install_commands(update_service.PIPX, "pipx", wheel)
 
-    assert command == ["pipx", "install", "--force", "--suffix=@beta", str(wheel)]
+    assert commands == [["pipx", "install", "--force", "--suffix=@beta", str(wheel)]]
 
 
 def test_docs_resolve_from_the_package_or_the_checkout(monkeypatch, tmp_path):
@@ -304,7 +304,7 @@ def test_uv_reinstall_keeps_the_packages_added_with_with(tmp_path, monkeypatch):
     monkeypatch.setattr(update_service, "_is_installed", lambda dist: dist == "pystray")
     wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
 
-    command = update_tool_install.install_command(update_service.UV_TOOL, "uv", wheel)
+    [command] = update_tool_install.install_commands(update_service.UV_TOOL, "uv", wheel)
 
     assert command[6:] == [
         "--with=pygobject",
@@ -327,23 +327,37 @@ def test_uv_reinstall_without_readable_extra_packages_adds_none(tmp_path, monkey
     monkeypatch.setattr(update_service, "_is_installed", lambda dist: False)
     wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
 
-    command = update_tool_install.install_command(update_service.UV_TOOL, "uv", wheel)
+    [command] = update_tool_install.install_commands(update_service.UV_TOOL, "uv", wheel)
 
     assert not any(arg.startswith("--with") for arg in command)
 
 
 def test_pipx_reinstall_keeps_the_injected_packages(tmp_path, monkeypatch):
-    """`pipx inject` packages, which `pipx install --force` drops, are passed back as `--preinstall` (JAN-409)."""
-    env = tmp_path / "janus-assistant"
+    """`pipx inject` packages, which `pipx install --force` drops, are injected again with their specs (JAN-409)."""
+    env = tmp_path / "janus-assistant@beta"
     env.mkdir()
     (env / "pipx_metadata.json").write_text(
-        '{"main_package": {"package": "janus-assistant", "suffix": ""},'
-        ' "injected_packages": {"pygobject": {"package_or_url": "pygobject==3.58.1"}, "rich": {}}}'
+        '{"main_package": {"package": "janus-assistant", "suffix": "@beta"}, "injected_packages": {'
+        '"pygobject": {"package_or_url": "pygobject==3.58.1", "pip_args": ["--index-url", "https://i.invalid"]},'
+        ' "httpie": {"package_or_url": "git+https://example.invalid/httpie", "include_apps": true,'
+        ' "include_dependencies": true}, "rich": {}}}'
     )
     monkeypatch.setattr(sys, "prefix", str(env))
     monkeypatch.setattr(update_service, "_is_installed", lambda dist: False)
     wheel = tmp_path / "janus_assistant-1.1.0-py3-none-any.whl"
 
-    command = update_tool_install.install_command(update_service.PIPX, "pipx", wheel)
+    commands = update_tool_install.install_commands(update_service.PIPX, "pipx", wheel)
 
-    assert command == ["pipx", "install", "--force", "--preinstall=pygobject==3.58.1", "--preinstall=rich", str(wheel)]
+    assert commands == [
+        ["pipx", "install", "--force", "--suffix=@beta", str(wheel)],
+        ["pipx", "inject", "janus-assistant@beta", "--pip-args=--index-url https://i.invalid", "pygobject==3.58.1"],
+        [
+            "pipx",
+            "inject",
+            "janus-assistant@beta",
+            "--include-apps",
+            "--include-deps",
+            "git+https://example.invalid/httpie",
+        ],
+        ["pipx", "inject", "janus-assistant@beta", "rich"],
+    ]
