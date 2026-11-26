@@ -9,6 +9,7 @@ import { BriefingWidget } from '../components/features/BriefingWidget';
 import { DashboardWidgetMenu } from '../components/features/DashboardWidgetMenu';
 import { DashboardScheduleList } from '../components/features/DashboardScheduleList';
 import { DashboardTaskTree } from '../components/features/DashboardTaskTree';
+import { PlannerSuggestionBulkActions } from '../components/features/PlannerSuggestionBulkActions';
 import { TopicBadgeList } from '../components/features/TopicBadgeList';
 import { TopicFocusWidget } from '../components/features/TopicFocusWidget';
 import { Badge } from '../components/ui/Badge';
@@ -201,6 +202,7 @@ const Dashboard: React.FC = () => {
   const [newEventStartTime, setNewEventStartTime] = useState('');
   const [newEventEndTime, setNewEventEndTime] = useState('');
   const [suggestionDrafts, setSuggestionDrafts] = useState<Record<number, Partial<PlannerSuggestion>>>({});
+  const [selectedSuggestionIds, setSelectedSuggestionIds] = useState<number[]>([]);
 
   const importantEmailsQuery = useQuery({
     queryKey: importantEmailsQueryKey,
@@ -712,6 +714,19 @@ const Dashboard: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
+            <PlannerSuggestionBulkActions
+              suggestions={plannerSuggestionsQuery.data}
+              selectedIds={selectedSuggestionIds}
+              onSelectionChange={setSelectedSuggestionIds}
+              onDismissed={async (dismissedIds) => {
+                setSuggestionDrafts((current) => {
+                  const next = { ...current };
+                  dismissedIds.forEach((id) => delete next[id]);
+                  return next;
+                });
+                await queryClient.invalidateQueries({ queryKey: plannerSuggestionsQueryKey });
+              }}
+            />
             {(plannerSuggestionsQuery.data ?? []).map((suggestion) => {
               const draft = suggestionDrafts[suggestion.id] ?? {};
               const effectiveTitle = draft.title ?? suggestion.title ?? '';
@@ -729,6 +744,18 @@ const Dashboard: React.FC = () => {
                   className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800"
                 >
                   <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select suggestion: ${suggestion.title ?? 'Untitled'}`}
+                      checked={selectedSuggestionIds.includes(suggestion.id)}
+                      onChange={(event) =>
+                        setSelectedSuggestionIds((current) =>
+                          event.target.checked
+                            ? [...current, suggestion.id]
+                            : current.filter((id) => id !== suggestion.id)
+                        )
+                      }
+                    />
                     <Badge variant="primary">{suggestion.suggestion_type.replace('_', ' ')}</Badge>
                     <Badge variant="secondary">{suggestion.source.replace('_', ' ')}</Badge>
                     {suggestion.confidence ? <Badge variant="secondary">{suggestion.confidence}</Badge> : null}

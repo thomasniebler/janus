@@ -119,6 +119,14 @@ JAN-235).
   Terminal writes are ownership-guarded; if the lease was reclaimed before a
   result was recorded, the worker reports a failed attempt with durable claim
   loss rather than false completion.
+- While a handler runs, `DurableTriggerWorker` and `DurableTriggerDispatcher`
+  keep its claim alive with `trigger_lease.lease_heartbeat`: a daemon thread
+  that calls `trigger_lease.renew_trigger_claim` (moves `claimed_at` to now while the claim
+  token still matches) every third of `lease_seconds`, in its own short-lived
+  session, and stops when the handler returns or the claim is lost. A run may
+  therefore outlive the lease (a slow model, or a definition with its run
+  limits off) without being re-claimed and executed twice; a crashed worker
+  stops renewing, so its run is still re-claimed once the lease lapses.
 - A handler exception is recorded as `failed` and the row is eligible on the
   next poll. The worker does not implement delay, exponential backoff, or an
   attempt limit; those are later reliability-policy work. A successful handler
@@ -232,7 +240,10 @@ validation, scheduling, event fan-out, and enqueueing.
   (default `UTC`), `event_type`, `enabled`, `origin` (`user` | `system` |
   `agent`), `builtin_key` (unique per user; `None` unless Janus seeded it),
   optional `llm_provider`/`llm_model` (JAN-233; validated by
-  `validate_model_choice()`, `NULL` = default backend), `next_run_at`,
+  `trigger_run_settings.validate_model_choice()`, `NULL` = default backend),
+  the run limits `max_tool_calls`/`max_run_seconds` (validated by
+  `trigger_run_settings.validate_run_limits()`, `NULL` = default, `0` = no
+  limit), `next_run_at`,
   `last_run_at`.
 - **Schedules:** `{"type": "daily", "time": "HH:MM", "days": [0-6]}` (0 =
   Monday; empty or omitted = every day), evaluated in the definition's
@@ -1660,10 +1671,17 @@ the services, never by the prompt. Feature spec:
   `owner_id` (in the `automation` mode for a definition run, otherwise
   `trigger`), and then **executes** it via
   `agent_task_runner.run_agent_task()` -- a synchronous tool loop bounded both
-  by iteration count (`AGENT_TASK_MAX_ITERATIONS`) and wall clock
-  (`AGENT_TASK_MAX_SECONDS`, deliberately well under `DurableTriggerWorker`'s
-  300s `lease_seconds`, since a run outliving its lease would be re-claimed
-  and executed a second time concurrently) over the same
+  by tool-calling rounds (`AGENT_TASK_MAX_ITERATIONS`, 8) and wall clock
+  (`AGENT_TASK_MAX_SECONDS`, 180 s) by default. A definition may override
+  either with `max_tool_calls` / `max_run_seconds` (`NULL` = default, `0` = no
+  limit; `unattended_execution.run_limits_for` maps them, and the executor
+  reads them from a context variable like the model choice); ad-hoc triggers,
+  Janus follow-ups and delegated children always use the defaults. Rounds, not
+  tool calls, are counted (`agent_task_runner.count_tool_rounds`: parallel
+  calls of one model turn share its message log), so a turn that records four
+  things at once is one round. A run longer than the 300 s claim lease is safe
+  because the worker renews the lease while it works (see the lease heartbeat
+  above). The loop runs over the same
   `create_tool_calling_agent`/`AgentExecutor` machinery chat uses, without the
   streaming or the websocket binding. The system prompt is the user's Janus
   character plus the skill library (as in chat) followed by the trigger-run
@@ -2048,6 +2066,7 @@ Authorization", narrowed by a selection the brain makes per task.
 - **Rich context:** Chat LLM context includes planner summary and recent emails with sender, subject, and snippet.
 - **Topic-aware digest:** The built-in **Afternoon digest** trigger prefers structured topic groupings when linked tracked topics are available, while preserving an other-updates bucket for ungrouped mail; its `finalize` hook sends the desktop digest notification. `janus digest` runs it inline (emails since the last digest; the old `--hours` option is gone).
 - **Digest planner upkeep:** The digest run may propose planner items with `suggest_planner_item`, which only creates pending suggestions that stay in the review queue until the user approves them.
+- **Planner suggestion dedupe and bulk review (`services/planner_suggestion_review.py`):** `LocalPlannerService._upsert_suggestion` asks `matching_pending_suggestion` / `matching_reviewed_suggestion`, and merges a new suggestion into a pending one that targets the same task/event, shares its dedupe key, or has the same type and title, keys and titles compared after `normalize_suggestion_text` (case, punctuation and spacing ignored); a merge keeps the stored title and key, so later rewordings keep matching. A suggestion matching one the user dismissed or applied within `REVIEWED_SUGGESTION_MEMORY_DAYS` (90) for the same day (due/scheduled/start date, or both undated) is returned unchanged instead of re-proposed. The built-in Mail processing run (`builtin_triggers._prepare_mail`) and the digest run get the newest 40 pending suggestions (type, title, day, dedupe hint) as a `<prepared_context>` block so the model updates instead of re-proposing. Bulk review: `search_pending_suggestions`, `dismiss_suggestions` (ids and/or text/type/source-email/created-before filters, all of which must match; no filter only with `all_pending`), `duplicate_suggestion_groups` / `dismiss_duplicate_suggestions` (union of dedupe-key and type+title matches, newest kept), and `restore_suggestions`. `record_suggestion` stores one suggestion no email caused (source `JANUS_AGENT`) through the same normalize-and-upsert path; it backs `propose_planner_item` (`planner.suggest`, write, `confirmation="recommended"`, allowed unattended by default, not in the chat allowlist), which the built-in Secretary lists and whose run also gets the pending-suggestion block. These back the `planner.suggestions` (read) and `planner.suggestions.review` (write, `confirmation="recommended"`, allowed in chat and unattended by default) toolboxes in `agent_toolboxes/planner_suggestions.py` and the bulk endpoints in `api/planner_suggestions.py` ([backend API](backend-api.md)).
 
 ## Live UI Refresh From Background Work (JAN-104)
 

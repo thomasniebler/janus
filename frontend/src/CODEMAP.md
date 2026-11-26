@@ -26,6 +26,7 @@ Scope: React application source under `frontend/src/`.
 | `connectionTypes.ts` | The Google/Microsoft connection and planner sync types, re-exported by `types.ts` (kept out of the size-held `types.ts`) | Read directly |
 | `webhooksApi.ts` | `webhooksApi` (inbound webhooks: list, create, update, rotateSecret, remove; JAN-406), imported directly by `WebhookManager` |
 | `a2aApi.ts` | `a2aApi` (remote A2A agents: list, create, update, refresh, remove; JAN-404), imported directly by `A2AAgentManager` (kept out of `api.ts` for its line cap) | Read directly |
+| `plannerSuggestionsApi.ts` | `plannerSuggestionBulkApi` and its schemas (bulk dismissal of pending planner suggestions: dismiss by ids or all, duplicate summary, dismiss duplicates), imported directly by `PlannerSuggestionBulkActions` |
 | `skillSuggestionsApi.ts` | `skillSuggestionsApi` and its schema (skill suggestions: list, dismiss; JAN-407), imported directly by `SkillSuggestions` |
 | `telegramApi.ts` | `telegramApi` and its schema (status, connect, test, disconnect; JAN-405), imported directly by `TelegramConfig` |
 | `connectionsApi.ts` | `connectionsApi` (connections, calendar selection, mailbox), re-exported by `api.ts` | Read directly |

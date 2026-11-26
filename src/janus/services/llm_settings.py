@@ -11,7 +11,7 @@ from __future__ import annotations
 from janus import config, models, security
 from janus.llm_service import DEFAULT_ANTHROPIC_MODEL, get_active_model_name
 from janus.services import embedding_service, image_generation, llm_provider_clients, vector_index
-from janus.trigger_definition_service import validate_model_choice
+from janus.trigger_run_settings import validate_model_choice
 
 #: Fields copied verbatim when present in the update.
 _PLAIN_FIELDS = (

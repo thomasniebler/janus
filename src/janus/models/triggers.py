@@ -152,6 +152,10 @@ class TriggerDefinition(database.Base):
     #: means the default model. An unusable choice fails the run loudly.
     llm_provider = Column(String, nullable=True)
     llm_model = Column(String, nullable=True)
+    #: Run limits of this definition's runs: ``NULL`` keeps Janus's default
+    #: (``agent_task_runner``), ``0`` switches that limit off for this definition.
+    max_tool_calls = Column(Integer, nullable=True)
+    max_run_seconds = Column(Integer, nullable=True)
     next_run_at = Column(DateTime, nullable=True, index=True)
     last_run_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow, nullable=False)

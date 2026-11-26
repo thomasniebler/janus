@@ -32,18 +32,17 @@ from langchain_core.language_models import BaseLanguageModel
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import BaseTool
 
-#: Hard bound on tool-calling rounds for one human-absent agent task.
+#: Default bound on tool-calling rounds for one human-absent agent task. A
+#: trigger definition may set its own, or switch it off (``max_tool_calls``).
 AGENT_TASK_MAX_ITERATIONS = 8
 
-#: Hard wall-clock bound for one human-absent agent task, in seconds.
+#: Default wall-clock bound for one human-absent agent task, in seconds; a
+#: trigger definition may set its own, or switch it off (``max_run_seconds``).
 #:
 #: An iteration cap alone is not enough: a single round against a slow local
-#: model has no inherent time limit. ``DurableTriggerWorker`` re-claims a
-#: ``running`` trigger once its lease expires (``lease_seconds``, 300 by
-#: default), so a run that outlives the lease would be *executed a second time
-#: concurrently* -- duplicate autonomous work, plus a plan-state revision
-#: conflict between the two racers. This must therefore stay comfortably below
-#: that lease.
+#: model has no inherent time limit. A run longer than the trigger worker's
+#: claim lease is safe only because the worker renews the lease while the run
+#: works (``trigger_lease.lease_heartbeat``); the lease no longer bounds this.
 AGENT_TASK_MAX_SECONDS = 180.0
 
 #: Upper bound on how much of one tool's output is kept in the recorded trace.
@@ -64,18 +63,37 @@ class AgentTaskLimitError(RuntimeError):
     """Raised when an agent task hit its iteration or time ceiling unfinished."""
 
 
-def _hit_execution_limit(output: str, tool_calls: tuple[AgentToolCall, ...], max_iterations: int) -> bool:
+def _hit_execution_limit(output: str, tool_rounds: int, max_iterations: int | None) -> bool:
     """Return whether this run stopped at a ceiling rather than finishing.
 
     Two signals, because neither alone is reliable: the placeholder string is
     exact but its wording is a library detail that has changed between
-    versions, while exhausting every allowed iteration is version-independent
-    but would also be true of a run that genuinely finished on its last step.
-    Treating the latter as a failure is the safe direction for unattended
-    work -- the trigger reports an error a human can see, instead of
-    persisting a possibly-truncated summary as a real answer.
+    versions, while spending every allowed iteration on tool calls is
+    version-independent: ``AgentExecutor`` counts the final answer as an
+    iteration of its own, so a run that finished used at most
+    ``max_iterations - 1`` tool-calling rounds.
+
+    Rounds, not tool calls, are compared: one round may call several tools in
+    parallel, and counting those calls against the iteration cap used to fail
+    runs that had finished well within it. ``max_iterations=None`` means the
+    run had no iteration cap (a definition with its limits switched off).
     """
-    return output.startswith(_EXECUTION_LIMIT_OUTPUT_PREFIX) or len(tool_calls) >= max_iterations
+    if output.startswith(_EXECUTION_LIMIT_OUTPUT_PREFIX):
+        return True
+    return max_iterations is not None and tool_rounds >= max_iterations
+
+
+def count_tool_rounds(steps: object) -> int:
+    """Count the model turns that called tools; parallel calls of one turn share its message log."""
+    if not isinstance(steps, list):
+        return 0
+    rounds: set[int] = set()
+    for index, step in enumerate(steps):
+        if not isinstance(step, (tuple, list)) or len(step) != 2:
+            continue
+        message_log = getattr(step[0], "message_log", None)
+        rounds.add(id(message_log[0]) if message_log else -1 - index)
+    return len(rounds)
 
 
 @dataclass(frozen=True)
@@ -160,10 +178,13 @@ def run_agent_task(
     tools: Sequence[BaseTool],
     objective: str,
     *,
-    max_iterations: int = AGENT_TASK_MAX_ITERATIONS,
-    max_seconds: float = AGENT_TASK_MAX_SECONDS,
+    max_iterations: int | None = AGENT_TASK_MAX_ITERATIONS,
+    max_seconds: float | None = AGENT_TASK_MAX_SECONDS,
 ) -> AgentTaskRun:
     """Run one objective to completion with a bounded synchronous tool loop.
+
+    ``None`` for ``max_iterations`` or ``max_seconds`` lifts that bound; only
+    a definition whose owner switched its limits off passes it.
 
     Raises:
         AgentTaskLimitError: when the run hit its iteration or time ceiling
@@ -196,7 +217,7 @@ def run_agent_task(
     response = executor.invoke({"input": objective, "history": [], "system_prompt": system_prompt})
     output = coerce_agent_output(response.get("output"))
     tool_calls = summarize_intermediate_steps(response.get("intermediate_steps"))
-    if _hit_execution_limit(output, tool_calls, max_iterations):
+    if _hit_execution_limit(output, count_tool_rounds(response.get("intermediate_steps")), max_iterations):
         raise AgentTaskLimitError(
             f"agent task stopped at its limit after {len(tool_calls)} tool call(s) "
             f"(max_iterations={max_iterations}, max_seconds={max_seconds}) without producing an answer"
@@ -212,6 +233,7 @@ __all__ = [
     "AgentTaskRun",
     "AgentToolCall",
     "coerce_agent_output",
+    "count_tool_rounds",
     "run_agent_task",
     "summarize_intermediate_steps",
 ]

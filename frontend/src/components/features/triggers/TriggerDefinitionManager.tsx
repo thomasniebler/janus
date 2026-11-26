@@ -20,6 +20,8 @@ import { ModelChoiceFields } from '../ModelChoiceFields';
 import { useTriggerDefinitionsPageContext } from '../../../hooks/pageContextSections';
 import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 import { TriggerEventPicker } from './TriggerEventPicker';
+import { TriggerRunLimitsFields } from './TriggerRunLimitsFields';
+import { describeRunLimits } from './triggerRunLimits';
 import { TriggerEventFilterEditor, TriggerEventOptionsSummary } from './TriggerEventFilterEditor';
 import { useTriggerEventOptions } from './triggerEventFilters';
 import { TriggerWidgetList } from './TriggerWidgetList';
@@ -62,6 +64,8 @@ const draftFrom = (definition: TriggerDefinition): TriggerDefinitionInput => ({
   enabled: definition.enabled,
   llm_provider: definition.llm_provider,
   llm_model: definition.llm_model,
+  max_tool_calls: definition.max_tool_calls ?? null,
+  max_run_seconds: definition.max_run_seconds ?? null,
 });
 
 const describeActivation = (
@@ -159,13 +163,7 @@ export const DefinitionEditor: React.FC<EditorProps> = ({ initial, builtin, user
   };
 
   return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave(eventOptions.apply(draft));
-      }}
-    >
+    <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); onSave(eventOptions.apply(draft)); }}>
       <Input label="Name" value={draft.name} onChange={(event) => update('name', event.target.value)} required />
       <div className="space-y-1.5">
         <label className={labelClass} htmlFor="trigger-definition-objective">Objective (prompt)</label>
@@ -305,6 +303,7 @@ export const DefinitionEditor: React.FC<EditorProps> = ({ initial, builtin, user
         onChange={(provider, model) => setDraft((current) => ({ ...current, llm_provider: provider, llm_model: model }))}
         dataDescription="this trigger's objective, its event data (e.g. email content), and every tool result"
       />
+      <TriggerRunLimitsFields limits={draft} onChange={update} />
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={draft.enabled ?? true} onChange={(event) => update('enabled', event.target.checked)} />
         Enabled
@@ -441,6 +440,7 @@ export const TriggerDefinitionManager: React.FC<TriggerDefinitionManagerProps> =
                       <span className="ml-2 text-[10px] uppercase text-amber-500">cloud</span>
                     )}
                   </p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Limits: {describeRunLimits(definition)}</p>
                   </>
                   )}
                 </div>

@@ -21,6 +21,15 @@ A trigger definition is three things:
   stronger one for this trigger. If that model cannot be used, the run fails
   (`exhausted`, with an error naming it) instead of falling back to the
   default. A cloud provider sees everything the run reads.
+- **Run limits** (optional) — how many tool-calling rounds (default 8) and
+  how many seconds (default 180) one run may take. Each can stay at the
+  default, be set to a custom value, or be switched to **No limit**. A run
+  that hits a limit fails with "stopped at its limit" and is retried. Several
+  tools called in one model turn count as one round. Without a limit a run
+  continues until the model finishes: triggers run one at a time, so a long
+  run delays the others (mail processing included), and every round costs a
+  model call. The worker keeps a long run's claim alive, so it is never
+  started a second time while it works.
 - **Activation** — when it runs:
     - **Manual** — only when you press **Run now**.
     - **Recurring schedule** — *daily* at a time (optionally only on selected
@@ -130,7 +139,7 @@ change how they are activated. Janus never overwrites your edits.
 | **Morning briefing** | Daily at 06:30. It starts out in UTC and switches once to your browser's timezone the first time you open the dashboard or the Triggers page, as long as you have not edited it. | Gets today's planner summary (schedule, tasks, reminders, preparation outlook, tracked topics, and the email window you chose on Settings → Daily Briefing) and writes your briefing. The dashboard shows today's briefing, and its refresh button runs the trigger again. |
 | **Afternoon digest** | Daily. The time and on/off state come from your digest notification settings, and stay in sync when those change. With no such settings it starts **disabled** at 16:00 UTC; enable it and set its time here. | Collects the `DIGEST` emails that arrived since the last digest and pass your notification filters (the newest 50), writes a topic-grouped digest, and sends it as a desktop notification if digest notifications are on. If there are no new digest emails, it finishes without calling the model. |
 | **Mail processing** | On every `mail.received` event. Enabled by default. | Decides how important each new email is and records reminders, tracked topics, and planner suggestions for it (see below). |
-| **Secretary** | Hourly, between your waking hours (default 08:00 to 21:00; set under Settings → Notifications → Secretary). It starts out in UTC and switches once to your browser's timezone like the Morning briefing. **Enabled** after the update; disable it on this page if you do not want it. | Thinks ahead for you: it looks at your calendar, planner, reminders, mail, WhatsApp, topics, and memory, works out what is coming, stuck, or worth looking into, does the safe parts itself (reminders, topics, suggestions), and starts a conversation when you should read or decide something. It stays silent when there is nothing, and skips the hour without calling a model when nothing changed (re-checking at least every six hours). It sees which of its conversations you opened or answered and adapts. If you turn on WhatsApp alerts, it may also message your own number for something time-critical (at most three a day). Every run can send planner, mail, and memory excerpts to a cloud model, so point it at a local model on this page if that matters to you. See [Notify me on WhatsApp](tools.md#notify-me-on-whatsapp). |
+| **Secretary** | Hourly, between your waking hours (default 08:00 to 21:00; set under Settings → Notifications → Secretary). It starts out in UTC and switches once to your browser's timezone like the Morning briefing. **Enabled** after the update; disable it on this page if you do not want it. | Thinks ahead for you: it looks at your calendar, planner, reminders, mail, WhatsApp, topics, and memory, works out what is coming, stuck, or worth looking into, does the safe parts itself (reminders, topics, and planner suggestions you approve or dismiss on the dashboard, never repeating one that is already waiting), and starts a conversation when you should read or decide something. It stays silent when there is nothing, and skips the hour without calling a model when nothing changed (re-checking at least every six hours). It sees which of its conversations you opened or answered and adapts. If you turn on WhatsApp alerts, it may also message your own number for something time-critical (at most three a day). Every run can send planner, mail, and memory excerpts to a cloud model, so point it at a local model on this page if that matters to you. See [Notify me on WhatsApp](tools.md#notify-me-on-whatsapp). |
 | **Wiki synthesis** | Hourly. **Disabled** until you turn it on under **Memory & Knowledge → Wiki**. | Keeps a wiki page for each active or pinned topic and each frequently mentioned person, organization, or project up to date, with citations. Pages you edited get proposals to review instead of rewrites. Shares the monthly token budget with Knowledge extraction. See [Configuration](configuration.md#wiki). |
 | **Knowledge extraction** | Every 30 minutes. **Disabled** until you turn it on under **Memory & Knowledge → Knowledge**. | Reads newly ingested text and records the people, organizations, projects, places, products, and concepts in it and how they relate. It calls the utility model directly, uses no tools, and stops at your monthly token budget. See [Configuration](configuration.md#knowledge-extraction). |
 
@@ -159,7 +168,12 @@ Janus; Janus does not poll for it. Your regex rules always run first.
       something to prepare).
     - `track_email_topic` — attaches the email to an ongoing tracked topic.
     - `suggest_planner_item` — proposes a task or calendar change. You still
-      approve or dismiss it; nothing lands in your planner directly.
+      approve or dismiss it; nothing lands in your planner directly. The run
+      is shown the suggestions already waiting for you, and a suggestion with
+      the same dedupe hint, or the same type and title (ignoring case,
+      punctuation and spacing), updates the waiting one instead of adding a
+      copy. A suggestion you dismissed or applied in the last 90 days is not
+      proposed again for the same day.
 
   Apart from marking a new DIGEST email read, these tools only change
   Janus's own records. They never reply, forward, or send mail, or change
@@ -180,6 +194,16 @@ email can still try to steer the run, so the tools a mail-processing run gets
 are deliberately limited to Janus-local records. Janus also checks the email
 for text that looks like instructions aimed at an AI (see
 [Prompt injection](#prompt-injection-instructions-hidden-in-mail-and-other-content) below).
+
+### Clearing planner suggestions in bulk
+
+The **Planner Suggestions** card on the dashboard has **Select all**,
+**Dismiss selected**, **Dismiss duplicates** (keeps the newest of each group
+of copies) and **Dismiss all** (asks first). You can also ask Janus in chat,
+for example "dismiss all planner suggestions about the conference" or "clean
+up the duplicate planner suggestions"; it uses the *Read planner suggestions*
+and *Dismiss planner suggestions* tools. Dismissing never changes your
+planner, and Janus can restore dismissed suggestions if you ask.
 
 ## Prompt injection: instructions hidden in mail and other content
 

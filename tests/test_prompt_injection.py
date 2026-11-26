@@ -195,6 +195,8 @@ def test_untrusted_content_flag_marks_the_toolboxes_that_return_outside_text():
         "mail",
         "whatsapp",
         "calendar",
+        # Planner suggestion titles and reasons are derived from incoming mail.
+        "planner.suggestions",
         # Microsoft 365 reads return third-party mail/chat text, same as the IMAP "mail" toolbox.
         "microsoft.mail",
         "microsoft.calendar",

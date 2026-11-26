@@ -52,7 +52,10 @@ topics and memory that the user has not noticed? What is worth looking into
 unasked? The run may:
 
 - **act on the safe parts** with its tools: create reminders, track topics,
-  suggest planner items (never send mail or messages to other people);
+  propose planner tasks and events with `propose_planner_item` (registry entry
+  `planner.suggest`: a pending suggestion the user approves or dismisses, with
+  the same dedupe as mail suggestions; never send mail or messages to other
+  people);
 - **ask or report** by starting a conversation when the user must decide or
   would want to read something (`start_conversation`, five a day, JAN-319);
 - **interrupt** through WhatsApp only for something time-critical (see below);
@@ -64,6 +67,9 @@ unasked? The run may:
 
 - **Its own recent runs** (the last few outputs, trimmed), so it does not repeat
   itself or lose a train of thought between hours.
+- **Pending planner suggestions** (the newest 40, as a scanned
+  `<prepared_context>` block, added by `builtin_triggers._prepare_secretary`),
+  so it updates a waiting suggestion instead of proposing it again.
 - **Engagement feedback** for the conversations earlier Secretary runs started
   in the last 14 days: title, whether the owner opened it, and whether the
   owner replied. The objective tells it to drop topics the owner ignored twice

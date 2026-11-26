@@ -342,3 +342,53 @@ def test_api_rejects_events_outside_the_catalog(client, db, event_type):
         assert valid.status_code == 200 and valid.json()["event_type"] == "mail.received"
     finally:
         api.dependency_overrides.pop(security.get_current_user, None)
+
+
+def test_run_limits_default_custom_and_off(db):
+    """NULL keeps Janus's default, a number replaces it, and 0 switches that limit off."""
+    from janus.agent_task_runner import AGENT_TASK_MAX_ITERATIONS, AGENT_TASK_MAX_SECONDS
+    from janus.unattended_execution import RunLimits, run_limits_for
+
+    user = _user(db)
+    default = _definition(db, user.id)
+    custom = _definition(db, user.id, name="Custom", max_tool_calls=20, max_run_seconds=600)
+    unlimited = _definition(db, user.id, name="Unlimited", max_tool_calls=0, max_run_seconds=0)
+
+    assert run_limits_for(None) == RunLimits(AGENT_TASK_MAX_ITERATIONS, AGENT_TASK_MAX_SECONDS)
+    assert run_limits_for(default) == RunLimits(AGENT_TASK_MAX_ITERATIONS, AGENT_TASK_MAX_SECONDS)
+    assert run_limits_for(custom) == RunLimits(20, 600.0)
+    assert run_limits_for(unlimited) == RunLimits(None, None)
+
+    updated = definitions.update_definition(db, custom, max_tool_calls=None)
+    assert updated.max_tool_calls is None and updated.max_run_seconds == 600
+
+
+@pytest.mark.parametrize("limits", [{"max_tool_calls": -1}, {"max_run_seconds": 10**9}, {"max_tool_calls": "8"}])
+def test_run_limits_reject_out_of_range_values(db, limits):
+    """A limit is 0 (off) or a positive number up to its ceiling."""
+    user = _user(db)
+    with pytest.raises(definitions.TriggerDefinitionError):
+        _definition(db, user.id, **limits)
+
+
+def test_definition_api_sets_and_clears_run_limits(client, db):
+    """The API stores both limits on create and resets one to the default with null."""
+    user = _user(db)
+    api.dependency_overrides[security.get_current_user] = lambda: SimpleNamespace(id=user.id, is_admin=True)
+    try:
+        created = client.post(
+            "/api/runtime/definitions/",
+            json={
+                "name": "Deep dive",
+                "objective": "Research.",
+                "kind": "manual",
+                "max_tool_calls": 0,
+                "max_run_seconds": 900,
+            },
+        )
+        assert created.status_code == 201, created.text
+        assert (created.json()["max_tool_calls"], created.json()["max_run_seconds"]) == (0, 900)
+        patched = client.patch(f"/api/runtime/definitions/{created.json()['id']}", json={"max_run_seconds": None})
+        assert (patched.json()["max_tool_calls"], patched.json()["max_run_seconds"]) == (0, None)
+    finally:
+        api.dependency_overrides.pop(security.get_current_user, None)

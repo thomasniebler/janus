@@ -178,6 +178,9 @@ class TriggerDefinitionCreate(BaseModel):
     #: Optional model override (JAN-233); omit/blank for the default model.
     llm_provider: str | None = None
     llm_model: str | None = None
+    #: Run limits: null keeps the default (8 tool-calling rounds / 180 s), 0 switches the limit off.
+    max_tool_calls: int | None = None
+    max_run_seconds: int | None = None
 
 
 class TriggerDefinitionUpdate(BaseModel):
@@ -195,6 +198,9 @@ class TriggerDefinitionUpdate(BaseModel):
     enabled: bool | None = None
     llm_provider: str | None = None
     llm_model: str | None = None
+    #: Run limits: null resets to the default, 0 switches the limit off.
+    max_tool_calls: int | None = None
+    max_run_seconds: int | None = None
 
 
 class TriggerDefinitionResponse(BaseModel):
@@ -220,6 +226,9 @@ class TriggerDefinitionResponse(BaseModel):
     origin: TriggerDefinitionOrigin
     llm_provider: str | None = None
     llm_model: str | None = None
+    #: Run limits: null = the default, 0 = no limit.
+    max_tool_calls: int | None = None
+    max_run_seconds: int | None = None
     next_run_at: datetime | None
     last_run_at: datetime | None
     created_at: datetime

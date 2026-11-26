@@ -1894,6 +1894,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/planner/suggestions/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Planner Suggestions
+         * @description Dismiss the given pending suggestions, or every pending one when ``all_pending`` is set.
+         */
+        post: operations["dismiss_planner_suggestions_api_planner_suggestions_dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/planner/suggestions/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summarize Duplicate Planner Suggestions
+         * @description Count pending suggestions that duplicate another (same dedupe key, or same type and title).
+         */
+        get: operations["summarize_duplicate_planner_suggestions_api_planner_suggestions_duplicates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/planner/suggestions/dismiss-duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Duplicate Planner Suggestions
+         * @description Keep the newest suggestion of each duplicate group and dismiss the others.
+         */
+        post: operations["dismiss_duplicate_planner_suggestions_api_planner_suggestions_dismiss_duplicates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/planner/accounts": {
         parameters: {
             query?: never;
@@ -6255,7 +6315,48 @@ export interface components {
          * @description Origin for Janus-owned and imported planner items.
          * @enum {string}
          */
-        PlannerItemSource: "manual" | "email_agent" | "digest_agent" | "imported";
+        PlannerItemSource: "manual" | "email_agent" | "digest_agent" | "janus_agent" | "imported";
+        /**
+         * PlannerSuggestionBulkDismiss
+         * @description Dismiss many pending suggestions at once: by ids, or every pending one (``all_pending``).
+         */
+        PlannerSuggestionBulkDismiss: {
+            /** Suggestion Ids */
+            suggestion_ids?: number[] | null;
+            /**
+             * All Pending
+             * @default false
+             */
+            all_pending: boolean;
+        };
+        /**
+         * PlannerSuggestionBulkResult
+         * @description What a bulk dismissal changed.
+         */
+        PlannerSuggestionBulkResult: {
+            /** Dismissed Ids */
+            dismissed_ids: number[];
+            /**
+             * Groups
+             * @default 0
+             */
+            groups: number;
+            /**
+             * Kept Ids
+             * @default []
+             */
+            kept_ids: number[];
+        };
+        /**
+         * PlannerSuggestionDuplicateSummary
+         * @description How many pending suggestions duplicate another one.
+         */
+        PlannerSuggestionDuplicateSummary: {
+            /** Groups */
+            groups: number;
+            /** Duplicates */
+            duplicates: number;
+        };
         /**
          * PlannerSuggestionItem
          * @description Reviewable planner suggestion exposed to the dashboard.
@@ -8147,6 +8248,10 @@ export interface components {
             llm_provider?: string | null;
             /** Llm Model */
             llm_model?: string | null;
+            /** Max Tool Calls */
+            max_tool_calls?: number | null;
+            /** Max Run Seconds */
+            max_run_seconds?: number | null;
         };
         /**
          * TriggerDefinitionKind
@@ -8204,6 +8309,10 @@ export interface components {
             llm_provider?: string | null;
             /** Llm Model */
             llm_model?: string | null;
+            /** Max Tool Calls */
+            max_tool_calls?: number | null;
+            /** Max Run Seconds */
+            max_run_seconds?: number | null;
             /** Next Run At */
             next_run_at: string | null;
             /** Last Run At */
@@ -8292,6 +8401,10 @@ export interface components {
             llm_provider?: string | null;
             /** Llm Model */
             llm_model?: string | null;
+            /** Max Tool Calls */
+            max_tool_calls?: number | null;
+            /** Max Run Seconds */
+            max_run_seconds?: number | null;
         };
         /**
          * TriggerEvent
@@ -8434,6 +8547,10 @@ export interface components {
             llm_provider?: string | null;
             /** Llm Model */
             llm_model?: string | null;
+            /** Max Tool Calls */
+            max_tool_calls?: number | null;
+            /** Max Run Seconds */
+            max_run_seconds?: number | null;
             /** Next Run At */
             next_run_at: string | null;
             /** Last Run At */
@@ -13360,6 +13477,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmailAccount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_planner_suggestions_api_planner_suggestions_dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlannerSuggestionBulkDismiss"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlannerSuggestionBulkResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    summarize_duplicate_planner_suggestions_api_planner_suggestions_duplicates_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlannerSuggestionDuplicateSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_duplicate_planner_suggestions_api_planner_suggestions_dismiss_duplicates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlannerSuggestionBulkResult"];
                 };
             };
             /** @description Validation Error */

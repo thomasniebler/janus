@@ -445,6 +445,27 @@ default: Allowed.
 `create_local_task`, `update_local_task`, `complete_local_task`,
 `move_local_task`, `reorder_local_task`. Unattended default: **Off**.
 
+## Planner suggestions
+
+*Read planner suggestions* (`planner.suggestions`):
+`list_planner_suggestions` (pending suggestions, filtered by text, type, or
+source email) and `find_duplicate_planner_suggestions`. Titles come from
+incoming mail, so their output is treated as untrusted. Unattended default:
+Allowed.
+
+*Dismiss planner suggestions* (`planner.suggestions.review`):
+`dismiss_planner_suggestions` (by ids or filters; everything only with
+`all_pending`), `dismiss_duplicate_planner_suggestions` (keeps the newest of
+each group), and `restore_planner_suggestions`. Dismissing never changes the
+planner, and nothing here approves a suggestion. Unattended default: Allowed.
+
+*Suggest planner items* (`planner.suggest`): `propose_planner_item` records a
+pending task, event, or change that no single email caused (the Secretary uses
+it), labelled *Janus agent*. It uses the same dedupe as mail suggestions: a
+waiting suggestion is updated instead of duplicated, and one you dismissed or
+applied recently is not proposed again. It never changes the planner.
+Unattended default: Allowed.
+
 ## Dashboard tools
 
 `get_daily_briefing`, `list_dashboard_widgets`, `update_dashboard_widget`,

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from janus import llm_service, models, time_utils
+from janus.services import planner_suggestion_review as review
 from janus.services.base import BaseService
 from janus.services.email_service import EmailService
 from janus.services.topic_service import TopicService
@@ -812,47 +813,36 @@ class LocalPlannerService(BaseService):
         return TopicService(self.db).get_default_user()
 
     def _upsert_suggestion(self, payload: dict[str, Any]) -> models.PlannerSuggestion:
-        query = self.db.query(models.PlannerSuggestion).filter(
-            models.PlannerSuggestion.user_id == payload["user_id"],
-            models.PlannerSuggestion.status == models.PlannerSuggestionStatus.PENDING,
-        )
-        if payload.get("dedupe_key"):
-            query = query.filter(models.PlannerSuggestion.dedupe_key == payload["dedupe_key"])
-        elif payload.get("target_task_id") is not None:
-            query = query.filter(
-                models.PlannerSuggestion.target_task_id == payload["target_task_id"],
-                models.PlannerSuggestion.suggestion_type.in_(
-                    [models.PlannerSuggestionType.TASK, models.PlannerSuggestionType.TASK_UPDATE]
-                ),
-            )
-        elif payload.get("target_event_id") is not None:
-            query = query.filter(
-                models.PlannerSuggestion.target_event_id == payload["target_event_id"],
-                models.PlannerSuggestion.suggestion_type.in_(
-                    [models.PlannerSuggestionType.EVENT, models.PlannerSuggestionType.EVENT_UPDATE]
-                ),
-            )
-        else:
-            query = query.filter(
-                models.PlannerSuggestion.title == payload.get("title"),
-                models.PlannerSuggestion.suggestion_type == payload["suggestion_type"],
-            )
+        """Merge ``payload`` into the matching pending suggestion, or record a new one.
 
-        suggestion = query.first()
+        A suggestion the user already dismissed or applied for the same day is
+        returned unchanged instead of being proposed again.
+        """
+        suggestion = review.matching_pending_suggestion(self.db, payload)
+        if suggestion is None:
+            reviewed = review.matching_reviewed_suggestion(self.db, payload)
+            if reviewed is not None:
+                return reviewed
+        identity_fields: tuple[str, ...] = ("dedupe_key", "title")
         if suggestion is None:
             suggestion = models.PlannerSuggestion(
                 user_id=payload["user_id"],
                 suggestion_type=payload["suggestion_type"],
             )
             self.db.add(suggestion)
+        else:
+            # Keep the first wording: it is what later emails are matched against and what the
+            # mail run is shown, so a rewording must not move the target out from under them.
+            identity_fields = tuple(field for field in identity_fields if not getattr(suggestion, field))
+        for field in identity_fields:
+            if field in payload:
+                setattr(suggestion, field, payload.get(field))
 
         for field in (
             "status",
             "source",
             "confidence",
             "reason",
-            "dedupe_key",
-            "title",
             "description",
             "task_status",
             "priority",

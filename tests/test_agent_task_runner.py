@@ -9,6 +9,7 @@ from janus.agent_task_runner import (
     AGENT_TOOL_RESULT_MAX_CHARS,
     AgentTaskLimitError,
     coerce_agent_output,
+    count_tool_rounds,
     run_agent_task,
     summarize_intermediate_steps,
 )
@@ -148,11 +149,10 @@ def test_run_agent_task_rejects_a_run_that_used_every_allowed_iteration(monkeypa
 
 
 def test_run_agent_task_bounds_wall_clock_time_not_just_iterations(monkeypatch):
-    """A single round against a slow local model has no inherent time limit.
+    """A single round against a slow local model has no inherent time limit, so the default caps time too.
 
-    ``DurableTriggerWorker`` re-claims a ``running`` trigger once its 300s
-    lease expires, so an unbounded run would be executed a second time
-    concurrently. The cap must stay comfortably below that lease.
+    The worker renews its lease while a run works (``trigger_lease.lease_heartbeat``),
+    but the default still stays under the 300s lease as a second line of defence.
     """
     captured: dict = {}
     _executor_returning(monkeypatch, {"output": "done", "intermediate_steps": []}, captured)
@@ -192,3 +192,35 @@ def test_run_agent_task_bounds_the_loop_and_returns_the_trace(monkeypatch):
     assert captured["payload"]["input"] == "check the day"
     # No conversation history: a trigger run is self-contained.
     assert captured["payload"]["history"] == []
+
+
+def test_parallel_tool_calls_of_one_round_count_once_against_the_iteration_cap(monkeypatch):
+    """One model turn may call several tools; those calls are one iteration, not several.
+
+    Counting calls used to fail mail runs that recorded priority, reminder, topic, and
+    suggestion in one turn and then finished well within the cap.
+    """
+    turn = SimpleNamespace(content="calls four tools")
+    steps = [
+        (SimpleNamespace(tool=name, message_log=[turn]), "ok")
+        for name in ("set_email_priority", "create_reminder", "track_email_topic", "suggest_planner_item")
+    ]
+    _executor_returning(monkeypatch, {"output": "Recorded everything.", "intermediate_steps": steps})
+
+    result = run_agent_task(object(), "system", [], "process the mail", max_iterations=3)
+
+    assert result.output == "Recorded everything."
+    assert count_tool_rounds(steps) == 1
+
+
+def test_run_agent_task_without_limits_passes_none_and_never_reports_a_limit(monkeypatch):
+    """A definition whose limits are switched off runs uncapped: no iteration or time bound."""
+    captured: dict = {}
+    steps = [(SimpleNamespace(tool="get_current_time", message_log=[object()]), "ok") for _ in range(40)]
+    _executor_returning(monkeypatch, {"output": "long but done", "intermediate_steps": steps}, captured)
+
+    result = run_agent_task(object(), "system", [], "dig deep", max_iterations=None, max_seconds=None)
+
+    assert result.output == "long but done"
+    assert captured["max_iterations"] is None
+    assert captured["max_execution_time"] is None

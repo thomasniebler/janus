@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from janus import models
+from janus.trigger_lease import lease_heartbeat
 from janus.triggers import (
     TerminalTriggerError,
     TriggerDispatchResult,
@@ -503,7 +504,8 @@ class DurableTriggerWorker:
             return TriggerDispatchResult(trigger, status)
 
         try:
-            value = self._handler(trigger)
+            with lease_heartbeat(self._session_factory, trigger_id, claim_token, lease_seconds=self._lease_seconds):
+                value = self._handler(trigger)
         except Exception as error:
             failure = str(error) or error.__class__.__name__
             attempt_count = record.attempt_count
@@ -579,7 +581,8 @@ class DurableTriggerDispatcher:
             db.close()
 
         try:
-            value = self._handler(trigger)
+            with lease_heartbeat(self._session_factory, trigger_id, claim_token, lease_seconds=self._lease_seconds):
+                value = self._handler(trigger)
         except Exception as error:
             db = self._session_factory()
             try:

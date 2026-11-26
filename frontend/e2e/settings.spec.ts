@@ -386,6 +386,55 @@ test.describe('Settings page: per-user settings', () => {
     await expect(card).toHaveCount(0);
   });
 
+  test('raises one run limit and switches the other off, then resets both to the default', async ({ page }) => {
+    const name = `E2E deep dive ${Date.now()}`;
+    await page.goto('/settings?tab=runtime');
+    await page.getByRole('button', { name: 'New trigger' }).click();
+    const editor = page.locator('form').filter({ has: page.getByRole('button', { name: 'Save trigger' }) });
+    await editor.getByLabel('Name', { exact: true }).fill(name);
+    await editor.getByLabel(/objective/i).fill('Look into one open question in depth.');
+
+    const rounds = editor.getByLabel('Tool-calling rounds limit');
+    const runTime = editor.getByLabel('Run time limit');
+    await expect(rounds).toHaveValue('default');
+    await expect(runTime).toHaveValue('default');
+    await rounds.selectOption('custom');
+    await editor.getByLabel('Tool-calling rounds', { exact: true }).fill('25');
+    await runTime.selectOption('off');
+    await expect(editor.getByText(/Without a limit a run continues until the model finishes/)).toBeVisible();
+
+    const created = page.waitForResponse(
+      (response) => response.url().endsWith('/api/runtime/definitions/') && response.request().method() === 'POST'
+    );
+    await editor.getByRole('button', { name: 'Save trigger' }).click();
+    const response = await created;
+    expect(response.status()).toBe(201);
+    const body = await response.json();
+    expect([body.max_tool_calls, body.max_run_seconds]).toEqual([25, 0]);
+
+    await page.reload();
+    const card = page.locator('[data-testid^="trigger-definition-"]').filter({ hasText: name });
+    await expect(card).toContainText('Limits: 25 rounds, no time limit');
+
+    // Back to the defaults: both columns are cleared, not set to a number.
+    await card.getByRole('button', { name: 'Edit' }).click();
+    const editForm = page.locator('form').filter({ has: page.getByRole('button', { name: 'Save trigger' }) });
+    await expect(editForm.getByLabel('Tool-calling rounds', { exact: true })).toHaveValue('25');
+    await editForm.getByLabel('Tool-calling rounds limit').selectOption('default');
+    await editForm.getByLabel('Run time limit').selectOption('default');
+    const updated = page.waitForResponse(
+      (response) => /\/api\/runtime\/definitions\/\d+$/.test(response.url()) && response.request().method() === 'PATCH'
+    );
+    await editForm.getByRole('button', { name: 'Save trigger' }).click();
+    const patched = await (await updated).json();
+    expect([patched.max_tool_calls, patched.max_run_seconds]).toEqual([null, null]);
+    await expect(card).toContainText('Limits: 8 rounds, 180 s');
+
+    await card.getByRole('button', { name: `Delete ${name}` }).click();
+    await answerConfirm(page, 'Delete trigger?', 'Delete');
+    await expect(card).toHaveCount(0);
+  });
+
   test('switches a tool for unattended runs, warns for write tools, and resets', async ({ page }) => {
     await page.goto('/settings?tab=tools');
     const tools = page.getByRole('list', { name: 'Built-in tool permissions' });

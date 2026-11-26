@@ -10,7 +10,7 @@
 - `services/image_store.py` owns generated-image storage (JAN-253): files under `image_storage_dir/<user_id>/`, `generated_images` rows, the per-user quota, owner-scoped lookup (`get_image_for_user`), path confinement, and file removal when a conversation is deleted. `services/image_generation.py` owns the cloud image providers (OpenAI, Gemini, OpenRouter) and their capability detection.
 - `EmailProcessor` owns rule evaluation, the hand-off of new mail to `mail.received` trigger definitions, the constrained AI classification fallback, reminder extraction hooks, and non-blocking ingestion behavior.
 - `PlannerService` owns planner connector factories and imported-context aggregation for briefings, chat, reminders, and dashboard summaries.
-- `LocalPlannerService` owns Janus-managed task/event CRUD, planner suggestion review, lightweight dedupe, and unified local-plus-imported planner reads.
+- `LocalPlannerService` owns Janus-managed task/event CRUD, planner suggestion review and bulk dismissal, normalized-title dedupe, and unified local-plus-imported planner reads.
 - `LLMService` owns provider-specific model construction, the JSON extractors, chat streaming, the post-turn memory suggester, and health probing. It no longer generates briefings or digests; those are built-in trigger definitions (`builtin_triggers.py`).
 - `trigger_definition_service` owns saved trigger definitions (validation, schedules, event fan-out, run enqueueing); `tool_policy` owns the per-user, per-tool unattended switch (JAN-255) and the tool sets of each unattended run.
 
@@ -208,10 +208,16 @@ All routes are authenticated and owner-scoped under `/api/runtime/definitions`
   `max_runs_per_hour` (`null` or 1–1000) on create, update, and proposal
   approval. On `POST`, omitting `max_runs_per_hour` applies the event's
   default; an explicit `null` stores no limit. Invalid values are a `422`.
+- Every definition accepts the run limits `max_tool_calls` (0–500) and
+  `max_run_seconds` (0–86400) on create and update: `null` keeps Janus's
+  default (8 tool-calling rounds, 180 s), `0` switches that limit off, and
+  other values are a `422`. Proposals do not carry them; an approved draft
+  starts at the defaults.
 - Responses (`TriggerDefinitionResponse`) include `id`, `builtin_key`, `name`,
   `objective`, `tool_ids`, `kind`, `schedule`, `timezone`, `event_type`,
   `event_filter`, `max_runs_per_hour`, `rate_limited_count`,
-  `last_rate_limited_at`, `enabled`, `origin`, `llm_provider`, `llm_model`, `next_run_at`,
+  `last_rate_limited_at`, `enabled`, `origin`, `llm_provider`, `llm_model`,
+  `max_tool_calls`, `max_run_seconds`, `next_run_at`,
   `last_run_at`, timestamps, and the proposal fields (`proposal_status`,
   `proposal_rationale`, `proposed_at`, `proposal_source`, `supersedes_id`,
   `approved_at`, `rejected_at`, `rejection_reason`; all `null` except on
@@ -378,6 +384,7 @@ All routes are authenticated and owner-scoped under `/api/runtime/definitions`
 - `PATCH /api/planner/suggestions/{id}` allows user edits before approval.
 - `POST /api/planner/suggestions/{id}/approve` applies a suggestion into a new or existing local planner item.
 - `POST /api/planner/suggestions/{id}/dismiss` records explicit rejection without mutating canonical planner data.
+- `POST /api/planner/suggestions/dismiss` dismisses many pending suggestions: `{"suggestion_ids": [...]}`, or every pending one with `{"all_pending": true}` (a body with neither is a `422`); it answers `{"dismissed_ids": [...]}`. `GET /api/planner/suggestions/duplicates` returns `{groups, duplicates}` for pending suggestions that share a dedupe key or type and title (case, punctuation and spacing ignored), and `POST /api/planner/suggestions/dismiss-duplicates` keeps the newest of each group and dismisses the rest (`{dismissed_ids, groups, kept_ids}`). All are owner-scoped and never change planner items.
 - `GET /api/memory/` lists or searches the caller's memory facts: `query`, `include_archived`, `limit`, and `source` (`user`/`agent`/`compaction`, JAN-245; anything else returns `422`). Filters narrow the candidates before semantic/keyword ranking.
 - `POST /api/memory/` stores a user-authored fact; a fact with the same summary (ignoring case, `%`/`_` matched literally, JAN-224) is refreshed instead of duplicated. `PATCH /api/memory/{id}` (JAN-224) edits a fact's `summary` and/or `detail`: an omitted field is unchanged, an empty `detail` clears it, a blank summary or an empty body returns `422`, and a missing or foreign fact returns `404`. `DELETE /api/memory/{id}` removes one; `POST /api/memory/compact` and `GET /api/memory/compact/latest` start and read the background compaction run.
 - `GET/PATCH /api/planner/settings` (`PATCH` admin only) read and update system settings, including the active LLM provider and per-provider model/key/base-URL fields (Ollama, OpenAI, OpenRouter, Gemini, Anthropic, GitHub Models; Azure OpenAI has `azure_openai_endpoint`/`azure_openai_deployment`/`azure_openai_api_version` and `azure_openai_auth_mode` = `entra` | `api_key`, anything else returns `422`; JAN-340). Keys are write-only and surface as `*_api_key_configured` flags; the provider fields of the response are built by `services/llm_settings.provider_settings_payload`. The per-surface model choices `chat_llm_provider`/`chat_llm_model` and `utility_llm_provider`/`utility_llm_model` (JAN-233) are read and written here too; providers are normalized to lowercase, an unknown provider returns `422`, and `null` or an empty string resets a field to the default backend. The embedding fields (JAN-241) are `embedding_provider` (`ollama`/`openai`/`gemini`; `null`/empty turns embeddings off and clears the model; anything else returns `422`), `embedding_model` (empty = the provider's suggested model; a provider switch without a model resets it), and `embedding_min_similarity` (0–1). Responses also carry `embedding_default_models` and `vector_search_available`. The image fields (JAN-253) are `image_provider` (`openai`/`gemini`/`openrouter`; `null`/empty turns image generation off and clears the model; `ollama`, `anthropic`, or anything else returns `422`) and `image_model` (empty = the provider's default; a provider switch without a model resets it); responses also carry `image_default_models` and `image_storage_limit_mb`.

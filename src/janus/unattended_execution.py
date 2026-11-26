@@ -23,7 +23,12 @@ from sqlalchemy.orm import Session
 
 from janus import config, llm_service, llm_usage, models, prompt_injection, tool_policy, toolset_selection
 from janus.agent_runtime import build_janus_system_prompt, load_skill_library
-from janus.agent_task_runner import AgentTaskRun, run_agent_task
+from janus.agent_task_runner import (
+    AGENT_TASK_MAX_ITERATIONS,
+    AGENT_TASK_MAX_SECONDS,
+    AgentTaskRun,
+    run_agent_task,
+)
 from janus.agent_toolboxes.shared import TurnToolCall
 from janus.capability_profile import user_connected_capabilities
 from janus.plan_graph import PlanStep, TaskContext
@@ -72,10 +77,37 @@ UnattendedTaskExecutor = Callable[[Session, str, Sequence[BaseTool], str], Agent
 _CURRENT_MODEL_CHOICE: ContextVar[llm_service.ModelChoice | None] = ContextVar("unattended_model_choice", default=None)
 
 
+@dataclass(frozen=True)
+class RunLimits:
+    """The tool-round and wall-clock bounds of one unattended step; ``None`` lifts that bound."""
+
+    max_iterations: int | None = AGENT_TASK_MAX_ITERATIONS
+    max_seconds: float | None = AGENT_TASK_MAX_SECONDS
+
+
+def run_limits_for(definition: models.TriggerDefinition | None) -> RunLimits:
+    """Return a definition's run limits: ``NULL`` keeps the default, ``0`` switches that limit off."""
+    if definition is None:
+        return RunLimits()
+    calls = definition.max_tool_calls
+    seconds = definition.max_run_seconds
+    return RunLimits(
+        max_iterations=AGENT_TASK_MAX_ITERATIONS if calls is None else (calls or None),
+        max_seconds=AGENT_TASK_MAX_SECONDS if seconds is None else (float(seconds) if seconds else None),
+    )
+
+
+#: The limits of the step currently executing, set like the model choice so the executor seam stays unchanged.
+_CURRENT_RUN_LIMITS: ContextVar[RunLimits | None] = ContextVar("unattended_run_limits", default=None)
+
+
 def run_unattended_task(db: Session, system_prompt: str, tools: Sequence[BaseTool], objective: str) -> AgentTaskRun:
-    """Execute one authorized objective with the synchronous agent loop, on the step's chosen model."""
+    """Execute one authorized objective with the synchronous agent loop, on the step's chosen model and limits."""
     llm = llm_service.build_llm_service(db, _CURRENT_MODEL_CHOICE.get(), purpose="trigger").llm
-    return run_agent_task(llm, system_prompt, tools, objective)
+    limits = _CURRENT_RUN_LIMITS.get() or RunLimits()
+    return run_agent_task(
+        llm, system_prompt, tools, objective, max_iterations=limits.max_iterations, max_seconds=limits.max_seconds
+    )
 
 
 def format_denials(denials: Sequence[ToolSelectionDenial]) -> str:
@@ -363,11 +395,13 @@ def execute_unattended_step_detailed(
         [build_janus_system_prompt(constitution, load_skill_library(db), character_state=character_state), guidance]
     )
     token = _CURRENT_MODEL_CHOICE.set(model_choice)
+    limits_token = _CURRENT_RUN_LIMITS.set(run_limits_for(definition))
     try:
         # Usage accounting (JAN-408): a trigger run's step, or a delegated child's (no trigger id).
         with llm_usage.usage_surface("trigger" if trigger_id else "delegated"):
             run = task_executor(db, system_prompt, prepared.tools, step.objective)
     finally:
+        _CURRENT_RUN_LIMITS.reset(limits_token)
         _CURRENT_MODEL_CHOICE.reset(token)
     result = format_step_result(
         run.output,
@@ -390,6 +424,7 @@ def execute_unattended_step_detailed(
 
 __all__ = [
     "UNATTENDED_RESULT_MAX_CHARS",
+    "RunLimits",
     "UnattendedStepDeniedError",
     "UnattendedOutcome",
     "UnattendedTaskExecutor",
@@ -397,6 +432,7 @@ __all__ = [
     "execute_unattended_step_detailed",
     "format_denials",
     "format_step_result",
+    "run_limits_for",
     "run_unattended_task",
     "select_unattended_toolset",
 ]

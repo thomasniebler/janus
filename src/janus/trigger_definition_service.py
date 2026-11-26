@@ -43,6 +43,7 @@ from sqlalchemy.orm import Session
 from janus import models, trigger_event_filters
 from janus.trigger_approval import approval_fingerprint, proposal_conflict, runnable_filter
 from janus.trigger_events import TriggerEvent, parse_event
+from janus.trigger_run_settings import RUN_LIMIT_FIELDS, validate_model_choice, validate_run_limits
 from janus.trigger_service import CANCELLABLE_TRIGGER_STATUSES, enqueue_trigger
 from janus.triggers import TriggerEnvelope, TriggerKind
 
@@ -137,17 +138,6 @@ def validate_tool_ids(tool_ids: Iterable[str], known_tool_ids: Iterable[str]) ->
     return cleaned
 
 
-def validate_model_choice(llm_provider: str | None, llm_model: str | None) -> dict[str, str | None]:
-    """Validate an optional provider/model override (JAN-233); blank means the default."""
-    provider = (llm_provider or "").strip().lower() or None
-    model = (llm_model or "").strip() or None
-    if provider is not None and provider not in {item.value for item in models.LLMProvider}:
-        raise TriggerDefinitionError(
-            f"llm_provider must be one of: {', '.join(item.value for item in models.LLMProvider)}"
-        )
-    return {"llm_provider": provider, "llm_model": model}
-
-
 def compute_next_run(kind: str, schedule: Mapping[str, Any] | None, tz_name: str, after: datetime) -> datetime | None:
     """Return the first occurrence strictly after ``after`` (naive UTC), or ``None`` if not scheduled."""
     if kind != models.TriggerDefinitionKind.SCHEDULE.value or not schedule or schedule["type"] == SCHEDULE_ONCE:
@@ -192,6 +182,7 @@ def normalize_definition_fields(
     llm_provider: str | None = None,
     llm_model: str | None = None,
     allow_once: bool = False,
+    **run_limits: Any,
 ) -> dict[str, Any]:
     """Validate a full definition payload and return column values."""
     cleaned_name = (name or "").strip()
@@ -216,6 +207,7 @@ def normalize_definition_fields(
         "event_type": None,
         **trigger_event_filters.NO_EVENT_OPTIONS,
         **validate_model_choice(llm_provider, llm_model),
+        **validate_run_limits(**run_limits),
     }
     if parsed_kind == models.TriggerDefinitionKind.SCHEDULE.value:
         values["schedule"] = validate_schedule(schedule, allow_once=allow_once)
@@ -299,6 +291,7 @@ def create_definition(
         llm_provider=fields.get("llm_provider"),
         llm_model=fields.get("llm_model"),
         allow_once=origin == models.TriggerDefinitionOrigin.AGENT.value,
+        **{key: fields.get(key) for key in RUN_LIMIT_FIELDS},
     )
     definition = models.TriggerDefinition(
         user_id=owner_id,
@@ -348,6 +341,7 @@ def update_definition(
         "max_runs_per_hour": changes.get("max_runs_per_hour", definition.max_runs_per_hour),
         "llm_provider": changes.get("llm_provider", definition.llm_provider),
         "llm_model": changes.get("llm_model", definition.llm_model),
+        **{key: changes.get(key, getattr(definition, key)) for key in RUN_LIMIT_FIELDS},
     }
     if definition.builtin_key is not None and merged["kind"] != definition.kind:
         raise TriggerDefinitionError("the activation kind of a built-in trigger cannot be changed")

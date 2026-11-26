@@ -83,6 +83,7 @@ The frontend is organized into a component-based hierarchy for modularity and ma
 - **Rules engine:** The UI supports creating and deleting regex-based prioritization rules.
 - **Account integration:** Users connect Google and Microsoft under Settings → Connections (`ConnectionsConfig`; the OAuth client itself is set in `settings.toml`), choose calendars and sync on the Planner page (`/planner`, `pages/PlannerPage.tsx`, `features/planner/`), and add Gmail, Outlook or custom IMAP mailboxes from the Email page (`AccountManager`, also in Settings → Email Accounts).
 - **Local planner surface:** The dashboard must show writable local tasks, writable local single-instance events, and pending planner suggestions alongside imported read-only planner context.
+- **Bulk suggestion review:** Each pending suggestion has a selection checkbox, and `components/features/PlannerSuggestionBulkActions.tsx` above the list offers Select all, Dismiss selected (n), Dismiss duplicates (n, from `GET /api/planner/suggestions/duplicates`), and Dismiss all behind a `ConfirmDialog`, through `plannerSuggestionsApi.ts`; each refetches the suggestions and drops the dismissed rows' unsaved drafts.
 - **Widget preferences:** each widget's visibility and collapsed state are per-user preferences (`GET/PATCH /api/dashboard/widgets`), applied optimistically and rolled back when a save fails. Until the saved preferences load, the dashboard shows a loading message instead of the widgets and the **Widget options** menu (`components/features/DashboardWidgetMenu.tsx`) keeps its toggles disabled, so a hidden widget never flashes in and a toggle never acts on the defaults (JAN-225). If loading fails, the defaults are used and a notice says so.
 - **Active Tasks hierarchy (JAN-317):** The Active Tasks widget renders the nested tree from `GET /api/dashboard/tasks` (the same `list_local_task_tree` the Todo Chat companion uses) through `components/features/DashboardTaskTree.tsx`. A parent with an open task anywhere in its visible subtree is a category heading (title and the recursive open count, no status control; a done subtask kept as the ancestor of an open one counts as structure, not as open) with its subtasks indented beneath it at any depth; leaf tasks keep their status select; imported tasks follow as read-only flat rows. The chat page context flattens the tree (`lib/taskTree.ts`), so subtasks stay visible to Janus.
 - **Deleting local planner items (JAN-221):** Local tasks (leaves and category headings) in Active Tasks and local events in the Schedule widget (`components/features/DashboardScheduleList.tsx`) carry a Delete button; imported rows never do. `hooks/usePlannerItemDelete.tsx` asks through the `ConfirmDialog` ("Delete task?"/"Delete event?"), calls `DELETE /api/planner/local/{tasks,events}/{id}`, refetches the schedule, tasks, and suggestions, and shows the backend's error if the delete fails. A deleted category's subtasks stay and move up a level.
@@ -201,7 +202,10 @@ chat and contact suggestions from the stored conversations via a
 `<datalist>` on the value input, and "Max runs per hour" prefilled from the event's
 `default_max_runs_per_hour` for a new trigger), the tools the trigger may use
 (built-in capabilities from the tool registry), an optional model
-(`ModelChoiceFields`, JAN-233), and enabled. Cards with a model override show
+(`ModelChoiceFields`, JAN-233), run limits (`TriggerRunLimitsFields.tsx`:
+tool-calling rounds and run time, each Default / Custom / No limit, with a
+warning when a limit is off; defaults and the card summary in
+`triggerRunLimits.ts`), and enabled. Every card shows `Limits: …`. Cards with a model override show
 `Model: <provider>/<model>` and a cloud marker for non-Ollama providers. Event
 cards summarize the filter and limit (`TriggerEventOptionsSummary`) and, when
 the limit dropped events, how many and when the last one was; suggested

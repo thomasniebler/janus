@@ -190,6 +190,8 @@ def create_definition(
             **({"max_runs_per_hour": body.max_runs_per_hour} if "max_runs_per_hour" in body.model_fields_set else {}),
             llm_provider=body.llm_provider,
             llm_model=body.llm_model,
+            max_tool_calls=body.max_tool_calls,
+            max_run_seconds=body.max_run_seconds,
         )
     except definitions.TriggerDefinitionError as error:
         raise _unprocessable(error) from error

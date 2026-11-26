@@ -116,6 +116,12 @@ def test_build_tool_set_gates_on_real_connections(db):
         "complete_local_task",
         "move_local_task",
         "reorder_local_task",
+        "list_planner_suggestions",
+        "find_duplicate_planner_suggestions",
+        "dismiss_planner_suggestions",
+        "dismiss_duplicate_planner_suggestions",
+        "restore_planner_suggestions",
+        "propose_planner_item",
     }
 
 

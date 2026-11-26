@@ -107,7 +107,7 @@ export const secretarySettingsSchema = z.looseObject({
 export const calendarEventSchema = z.looseObject({
   id: z.number(),
   kind: z.literal('event'),
-  source: z.enum(['manual', 'email_agent', 'digest_agent', 'imported']),
+  source: z.enum(['manual', 'email_agent', 'digest_agent', 'janus_agent', 'imported']),
   source_label: z.string(),
   read_only: z.boolean(),
   title: z.string(),
@@ -126,7 +126,7 @@ export const calendarEventListSchema = z.array(calendarEventSchema);
 const taskBaseSchema = z.looseObject({
   id: z.number(),
   kind: z.literal('task'),
-  source: z.enum(['manual', 'email_agent', 'digest_agent', 'imported']),
+  source: z.enum(['manual', 'email_agent', 'digest_agent', 'janus_agent', 'imported']),
   source_label: z.string(),
   read_only: z.boolean(),
   title: z.string(),
@@ -158,7 +158,7 @@ export const plannerSuggestionSchema = z.looseObject({
   id: z.number(),
   suggestion_type: z.enum(['task', 'event', 'task_update', 'event_update']),
   status: z.enum(['pending', 'approved', 'dismissed', 'applied']),
-  source: z.enum(['manual', 'email_agent', 'digest_agent', 'imported']),
+  source: z.enum(['manual', 'email_agent', 'digest_agent', 'janus_agent', 'imported']),
   confidence: z.enum(['high', 'medium', 'low']).nullable().optional(),
   reason: z.string().nullable().optional(),
   dedupe_key: z.string().nullable().optional(),
@@ -185,6 +185,7 @@ export const plannerSuggestionSchema = z.looseObject({
 });
 
 export const plannerSuggestionListSchema = z.array(plannerSuggestionSchema);
+
 
 export const topicSummarySchema = z.looseObject({
   id: z.number(),
