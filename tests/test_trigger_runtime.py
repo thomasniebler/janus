@@ -444,6 +444,7 @@ def test_unattended_defaults_allow_everything_but_confirmation_required_tools(db
             # Bulk review of pending planner suggestions; dismissing is reversible and never touches the planner.
             "planner.suggestions",
             "planner.suggestions.review",
+            "planner.suggest",
             "dashboard",
             "web_search",
             "memory",

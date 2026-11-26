@@ -78,6 +78,8 @@ class PlannerItemSource(str, enum.Enum):
     MANUAL = "manual"
     EMAIL_AGENT = "email_agent"
     DIGEST_AGENT = "digest_agent"
+    #: Proposed by a Janus run that is not tied to one email (the Secretary, or chat).
+    JANUS_AGENT = "janus_agent"
     IMPORTED = "imported"
 
 

@@ -205,3 +205,50 @@ def test_bulk_api_dismisses_selected_duplicates_and_all(auth_client, db):
         == 2
     )
     assert auth_client.get("/api/planner/suggestions").json() == []
+
+
+def test_propose_planner_item_records_a_janus_suggestion_with_the_same_dedupe(db):
+    """The Secretary's tool needs no email, is labelled as Janus's, and never re-proposes a waiting one."""
+    from janus.agent_toolboxes.planner_suggestions import build_planner_suggest_tools
+
+    user, _emails = _seed(db)
+    (propose,) = build_planner_suggest_tools(ToolContext(db=db, user=user))
+
+    first = propose.invoke(
+        {"suggestion_type": "task", "title": "Prepare the Q1 budget", "due_at": "2026-12-15T09:00:00"}
+    )
+    again = propose.invoke(
+        {"suggestion_type": "task", "title": "prepare the Q1 budget!", "due_at": "2026-12-15T10:00:00"}
+    )
+
+    rows = _pending(db)
+    assert len(rows) == 1 and first["id"] == again["id"] == rows[0].id
+    assert rows[0].source == models.PlannerItemSource.JANUS_AGENT
+    assert rows[0].source_email_id is None
+    with pytest.raises(ValueError):
+        propose.invoke({"suggestion_type": "reminder", "title": "Nope"})
+
+
+def test_secretary_is_given_the_tool_and_the_pending_suggestions(db, monkeypatch):
+    """New Secretary definitions list planner.suggest; a run that thinks also sees what already waits."""
+    from janus.services import secretary_service
+
+    user, emails = _seed(db)
+    builtin_triggers.ensure_builtin_definitions(db, user.id)
+    from janus import trigger_definition_service as definitions
+
+    secretary = definitions.get_builtin_definition(db, user.id, builtin_triggers.BUILTIN_SECRETARY)
+    assert "planner.suggest" in secretary.tool_ids
+    _suggest(LocalPlannerService(db), emails[0], user, title="Book flights")
+    monkeypatch.setattr(
+        secretary_service, "prepare", lambda *_a, **_k: secretary_service.SecretaryPlan(context="Current time: now.")
+    )
+
+    context = builtin_triggers._prepare_secretary(db, user, secretary).context
+    assert context.startswith("Current time: now.") and "Book flights" in context
+
+    monkeypatch.setattr(
+        secretary_service, "prepare", lambda *_a, **_k: secretary_service.SecretaryPlan(skip_output="quiet")
+    )
+    skipped = builtin_triggers._prepare_secretary(db, user, secretary)
+    assert skipped.skip_output == "quiet" and skipped.context is None

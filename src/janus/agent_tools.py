@@ -28,7 +28,11 @@ from janus.agent_toolboxes.local_tasks import build_local_task_tools
 from janus.agent_toolboxes.mail import build_mail_tools
 from janus.agent_toolboxes.mail_processing import build_mail_processing_tools
 from janus.agent_toolboxes.memory import build_memory_tools
-from janus.agent_toolboxes.planner_suggestions import PLANNER_SUGGESTIONS_ENTRY, PLANNER_SUGGESTIONS_REVIEW_ENTRY
+from janus.agent_toolboxes.planner_suggestions import (
+    PLANNER_SUGGEST_ENTRY,
+    PLANNER_SUGGESTIONS_ENTRY,
+    PLANNER_SUGGESTIONS_REVIEW_ENTRY,
+)
 from janus.agent_toolboxes.remote_agents import remote_agent_entries
 from janus.agent_toolboxes.remote_mcp import discovered_tools, remote_tool_entries
 from janus.agent_toolboxes.rules import build_rule_tools
@@ -229,6 +233,7 @@ def _build_default_registry() -> ToolRegistry:
             ),
             PLANNER_SUGGESTIONS_ENTRY,  # list pending suggestions and their duplicates
             PLANNER_SUGGESTIONS_REVIEW_ENTRY,  # dismiss them in bulk, collapse duplicates, restore
+            PLANNER_SUGGEST_ENTRY,  # propose one not caused by an email (the Secretary)
             ToolRegistryEntry(
                 id="dashboard",
                 reads_untrusted_content=True,

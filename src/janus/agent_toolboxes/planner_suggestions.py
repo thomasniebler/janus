@@ -9,6 +9,10 @@ dismiss them on the user's word:
   source email, and report groups of duplicates.
 * ``planner.suggestions.review`` (write): dismiss suggestions by id or filter,
   collapse duplicates to their newest copy, and restore dismissed ones.
+* ``planner.suggest`` (write): ``propose_planner_item``, a pending suggestion
+  that no single email caused, for the Secretary (and any run that lists it).
+  It goes through the same dedupe as mail suggestions, so a waiting or recently
+  dismissed suggestion is not proposed again.
 
 Every call is owner-scoped. Dismissing never touches planner tasks or events
 and is reversible (``restore_planner_suggestions``); a dismissed suggestion
@@ -31,6 +35,7 @@ from janus.tool_registry import ToolRegistryEntry
 
 PLANNER_SUGGESTIONS_TOOL_ID = "planner.suggestions"
 PLANNER_SUGGESTIONS_REVIEW_TOOL_ID = "planner.suggestions.review"
+PLANNER_SUGGEST_TOOL_ID = "planner.suggest"
 _LIST_LIMIT_CEILING = 200
 _COMPACT_FIELDS = (
     "id",
@@ -151,6 +156,65 @@ def build_planner_suggestion_review_tools(context: ToolContext) -> list[BaseTool
     return [dismiss_planner_suggestions, dismiss_duplicate_planner_suggestions, restore_planner_suggestions]
 
 
+def build_planner_suggest_tools(context: ToolContext) -> list[BaseTool]:
+    """Build ``propose_planner_item`` for the context's user."""
+    db = context.db
+    user_id = context.user.id
+
+    @tool("propose_planner_item")
+    def propose_planner_item(
+        suggestion_type: str,
+        title: str,
+        description: str | None = None,
+        due_at: str | None = None,
+        scheduled_for: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        location: str | None = None,
+        all_day: bool = False,
+        priority: str | None = None,
+        reason: str | None = None,
+        confidence: str = "medium",
+        dedupe_hint: str | None = None,
+        target_task_id: int | None = None,
+        target_event_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Propose a planner task, event, or change for the user to approve or dismiss.
+
+        Use this for something you noticed that no single email asked for. ``suggestion_type``
+        is ``task``, ``event``, ``task_update``, or ``event_update`` (updates need
+        ``target_task_id`` / ``target_event_id``); timestamps are ISO-8601. This never changes
+        the planner. A pending suggestion with the same ``dedupe_hint`` or title is updated
+        instead of duplicated; one the user already dismissed or applied is returned unchanged
+        (its ``status`` says so) and is not proposed again.
+        """
+        if not title.strip():
+            raise ValueError("title must not be blank")
+        item = {
+            "suggestion_type": suggestion_type,
+            "title": title.strip(),
+            "description": description,
+            "due_at": due_at,
+            "scheduled_for": scheduled_for,
+            "start_time": start_time,
+            "end_time": end_time,
+            "location": location,
+            "all_day": all_day,
+            "priority": priority,
+            "reason": reason,
+            "confidence": confidence,
+            "dedupe_hint": dedupe_hint,
+            "target_task_id": target_task_id,
+            "target_event_id": target_event_id,
+        }
+        row = review.record_suggestion(db, user_id, item, source=models.PlannerItemSource.JANUS_AGENT)
+        if row is None:
+            raise ValueError("suggestion_type must be task, event, task_update, or event_update")
+        return _compact(row) | {"status": row["status"]}
+
+    return [propose_planner_item]
+
+
 PLANNER_SUGGESTIONS_ENTRY = ToolRegistryEntry(
     id=PLANNER_SUGGESTIONS_TOOL_ID,
     display_name="Read planner suggestions",
@@ -177,8 +241,22 @@ PLANNER_SUGGESTIONS_REVIEW_ENTRY = ToolRegistryEntry(
     builder=lambda context: build_planner_suggestion_review_tools(context.tool_context),
 )
 
+PLANNER_SUGGEST_ENTRY = ToolRegistryEntry(
+    id=PLANNER_SUGGEST_TOOL_ID,
+    display_name="Suggest planner items",
+    description="Propose a planner task, event, or change for the user to approve; never changes the planner.",
+    required_capabilities=("planner.local",),
+    operation="write",
+    risk_level="low",
+    confirmation="recommended",
+    docs_ref="tools.md#planner-suggestions",
+    builder=lambda context: build_planner_suggest_tools(context.tool_context),
+)
+
 __all__ = [
     "PLANNER_SUGGESTIONS_ENTRY",
+    "PLANNER_SUGGEST_ENTRY",
+    "PLANNER_SUGGEST_TOOL_ID",
     "PLANNER_SUGGESTIONS_REVIEW_ENTRY",
     "PLANNER_SUGGESTIONS_REVIEW_TOOL_ID",
     "PLANNER_SUGGESTIONS_TOOL_ID",

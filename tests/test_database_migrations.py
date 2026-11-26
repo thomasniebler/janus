@@ -1370,6 +1370,59 @@ def test_split_trigger_history_migration_rewrites_saved_events_selections(tmp_pa
         engine.dispose()
 
 
+def test_secretary_planner_suggest_migration_adds_the_tool_to_existing_secretaries(tmp_path):
+    """Existing built-in Secretaries get planner.suggest once; others are untouched; downgrade removes it."""
+    db_path = tmp_path / "secretary-planner-suggest.db"
+    database_url = f"sqlite:///{db_path}"
+    engine = create_engine(database_url, connect_args={"check_same_thread": False})
+    alembic_config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    alembic_config.set_main_option("sqlalchemy.url", database_url)
+
+    def tools(conn, definition_id):
+        raw = conn.execute(text("SELECT tool_ids FROM trigger_definitions WHERE id = :id"), {"id": definition_id})
+        return json.loads(raw.scalar_one())
+
+    def insert(conn, user_id, name, builtin_key, tool_ids):
+        return conn.execute(
+            text(
+                "INSERT INTO trigger_definitions (user_id, builtin_key, name, objective, tool_ids, kind, timezone, "
+                "enabled, origin, created_at, updated_at) VALUES (:user_id, :builtin_key, :name, 'Think.', "
+                ":tool_ids, 'manual', 'UTC', 1, 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ),
+            {"user_id": user_id, "builtin_key": builtin_key, "name": name, "tool_ids": json.dumps(tool_ids)},
+        ).lastrowid
+
+    try:
+        command.upgrade(alembic_config, "d8a0c2e4f6b8")
+        with engine.begin() as conn:
+            users = [
+                conn.execute(
+                    text(
+                        "INSERT INTO users (username, hashed_password, is_admin, session_generation) "
+                        "VALUES (:name, 'hashed', 0, 0)"
+                    ),
+                    {"name": name},
+                ).lastrowid
+                for name in ("first", "second")
+            ]
+            secretary = insert(conn, users[0], "Secretary", "builtin.secretary", ["core", "calendar"])
+            already = insert(conn, users[1], "Secretary", "builtin.secretary", ["core", "planner.suggest"])
+            briefing = insert(conn, users[0], "Morning briefing", "builtin.briefing", ["core"])
+
+        command.upgrade(alembic_config, "e1b3d5f7a9c2")
+        with engine.connect() as conn:
+            assert tools(conn, secretary) == ["core", "calendar", "planner.suggest"]
+            assert tools(conn, already) == ["core", "planner.suggest"]
+            assert tools(conn, briefing) == ["core"]
+
+        command.downgrade(alembic_config, "d8a0c2e4f6b8")
+        with engine.connect() as conn:
+            assert tools(conn, secretary) == ["core", "calendar"]
+            assert tools(conn, already) == ["core"]
+    finally:
+        engine.dispose()
+
+
 def test_unattended_allowed_migration_inverts_block_without_confirmation(tmp_path):
     """JAN-255: a blocked tool becomes "not allowed unattended", an unblocked one "allowed", and back."""
     db_path = tmp_path / "unattended-allowed.db"

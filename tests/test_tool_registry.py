@@ -124,6 +124,7 @@ def test_default_registry_preserves_existing_toolbox_order():
         "planner.local.write",
         "planner.suggestions",
         "planner.suggestions.review",
+        "planner.suggest",
         "dashboard",
         "github",
         "linear",

@@ -121,6 +121,7 @@ def test_build_tool_set_gates_on_real_connections(db):
         "dismiss_planner_suggestions",
         "dismiss_duplicate_planner_suggestions",
         "restore_planner_suggestions",
+        "propose_planner_item",
     }
 
 

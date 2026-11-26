@@ -125,6 +125,26 @@ def matching_reviewed_suggestion(db: Session, payload: dict[str, Any]) -> models
     return next((row for row in rows if _same_suggestion(row, payload) and _suggestion_day(row) == day), None)
 
 
+def record_suggestion(
+    db: Session, user_id: int, item: dict[str, Any], *, source: models.PlannerItemSource
+) -> dict[str, Any] | None:
+    """Record one pending suggestion that no email caused, with the same dedupe as mail suggestions.
+
+    Returns the stored (or matched) suggestion, or ``None`` when ``suggestion_type`` is unknown. A
+    suggestion matching one the user dismissed or applied recently comes back with that status.
+    """
+    from janus.services.local_planner_service import LocalPlannerService  # lazy: it imports this module
+
+    service = LocalPlannerService(db)
+    payload = service._normalize_suggestion_payload(user_id=user_id, source=source, suggestion=item)  # noqa: SLF001
+    if payload is None:
+        return None
+    row = service._upsert_suggestion(payload)  # noqa: SLF001 - the one upsert, shared with the mail path
+    db.commit()
+    db.refresh(row)
+    return service._serialize_suggestion(row)  # noqa: SLF001
+
+
 def _pending(
     db: Session,
     user_id: int,
@@ -284,6 +304,7 @@ __all__ = [
     "matching_pending_suggestion",
     "matching_reviewed_suggestion",
     "normalize_suggestion_text",
+    "record_suggestion",
     "restore_suggestions",
     "search_pending_suggestions",
 ]

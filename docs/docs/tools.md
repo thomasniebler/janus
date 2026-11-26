@@ -459,6 +459,13 @@ Allowed.
 each group), and `restore_planner_suggestions`. Dismissing never changes the
 planner, and nothing here approves a suggestion. Unattended default: Allowed.
 
+*Suggest planner items* (`planner.suggest`): `propose_planner_item` records a
+pending task, event, or change that no single email caused (the Secretary uses
+it), labelled *Janus agent*. It uses the same dedupe as mail suggestions: a
+waiting suggestion is updated instead of duplicated, and one you dismissed or
+applied recently is not proposed again. It never changes the planner.
+Unattended default: Allowed.
+
 ## Dashboard tools
 
 `get_daily_briefing`, `list_dashboard_widgets`, `update_dashboard_widget`,

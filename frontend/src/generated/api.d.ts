@@ -6315,7 +6315,7 @@ export interface components {
          * @description Origin for Janus-owned and imported planner items.
          * @enum {string}
          */
-        PlannerItemSource: "manual" | "email_agent" | "digest_agent" | "imported";
+        PlannerItemSource: "manual" | "email_agent" | "digest_agent" | "janus_agent" | "imported";
         /**
          * PlannerSuggestionBulkDismiss
          * @description Dismiss many pending suggestions at once: by ids, or every pending one (``all_pending``).

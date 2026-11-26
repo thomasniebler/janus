@@ -27798,6 +27798,7 @@
           "manual",
           "email_agent",
           "digest_agent",
+          "janus_agent",
           "imported"
         ],
         "title": "PlannerItemSource",

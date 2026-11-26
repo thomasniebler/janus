@@ -16,7 +16,7 @@ type ApiSchemas = components['schemas'];
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 export type ClarificationStatus = 'pending' | 'approved' | 'dismissed';
 export type TopicStatus = 'candidate' | 'active' | 'snoozed' | 'resolved' | 'ignored';
-export type PlannerItemSource = 'manual' | 'email_agent' | 'digest_agent' | 'imported';
+export type PlannerItemSource = 'manual' | 'email_agent' | 'digest_agent' | 'janus_agent' | 'imported';
 export type PlannerSuggestionStatus = 'pending' | 'approved' | 'dismissed' | 'applied';
 export type PlannerSuggestionType = 'task' | 'event' | 'task_update' | 'event_update';
 
