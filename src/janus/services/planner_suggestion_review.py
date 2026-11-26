@@ -57,8 +57,22 @@ def _suggestion_day(row: models.PlannerSuggestion | dict[str, Any]) -> date | No
     return moment.date() if moment else None
 
 
+def _targets_conflict(row: models.PlannerSuggestion, payload: dict[str, Any]) -> bool:
+    """Whether both name a planner task or event and the two differ: updates to different items never merge."""
+    return any(
+        payload.get(field) is not None and getattr(row, field) is not None and payload[field] != getattr(row, field)
+        for field in ("target_task_id", "target_event_id")
+    )
+
+
 def _same_suggestion(row: models.PlannerSuggestion, payload: dict[str, Any]) -> bool:
-    """Whether ``row`` proposes the same planner change as ``payload`` (same key, or same type and title)."""
+    """Whether ``row`` proposes the same planner change as ``payload`` (same key, or same type and title).
+
+    Never for two suggestions aimed at different planner items, even with the same title
+    (two separate "Weekly review" events).
+    """
+    if _targets_conflict(row, payload):
+        return False
     key = normalize_suggestion_text(payload.get("dedupe_key"))
     if key and key == normalize_suggestion_text(row.dedupe_key):
         return True
@@ -217,7 +231,8 @@ def duplicate_suggestion_groups(db: Session, user_id: int) -> list[list[models.P
     """Group pending suggestions that propose the same change, newest first within each group.
 
     Two suggestions are duplicates when they share a dedupe key, or have the
-    same type and title, ignoring case, punctuation and spacing.
+    same type and title, ignoring case, punctuation and spacing, and aim at the
+    same planner item (or none).
     """
     rows = _pending(db, user_id)
     parent = list(range(len(rows)))
@@ -235,6 +250,9 @@ def duplicate_suggestion_groups(db: Session, user_id: int) -> list[list[models.P
             keys.append(("key", dedupe_key))
         if title := normalize_suggestion_text(row.title):
             keys.append(("title", row.suggestion_type.value, title))
+        # A key shared by suggestions aimed at different planner items does not make them duplicates.
+        target = f"{row.target_task_id or ''}:{row.target_event_id or ''}"
+        keys = [(*key, target) for key in keys]
         for key in keys:
             if key in first_by_key:
                 parent[find(index)] = find(first_by_key[key])

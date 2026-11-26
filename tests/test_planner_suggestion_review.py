@@ -76,6 +76,29 @@ def test_a_dismissed_suggestion_is_not_proposed_again_for_the_same_day(db):
     assert next_month["status"] == "pending" and next_month["id"] != first["id"]
 
 
+def test_updates_to_different_planner_items_with_the_same_title_stay_separate(db):
+    """Two "Weekly review" events get their own update suggestions; one must not overwrite the other."""
+    user, emails = _seed(db)
+    service = LocalPlannerService(db)
+    first_event, second_event = (
+        models.PlannerEvent(
+            user_id=user.id,
+            title="Weekly review",
+            start_time=datetime(2026, 12, day, 9),
+            end_time=datetime(2026, 12, day, 10),
+        )
+        for day in (1, 8)
+    )
+    db.add_all([first_event, second_event])
+    db.commit()
+
+    for email, event in ((emails[0], first_event), (emails[1], second_event)):
+        _suggest(service, email, user, suggestion_type="event_update", title="Weekly review", target_event_id=event.id)
+
+    assert sorted(row.target_event_id for row in _pending(db)) == sorted([first_event.id, second_event.id])
+    assert review.duplicate_suggestion_groups(db, user.id) == []
+
+
 def test_bulk_dismiss_needs_a_filter_or_all_pending(db):
     """An empty call never clears the whole list by accident."""
     user, emails = _seed(db)

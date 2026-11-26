@@ -82,6 +82,29 @@ db.commit()
 print(json.dumps([row.id for row in rows]))
 `;
 
+// Pending suggestions inserted as they piled up before the stronger dedupe: two copies of one
+// task (differently worded), and two other tasks. Inserted directly, since today's upsert would merge them.
+const SEED_DUPLICATE_SUGGESTIONS_SCRIPT = `
+import json
+from datetime import datetime, timedelta
+
+stamp = args[0]
+base = datetime.utcnow() - timedelta(hours=1)
+titles = [f"E2E board deck {stamp}", f"e2e board-deck {stamp}!", f"E2E flights {stamp}", f"E2E passport {stamp}"]
+rows = []
+for index, title in enumerate(titles):
+    row = models.PlannerSuggestion(
+        user_id=user.id,
+        suggestion_type=models.PlannerSuggestionType.TASK,
+        title=title,
+        created_at=base + timedelta(minutes=index),
+    )
+    db.add(row)
+    rows.append(row)
+db.commit()
+print(json.dumps([row.id for row in rows]))
+`;
+
 // Jira accounts have no delete route (there is no Jira UI yet), so the spec removes its own.
 const DELETE_PLANNER_ACCOUNT_SCRIPT = `
 import json
@@ -611,5 +634,59 @@ test.describe('Planner: local items on the Dashboard', () => {
     ).json();
     expect(remaining.map((task) => task.title)).not.toEqual(expect.arrayContaining([parentTitle]));
     expect(remaining.map((task) => task.title)).not.toEqual(expect.arrayContaining([childTitle]));
+  });
+});
+
+test.describe('Planner: bulk suggestion review', () => {
+  test.use({ asThrowawayUser: true });
+
+  test('collapses duplicates, dismisses a selection, then dismisses the rest after confirming', async ({
+    page,
+    account,
+  }) => {
+    const stamp = `${Date.now()}`;
+    const [olderCopy, newerCopy, flights, passport] = lastJsonLine<number[]>(
+      await runBackendPython(SEED_DUPLICATE_SUGGESTIONS_SCRIPT, [stamp], { as: account.username }),
+    );
+
+    await page.goto('/');
+    await expect(page.getByText('4 Pending')).toBeVisible();
+    const bulk = page.getByTestId('planner-suggestion-bulk-actions');
+
+    // The two board-deck copies are one duplicate group; the newest copy is kept.
+    await bulk.getByRole('button', { name: 'Dismiss duplicates (1)' }).click();
+    await expect(page.getByTestId(`planner-suggestion-${olderCopy}`)).toHaveCount(0);
+    await expect(page.getByTestId(`planner-suggestion-${newerCopy}`)).toBeVisible();
+    await expect(page.getByText('3 Pending')).toBeVisible();
+    await expect(bulk.getByRole('button', { name: 'Dismiss duplicates (0)' })).toBeDisabled();
+
+    // Tick one suggestion and dismiss just that one.
+    await page.getByRole('checkbox', { name: `Select suggestion: E2E flights ${stamp}` }).check();
+    await bulk.getByRole('button', { name: 'Dismiss selected (1)' }).click();
+    await expect(page.getByTestId(`planner-suggestion-${flights}`)).toHaveCount(0);
+    await expect(page.getByText('2 Pending')).toBeVisible();
+
+    // Dismiss all asks first; cancelling keeps everything.
+    await bulk.getByRole('button', { name: 'Dismiss all' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Dismiss all planner suggestions?' });
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByTestId(`planner-suggestion-${passport}`)).toBeVisible();
+    await bulk.getByRole('button', { name: 'Dismiss all' }).click();
+    await dialog.getByRole('button', { name: 'Dismiss all' }).click();
+    await expect(page.getByText('No pending planner suggestions.')).toBeVisible();
+
+    // Every one is dismissed, not deleted, and stays dismissed across a reload.
+    const reviewed: Array<{ id: number; status: string }> = await (
+      await page.request.get('/api/planner/suggestions?include_applied=true')
+    ).json();
+    const statusOf = (id: number) => reviewed.find((suggestion) => suggestion.id === id)?.status;
+    expect([olderCopy, newerCopy, flights, passport].map(statusOf)).toEqual([
+      'dismissed',
+      'dismissed',
+      'dismissed',
+      'dismissed',
+    ]);
+    await page.reload();
+    await expect(page.getByText('No pending planner suggestions.')).toBeVisible();
   });
 });
