@@ -441,6 +441,9 @@ def test_unattended_defaults_allow_everything_but_confirmation_required_tools(db
             "azure.resources",
             "jira",
             "planner.local",
+            # Bulk review of pending planner suggestions; dismissing is reversible and never touches the planner.
+            "planner.suggestions",
+            "planner.suggestions.review",
             "dashboard",
             "web_search",
             "memory",
@@ -669,6 +672,7 @@ def test_a_trigger_cannot_launder_its_wider_grant_into_a_delegated_child(db):
             "azure.resources",
             "jira",
             "planner.local",
+            "planner.suggestions",
             "web_search",
             "knowledge",
             "wiki",

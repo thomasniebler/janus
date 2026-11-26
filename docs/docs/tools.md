@@ -445,6 +445,20 @@ default: Allowed.
 `create_local_task`, `update_local_task`, `complete_local_task`,
 `move_local_task`, `reorder_local_task`. Unattended default: **Off**.
 
+## Planner suggestions
+
+*Read planner suggestions* (`planner.suggestions`):
+`list_planner_suggestions` (pending suggestions, filtered by text, type, or
+source email) and `find_duplicate_planner_suggestions`. Titles come from
+incoming mail, so their output is treated as untrusted. Unattended default:
+Allowed.
+
+*Dismiss planner suggestions* (`planner.suggestions.review`):
+`dismiss_planner_suggestions` (by ids or filters; everything only with
+`all_pending`), `dismiss_duplicate_planner_suggestions` (keeps the newest of
+each group), and `restore_planner_suggestions`. Dismissing never changes the
+planner, and nothing here approves a suggestion. Unattended default: Allowed.
+
 ## Dashboard tools
 
 `get_daily_briefing`, `list_dashboard_widgets`, `update_dashboard_widget`,

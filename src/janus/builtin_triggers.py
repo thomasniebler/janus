@@ -187,6 +187,7 @@ def _prepare_digest(db: Session, user: models.User, _definition: models.TriggerD
     context = "\n\n".join(
         part
         for part in (
+            _pending_suggestions_context(db, user.id) or "",
             llm_service.UNTRUSTED_EMAIL_CONTENT_WARNING,
             prompt_injection.prepared_context_block("topic thread summary", threads) if threads else "",
             f"--- Digest emails ({len(filtered)}, email ids: {', '.join(str(email.id) for email in filtered)}) ---",
@@ -222,6 +223,39 @@ def _finalize_digest(db: Session, user: models.User, output: str, state: dict[st
 
 
 # --- Mail processing --------------------------------------------------------
+
+#: How many pending planner suggestions a mail or digest run is shown, newest first.
+_PENDING_SUGGESTION_CONTEXT_LIMIT = 40
+
+
+def _pending_suggestions_context(db: Session, user_id: int) -> str | None:
+    """List the pending planner suggestions, so a run updates one instead of proposing it again."""
+    from janus.services.local_planner_service import LocalPlannerService
+
+    rows = LocalPlannerService(db).search_pending_suggestions(user_id)
+    if not rows:
+        return None
+    lines = []
+    for row in rows[:_PENDING_SUGGESTION_CONTEXT_LIMIT]:
+        when = row.get("due_at") or row.get("scheduled_for") or row.get("start_time")
+        parts = [f"- [{row['suggestion_type']}] {row.get('title') or 'untitled'}"]
+        if when:
+            parts.append(f"(on {when:%Y-%m-%d})")
+        if row.get("dedupe_key"):
+            parts.append(f"dedupe_hint={row['dedupe_key']}")
+        lines.append(" ".join(parts))
+    if len(rows) > len(lines):
+        lines.append(f"... and {len(rows) - len(lines)} older ones.")
+    return (
+        f"Planner suggestions already awaiting my review ({len(rows)}). Do not propose these again: if an email "
+        "adds to one, call suggest_planner_item with the same title and dedupe_hint so it is updated.\n"
+        + prompt_injection.prepared_context_block("pending planner suggestions", "\n".join(lines))
+    )
+
+
+def _prepare_mail(db: Session, user: models.User, _definition: models.TriggerDefinition) -> PreparedRun:
+    return PreparedRun(context=_pending_suggestions_context(db, user.id))
+
 
 MAIL_OBJECTIVE = (
     "A new email arrived; its details are below. Process it for me:\n\n"
@@ -342,6 +376,7 @@ BUILTINS: dict[str, BuiltinTrigger] = {
         tool_ids=("core", "mail", "mail.processing", "rules", "memory", "topics", "planner.local", "calendar"),
         kind=models.TriggerDefinitionKind.EVENT.value,
         event_type=TriggerEvent.MAIL_RECEIVED.value,
+        prepare=_prepare_mail,
     ),
     BUILTIN_SECRETARY: BuiltinTrigger(
         key=BUILTIN_SECRETARY,

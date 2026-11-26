@@ -107,6 +107,7 @@ Scope: backend and integration-focused tests under `tests/`.
 | `test_single_agent_ungated_tools.py` | Confirms memory, topic, local-planner, event-log, and trigger tools are ungated for the single always-on Janus agent (JAN-201) |
 | `test_dashboard_service.py` | `DashboardService` briefing email context and the tasks widget's parent/subtask tree (JAN-317) |
 | `test_local_planner_service.py` | Janus-owned local planner service behavior |
+| `test_planner_suggestion_review.py` | Planner suggestion dedupe (reworded titles/keys, dismissed ones not re-proposed), bulk dismissal, duplicate cleanup and restore, the `planner.suggestions` tools, the mail run's pending-suggestion context, and the bulk API |
 | `test_local_task_capability.py` | Janus-owned local task hierarchy and agent-capability behavior |
 | `test_topic_service.py` | `TopicService` extraction-context topic-selection behavior |
 | `test_memory_service.py` | `MemoryService` unit behavior and `/api/memory` endpoint behavior |

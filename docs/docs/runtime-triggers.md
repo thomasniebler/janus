@@ -21,6 +21,15 @@ A trigger definition is three things:
   stronger one for this trigger. If that model cannot be used, the run fails
   (`exhausted`, with an error naming it) instead of falling back to the
   default. A cloud provider sees everything the run reads.
+- **Run limits** (optional) — how many tool-calling rounds (default 8) and
+  how many seconds (default 180) one run may take. Each can stay at the
+  default, be set to a custom value, or be switched to **No limit**. A run
+  that hits a limit fails with "stopped at its limit" and is retried. Several
+  tools called in one model turn count as one round. Without a limit a run
+  continues until the model finishes: triggers run one at a time, so a long
+  run delays the others (mail processing included), and every round costs a
+  model call. The worker keeps a long run's claim alive, so it is never
+  started a second time while it works.
 - **Activation** — when it runs:
     - **Manual** — only when you press **Run now**.
     - **Recurring schedule** — *daily* at a time (optionally only on selected
@@ -159,7 +168,12 @@ Janus; Janus does not poll for it. Your regex rules always run first.
       something to prepare).
     - `track_email_topic` — attaches the email to an ongoing tracked topic.
     - `suggest_planner_item` — proposes a task or calendar change. You still
-      approve or dismiss it; nothing lands in your planner directly.
+      approve or dismiss it; nothing lands in your planner directly. The run
+      is shown the suggestions already waiting for you, and a suggestion with
+      the same dedupe hint, or the same type and title (ignoring case,
+      punctuation and spacing), updates the waiting one instead of adding a
+      copy. A suggestion you dismissed or applied in the last 90 days is not
+      proposed again for the same day.
 
   Apart from marking a new DIGEST email read, these tools only change
   Janus's own records. They never reply, forward, or send mail, or change
@@ -180,6 +194,16 @@ email can still try to steer the run, so the tools a mail-processing run gets
 are deliberately limited to Janus-local records. Janus also checks the email
 for text that looks like instructions aimed at an AI (see
 [Prompt injection](#prompt-injection-instructions-hidden-in-mail-and-other-content) below).
+
+### Clearing planner suggestions in bulk
+
+The **Planner Suggestions** card on the dashboard has **Select all**,
+**Dismiss selected**, **Dismiss duplicates** (keeps the newest of each group
+of copies) and **Dismiss all** (asks first). You can also ask Janus in chat,
+for example "dismiss all planner suggestions about the conference" or "clean
+up the duplicate planner suggestions"; it uses the *Read planner suggestions*
+and *Dismiss planner suggestions* tools. Dismissing never changes your
+planner, and Janus can restore dismissed suggestions if you ask.
 
 ## Prompt injection: instructions hidden in mail and other content
 

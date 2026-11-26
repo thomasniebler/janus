@@ -186,6 +186,7 @@ export const plannerSuggestionSchema = z.looseObject({
 
 export const plannerSuggestionListSchema = z.array(plannerSuggestionSchema);
 
+
 export const topicSummarySchema = z.looseObject({
   id: z.number(),
   title: z.string(),

@@ -75,6 +75,9 @@ TASK_MODE_ALLOWED_TOOL_IDS: dict[str, frozenset[str]] = {
             "jira",
             "planner.local",
             "planner.local.write",
+            # Bulk review of pending planner suggestions: dismissal never touches the planner itself.
+            "planner.suggestions",
+            "planner.suggestions.review",
             "dashboard",
             "github",
             "linear",

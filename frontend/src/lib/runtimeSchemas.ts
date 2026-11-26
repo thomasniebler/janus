@@ -87,6 +87,8 @@ export const triggerDefinitionSchema = z.looseObject({
   origin: definitionOriginSchema,
   llm_provider: z.string().nullable(),
   llm_model: z.string().nullable(),
+  max_tool_calls: z.number().int().nullable().optional(),
+  max_run_seconds: z.number().int().nullable().optional(),
   next_run_at: z.string().nullable(),
   last_run_at: z.string().nullable(),
   created_at: z.string(),

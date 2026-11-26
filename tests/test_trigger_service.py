@@ -300,3 +300,35 @@ def test_durable_worker_rejects_invalid_batch_configuration(testing_session_loca
         trigger_service.DurableTriggerWorker(testing_session_local, lambda _trigger: None, max_attempts=0)
     with pytest.raises(ValueError, match="retry_backoff_seconds"):
         trigger_service.DurableTriggerWorker(testing_session_local, lambda _trigger: None, retry_backoff_seconds=-1)
+
+
+def test_renewing_a_claim_keeps_a_long_run_from_being_reclaimed(db):
+    """A renewed lease is not expired, so no second worker re-runs the trigger concurrently."""
+    record, _ = trigger_service.enqueue_trigger(db, _trigger())
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    token = trigger_service.claim_trigger(db, record.id, now=start)
+
+    assert trigger_service.renew_trigger_claim(db, record.id, token, now=start + timedelta(seconds=280))
+    assert not trigger_service.claim_trigger(db, record.id, now=start + timedelta(seconds=400))
+    assert not trigger_service.renew_trigger_claim(db, record.id, "someone-else")
+    assert trigger_service.claim_trigger(db, record.id, now=start + timedelta(seconds=600))
+
+
+def test_lease_heartbeat_renews_while_the_block_runs(db, monkeypatch, testing_session_local):
+    """The worker's heartbeat pushes ``claimed_at`` forward during a run and stops afterwards."""
+    record, _ = trigger_service.enqueue_trigger(db, _trigger())
+    token = trigger_service.claim_trigger(db, record.id, now=datetime(2026, 1, 1, tzinfo=UTC))
+    renewed = Event()
+    real_renew = trigger_service.renew_trigger_claim
+
+    def renew(session, trigger_id, claim_token, **kwargs):
+        result = real_renew(session, trigger_id, claim_token, **kwargs)
+        renewed.set()
+        return result
+
+    monkeypatch.setattr(trigger_service, "renew_trigger_claim", renew)
+    with trigger_service.lease_heartbeat(testing_session_local, record.id, token, lease_seconds=3):
+        assert renewed.wait(5)
+
+    db.expire_all()
+    assert db.get(models.RuntimeTrigger, record.id).claimed_at > datetime(2026, 1, 2)

@@ -263,6 +263,40 @@ def list_planner_suggestions(
     return LocalPlannerService(db).list_suggestions(user.id, status=suggestion_status)
 
 
+@router.post("/suggestions/dismiss", response_model=planner_schemas.PlannerSuggestionBulkResult)
+def dismiss_planner_suggestions(
+    payload: planner_schemas.PlannerSuggestionBulkDismiss,
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(security.get_current_user),
+):
+    """Dismiss the given pending suggestions, or every pending one when ``all_pending`` is set."""
+    dismissed = LocalPlannerService(db).dismiss_suggestions(
+        user.id,
+        suggestion_ids=payload.suggestion_ids or None,
+        all_pending=payload.all_pending and not payload.suggestion_ids,
+    )
+    return {"dismissed_ids": dismissed}
+
+
+@router.get("/suggestions/duplicates", response_model=planner_schemas.PlannerSuggestionDuplicateSummary)
+def summarize_duplicate_planner_suggestions(
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(security.get_current_user),
+):
+    """Count pending suggestions that duplicate another (same dedupe key, or same type and title)."""
+    groups = LocalPlannerService(db).duplicate_suggestion_groups(user.id)
+    return {"groups": len(groups), "duplicates": sum(len(group) - 1 for group in groups)}
+
+
+@router.post("/suggestions/dismiss-duplicates", response_model=planner_schemas.PlannerSuggestionBulkResult)
+def dismiss_duplicate_planner_suggestions(
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(security.get_current_user),
+):
+    """Keep the newest suggestion of each duplicate group and dismiss the others."""
+    return LocalPlannerService(db).dismiss_duplicate_suggestions(user.id)
+
+
 @router.patch("/suggestions/{suggestion_id}", response_model=planner_schemas.PlannerSuggestionItem)
 def update_planner_suggestion(
     suggestion_id: int,

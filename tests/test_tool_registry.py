@@ -122,6 +122,8 @@ def test_default_registry_preserves_existing_toolbox_order():
         "jira",
         "planner.local",
         "planner.local.write",
+        "planner.suggestions",
+        "planner.suggestions.review",
         "dashboard",
         "github",
         "linear",

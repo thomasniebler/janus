@@ -11857,6 +11857,262 @@
         }
       }
     },
+    "/api/planner/suggestions/dismiss": {
+      "post": {
+        "tags": [
+          "planner"
+        ],
+        "summary": "Dismiss Planner Suggestions",
+        "description": "Dismiss the given pending suggestions, or every pending one when ``all_pending`` is set.",
+        "operationId": "dismiss_planner_suggestions_api_planner_suggestions_dismiss_post",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlannerSuggestionBulkDismiss"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannerSuggestionBulkResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/planner/suggestions/duplicates": {
+      "get": {
+        "tags": [
+          "planner"
+        ],
+        "summary": "Summarize Duplicate Planner Suggestions",
+        "description": "Count pending suggestions that duplicate another (same dedupe key, or same type and title).",
+        "operationId": "summarize_duplicate_planner_suggestions_api_planner_suggestions_duplicates_get",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannerSuggestionDuplicateSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/planner/suggestions/dismiss-duplicates": {
+      "post": {
+        "tags": [
+          "planner"
+        ],
+        "summary": "Dismiss Duplicate Planner Suggestions",
+        "description": "Keep the newest suggestion of each duplicate group and dismiss the others.",
+        "operationId": "dismiss_duplicate_planner_suggestions_api_planner_suggestions_dismiss_duplicates_post",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannerSuggestionBulkResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/planner/suggestions/{suggestion_id}": {
       "patch": {
         "tags": [
@@ -27547,6 +27803,81 @@
         "title": "PlannerItemSource",
         "description": "Origin for Janus-owned and imported planner items."
       },
+      "PlannerSuggestionBulkDismiss": {
+        "properties": {
+          "suggestion_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion Ids"
+          },
+          "all_pending": {
+            "type": "boolean",
+            "title": "All Pending",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "PlannerSuggestionBulkDismiss",
+        "description": "Dismiss many pending suggestions at once: by ids, or every pending one (``all_pending``)."
+      },
+      "PlannerSuggestionBulkResult": {
+        "properties": {
+          "dismissed_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Dismissed Ids"
+          },
+          "groups": {
+            "type": "integer",
+            "title": "Groups",
+            "default": 0
+          },
+          "kept_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Kept Ids",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "dismissed_ids"
+        ],
+        "title": "PlannerSuggestionBulkResult",
+        "description": "What a bulk dismissal changed."
+      },
+      "PlannerSuggestionDuplicateSummary": {
+        "properties": {
+          "groups": {
+            "type": "integer",
+            "title": "Groups"
+          },
+          "duplicates": {
+            "type": "integer",
+            "title": "Duplicates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "groups",
+          "duplicates"
+        ],
+        "title": "PlannerSuggestionDuplicateSummary",
+        "description": "How many pending suggestions duplicate another one."
+      },
       "PlannerSuggestionItem": {
         "properties": {
           "id": {
@@ -32873,6 +33204,28 @@
               }
             ],
             "title": "Llm Model"
+          },
+          "max_tool_calls": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tool Calls"
+          },
+          "max_run_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Run Seconds"
           }
         },
         "type": "object",
@@ -33036,6 +33389,28 @@
               }
             ],
             "title": "Llm Model"
+          },
+          "max_tool_calls": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tool Calls"
+          },
+          "max_run_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Run Seconds"
           },
           "next_run_at": {
             "anyOf": [
@@ -33419,6 +33794,28 @@
               }
             ],
             "title": "Llm Model"
+          },
+          "max_tool_calls": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tool Calls"
+          },
+          "max_run_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Run Seconds"
           }
         },
         "type": "object",
@@ -33837,6 +34234,28 @@
               }
             ],
             "title": "Llm Model"
+          },
+          "max_tool_calls": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tool Calls"
+          },
+          "max_run_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Run Seconds"
           },
           "next_run_at": {
             "anyOf": [

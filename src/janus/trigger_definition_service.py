@@ -148,6 +148,27 @@ def validate_model_choice(llm_provider: str | None, llm_model: str | None) -> di
     return {"llm_provider": provider, "llm_model": model}
 
 
+#: Upper bounds for an explicit per-definition run limit (0 = no limit is always accepted).
+MAX_TOOL_CALLS_CEILING = 500
+MAX_RUN_SECONDS_CEILING = 24 * 60 * 60
+
+
+def validate_run_limits(max_tool_calls: Any, max_run_seconds: Any) -> dict[str, int | None]:
+    """Validate a definition's run limits: ``None`` keeps the default, ``0`` switches the limit off."""
+    values: dict[str, int | None] = {}
+    for key, value, ceiling in (
+        ("max_tool_calls", max_tool_calls, MAX_TOOL_CALLS_CEILING),
+        ("max_run_seconds", max_run_seconds, MAX_RUN_SECONDS_CEILING),
+    ):
+        if value is None:
+            values[key] = None
+            continue
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= ceiling:
+            raise TriggerDefinitionError(f"{key} must be an integer from 0 (no limit) to {ceiling}")
+        values[key] = value
+    return values
+
+
 def compute_next_run(kind: str, schedule: Mapping[str, Any] | None, tz_name: str, after: datetime) -> datetime | None:
     """Return the first occurrence strictly after ``after`` (naive UTC), or ``None`` if not scheduled."""
     if kind != models.TriggerDefinitionKind.SCHEDULE.value or not schedule or schedule["type"] == SCHEDULE_ONCE:
@@ -192,6 +213,8 @@ def normalize_definition_fields(
     llm_provider: str | None = None,
     llm_model: str | None = None,
     allow_once: bool = False,
+    max_tool_calls: Any = None,
+    max_run_seconds: Any = None,
 ) -> dict[str, Any]:
     """Validate a full definition payload and return column values."""
     cleaned_name = (name or "").strip()
@@ -216,6 +239,7 @@ def normalize_definition_fields(
         "event_type": None,
         **trigger_event_filters.NO_EVENT_OPTIONS,
         **validate_model_choice(llm_provider, llm_model),
+        **validate_run_limits(max_tool_calls, max_run_seconds),
     }
     if parsed_kind == models.TriggerDefinitionKind.SCHEDULE.value:
         values["schedule"] = validate_schedule(schedule, allow_once=allow_once)
@@ -299,6 +323,8 @@ def create_definition(
         llm_provider=fields.get("llm_provider"),
         llm_model=fields.get("llm_model"),
         allow_once=origin == models.TriggerDefinitionOrigin.AGENT.value,
+        max_tool_calls=fields.get("max_tool_calls"),
+        max_run_seconds=fields.get("max_run_seconds"),
     )
     definition = models.TriggerDefinition(
         user_id=owner_id,
@@ -348,6 +374,8 @@ def update_definition(
         "max_runs_per_hour": changes.get("max_runs_per_hour", definition.max_runs_per_hour),
         "llm_provider": changes.get("llm_provider", definition.llm_provider),
         "llm_model": changes.get("llm_model", definition.llm_model),
+        "max_tool_calls": changes.get("max_tool_calls", definition.max_tool_calls),
+        "max_run_seconds": changes.get("max_run_seconds", definition.max_run_seconds),
     }
     if definition.builtin_key is not None and merged["kind"] != definition.kind:
         raise TriggerDefinitionError("the activation kind of a built-in trigger cannot be changed")

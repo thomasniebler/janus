@@ -756,9 +756,10 @@ export interface TriggerSchedule {
  * A trigger definition. Event definitions (JAN-363) also carry `event_filter` (every
  * condition must match for an event to start a run; null = every event),
  * `max_runs_per_hour` (null = no limit), and `rate_limited_count` /
- * `last_rate_limited_at` (events the limit dropped).
+ * `last_rate_limited_at` (events the limit dropped). `max_tool_calls` / `max_run_seconds`
+ * bound one run: null = Janus's default, 0 = no limit.
  */
-export interface TriggerDefinition extends Pick<ApiSchemas['TriggerDefinitionCreate'], 'event_filter'>, Partial<Pick<ApiSchemas['TriggerDefinitionResponse'], 'max_runs_per_hour' | 'rate_limited_count' | 'last_rate_limited_at'>> {
+export interface TriggerDefinition extends Pick<ApiSchemas['TriggerDefinitionCreate'], 'event_filter'>, Partial<Pick<ApiSchemas['TriggerDefinitionResponse'], 'max_runs_per_hour' | 'rate_limited_count' | 'last_rate_limited_at' | 'max_tool_calls' | 'max_run_seconds'>> {
   id: number;
   /** Set for Janus-seeded definitions (briefing, digest, mail processing). */
   builtin_key: string | null;
@@ -826,7 +827,7 @@ export interface TriggerProposalApproval extends Partial<Omit<TriggerDefinitionI
 }
 
 /** `event_filter` / `max_runs_per_hour` (JAN-363) apply to event definitions only; an omitted limit on create takes the event's catalog default, null = no limit. */
-export interface TriggerDefinitionInput extends Pick<ApiSchemas['TriggerDefinitionCreate'], 'event_filter' | 'max_runs_per_hour'> {
+export interface TriggerDefinitionInput extends Pick<ApiSchemas['TriggerDefinitionCreate'], 'event_filter' | 'max_runs_per_hour' | 'max_tool_calls' | 'max_run_seconds'> {
   name: string;
   objective: string;
   tool_ids: string[];

@@ -182,7 +182,10 @@ def build_mail_processing_tools(context: ToolContext) -> list[BaseTool]:
 
         ``suggestion_type`` is ``task``, ``event``, ``task_update``, or
         ``event_update`` (updates need ``target_task_id`` / ``target_event_id``).
-        This never changes the planner directly.
+        This never changes the planner directly. A pending suggestion with the
+        same ``dedupe_hint`` or title is updated instead of duplicated; one the
+        user already dismissed or applied is returned unchanged (its
+        ``status`` says so) and is not proposed again.
         """
         record = _owned_email(email_id)
         rows = LocalPlannerService(db).record_email_suggestions(

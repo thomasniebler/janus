@@ -286,6 +286,36 @@ class PlannerSuggestionUpdate(BaseModel):
         return self
 
 
+class PlannerSuggestionBulkDismiss(BaseModel):
+    """Dismiss many pending suggestions at once: by ids, or every pending one (``all_pending``)."""
+
+    suggestion_ids: list[int] | None = None
+    all_pending: bool = False
+
+    @model_validator(mode="after")
+    def validate_target(self) -> Self:
+        """Require ids or an explicit all_pending, never an empty request."""
+        if not self.suggestion_ids and not self.all_pending:
+            raise ValueError("give suggestion_ids or set all_pending")
+        return self
+
+
+class PlannerSuggestionBulkResult(BaseModel):
+    """What a bulk dismissal changed."""
+
+    dismissed_ids: list[int]
+    #: Duplicate cleanup only: how many duplicate groups were found, and the suggestion kept in each.
+    groups: int = 0
+    kept_ids: list[int] = []
+
+
+class PlannerSuggestionDuplicateSummary(BaseModel):
+    """How many pending suggestions duplicate another one."""
+
+    groups: int
+    duplicates: int
+
+
 #: How Janus authenticates to Azure OpenAI: the host's Entra ID identity or a stored key (JAN-340).
 AzureOpenAIAuthMode = Literal["entra", "api_key"]
 
