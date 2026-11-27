@@ -265,7 +265,13 @@ The `planner` worker runs `PlannerService.sync_all` every 30 minutes over Google
 
 ## Messaging connectors
 
-- **WhatsApp** (`whatsapp_neonize.py`, optional `whatsapp` extra). One supervised thread per enabled account holds a Neonize connection. Messages arrive as live events or a one-time history push after pairing; there is no pull API. Each event handler uses its own session. Pairing runs a separate short-lived connector per setup session. A failed native import is probed once per process and never retried, because a re-import can crash the process.
+- **WhatsApp** (`whatsapp_neonize.py`, optional `whatsapp` extra). One supervised thread per enabled account holds a Neonize connection. Messages arrive as live events or a one-time history push after pairing; there is no pull API. Each event handler uses its own session. Pairing runs a separate short-lived, unsupervised connector per setup session:
+  - Every pairing attempt opens a new session store, `whatsapp_sessions/setup-<id>-<random>.db`. Neonize logs in as the first device stored in an existing file instead of offering a QR code, so a reused file would resume a stale, possibly unlinked device.
+  - A `LoggedOutEv` or `ConnectFailureEv` during pairing marks the setup session `FAILED` with the reason and stops the client, so the wizard reports the failure instead of waiting for a QR code. In account mode `ConnectFailureEv` marks the account `DEGRADED`.
+  - A setup connector ends with the client's `stop()`, not `disconnect()`: in Neonize `disconnect()` leaves the blocking `connect()` running, so the pairing thread would never end. Account connectors are supervised and keep their own shutdown path.
+  - Event translation lives in `whatsapp_translate.py`.
+
+  A failed native import is probed once per process and never retried, because a re-import can crash the process.
 - **Telegram** (`workers/telegram.py`). One worker per linked bot long-polls `getUpdates` (25 s), reloads the bot row each poll, and emits `telegram.message_received` for messages from the linked chat. `telegram.notify` sends only to that chat.
 
 ## Knowledge and memory workers
