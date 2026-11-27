@@ -1,115 +1,68 @@
-# Janus 🦉
+# Janus
 
-Personal AI Assistant for filtering noise and surfacing signal.
+A privacy-first, local-first personal AI agent. Janus runs on your own machine, keeps its data in a local database, and can use a local model through Ollama. It watches your mail, calendar, tasks and messages, briefs you every morning, answers in chat, and runs automations in the background, with every tool behind a switch you control.
+
+## Key features
+
+- **Chat** with tool calls you can see, approval cards before risky actions, and actions on the page you are viewing.
+- **Mail triage**: regex rules and the model sort mail into Important, Digest, Ignore and Spam.
+- **Triggers**: the morning briefing, afternoon digest, mail processing and your own scheduled or event-driven automations.
+- **Tool permissions**: an Unattended switch per toolbox, and an In chat switch for the risky ones.
+- **Knowledge**: memory facts, tracked topics, ingested documents, a knowledge graph and a wiki.
+- **Planner**: Google Calendar and Tasks, Outlook calendars, Jira and a local planner.
+- **Integrations**: Google, Microsoft 365, WhatsApp, Telegram, GitHub, Linear, remote MCP servers, remote agents and webhooks.
+- **Models**: Ollama, OpenAI, OpenRouter, Gemini, Anthropic, GitHub Models and Azure OpenAI.
+
+## Install
+
+```bash
+uv tool install janus-assistant                         # or: pipx install janus-assistant
+janus config init                                       # then set secret_key and allowed_origins in ~/.config/janus/settings.toml
+janus user bootstrap-admin admin && janus start         # create the first admin, then open http://localhost:8080
+```
+
+WhatsApp, the tray icon, document parsing and PostgreSQL are optional extras. See [Optional features](docs/docs/quickstart.md#optional-features).
+
+## Documentation
+
+| Page | Covers |
+|---|---|
+| [Quickstart](docs/docs/quickstart.md) | Install, first admin, model, first mailbox |
+| [Configuration](docs/docs/configuration.md) | Settings, paths, database |
+| [Operations](docs/docs/operations.md) | Service, reverse proxy, updates, backups, monitoring, CLI |
+| [Getting started](docs/docs/index.md) | Feature tour and the user guide |
+| [Technical specification](TECH_SPEC.md) | How Janus is built |
+
+The same docs are in the app under **Documentation**.
 
 ## Development
 
-This project uses `uv` for dependency management and `prek` (a Rust-based `pre-commit` alternative) for code consistency.
-
-### Setup
-
-1. Install dependencies:
-   ```bash
-   uv sync
-   ```
-   WhatsApp, the system tray icon, and PDF/Office document parsing are optional
-   extras. Add the ones you want, for example
-   `uv sync --extra whatsapp --extra desktop --extra documents`. See the
-   [Quickstart](docs/docs/quickstart.md#optional-features) for what each one adds.
-
-2. Create your local environment file:
-   ```bash
-   cp .env.example .env
-   ```
-   Then update `.env` with your local secrets and database connection details.
-
-3. Install git hooks:
-   ```bash
-   uv run prek install
-   ```
-
-### Code Consistency
-
-The hooks will run automatically before each commit. You can also run them manually:
+Backend tasks use `uv`, the frontend uses `npm` in `frontend/`, and [Task](https://taskfile.dev) wraps both.
 
 ```bash
-uv run prek run --all-files
+git clone https://github.com/thomasniebler/janus.git && cd janus
+uv sync                     # add --extra whatsapp --extra desktop --extra documents as needed
+uv run prek install         # git hooks: ruff, dead-code scans, no direct commits to main
+
+task run                    # build the web app and start Janus
+task test                   # backend tests
+task lint                   # ruff
+task lint:dead              # vulture, deptry, knip
+task format                 # ruff --fix + ruff format
+task coverage               # backend tests with coverage
+task docs                   # build the documentation
+task openapi:generate       # refresh the OpenAPI schema and frontend API types
+
+cd frontend && npm run dev  # frontend dev server on :5173
 ```
 
-The following hooks are configured:
-- **Linting & Formatting**: `ruff` (via `uv run`)
-- **Dead Code**: `vulture` and `deptry` for the backend, `knip` for the frontend.
-- **Branch Protection**: Prevents direct commits to `main`.
-- **File Integrity**: Newline checks, trailing whitespace, YAML/TOML validation.
-- **Formatters**: `prettier` (YAML/JSON) and `toml-sort`.
+Pull requests open as drafts, which run only the cheap CI checks. The test suites run once a pull request is ready for review. See [CLAUDE.md](CLAUDE.md) for the full contributor workflow.
 
-### Test Coverage
-
-Backend coverage is measured with `pytest-cov`.
-
-```bash
-task coverage
-```
-
-Current backend line coverage for `src/janus` is **76%** based on the full test suite run on 2026-05-11.
-
-### CI quality gates
-
-Pull requests run the following checks (a draft PR only the cheap ones; the test suites run once it is ready for review), and a nightly run checks `main` with all of them. Run the same commands locally before opening a pull request:
-
-```bash
-# Backend dependencies (with the optional extras, as CI), lint, formatting, dead code, and tests with coverage
-uv sync --frozen --extra documents --extra whatsapp --extra desktop
-task lint
-uv run ruff format --check .
-task lint:dead:backend
-task coverage
-
-# Frontend tests, lint, dead code, and production build
-cd frontend
-npm ci --no-audit --no-fund
-npm run test
-npm run lint
-npm run knip:ci
-npm run build
-cd ..
-
-# Documentation build
-task docs
-```
-
-### OpenAPI schema and frontend API types
-
-The backend's OpenAPI schema and the TypeScript types generated from it are committed under `frontend/src/generated/` (`openapi.json`, `api.d.ts`). Generation is offline: it imports the FastAPI app without starting the server or any worker, needs no running backend or network, and works with the public API docs disabled.
-
-```bash
-task openapi:export     # backend schema -> frontend/src/generated/openapi.json
-task openapi:types      # openapi.json -> frontend/src/generated/api.d.ts (npm run generate:types)
-task openapi:generate   # both; run after changing a route or a request/response schema
-task openapi:check      # fail when either file is out of date (CI job openapi-check)
-```
-
-## iOS Client
-
-A native SwiftUI iOS app scaffold is available under `ios/`.
-
-```bash
-cd ios/JanusMobile
-xcodegen generate
-open JanusMobile.xcodeproj
-```
-
-The Janus API base URL is configurable from the in-app Settings screen.
+A SwiftUI iOS client prototype lives in [`ios/`](ios/).
 
 ## Acknowledgements
 
-Some features (asking a local Claude Code or Codex CLI for help, and backlog ideas such as a
-Telegram connector, signed inbound webhooks, a skill proposer, and cost
-tracking) are inspired by
-[samalgotrader7-ops/janus](https://github.com/samalgotrader7-ops/janus), an
-unrelated MIT-licensed agent project with the same name that has been
-inactive since May 2026. We reimplemented the ideas for this codebase. See
-[External Agents](docs/docs/feature-specs/external-agents.md).
+Some ideas, such as asking a local Claude Code or Codex CLI for help, a Telegram connector, signed inbound webhooks and a skill proposer, are inspired by [samalgotrader7-ops/janus](https://github.com/samalgotrader7-ops/janus), an unrelated MIT-licensed project with the same name. They were reimplemented for this codebase.
 
 ## License
 

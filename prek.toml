@@ -32,7 +32,7 @@ rev = "v3.1.0"
 
 [[repos]]
 hooks = [
-  {args = ["--all", "--in-place"], files = '\.toml$', id = "toml-sort"}
+  {args = ["--all", "--in-place"], exclude = '^docs/zensical\.toml$', files = '\.toml$', id = "toml-sort"}
 ]
 repo = "https://github.com/pappasam/toml-sort"
 rev = "v0.24.3"

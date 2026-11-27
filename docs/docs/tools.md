@@ -1,1033 +1,448 @@
-# Janus's tools
+# Tools and permissions
 
-Janus acts through tools. Each tool below is one entry on **Settings → Tools &
-Connections → Built-in Janus tools**, and each heading here is the page the
-tool's `docs_ref` points to (for example `tools.md#send-mail`). When a tool
-answers `BLOCKED`, the message names that page so Janus (or you) can look up
-why.
+Janus acts through **toolboxes**. Each toolbox has a registry id (such as
+`mail.send`), holds one or more tools, and is one row on **Settings → Tools &
+Connections → Built-in Janus tools**. Each toolbox section below is the page
+its `docs_ref` points to, so a `BLOCKED` answer names the section that
+explains it.
 
-## Following along in chat
+Every toolbox has a **confirmation level**:
 
-When a request needs more than one round of tools, Janus first posts a short
-plan (what it will look at, and in what order), then one short line after each
-round: whether the result was what it expected, the most interesting finding,
-and what it will do next. The full answer comes at the end. A direct answer or
-a single lookup skips the plan. These updates are part of the reply, so they
-stay in the conversation, next to the live step list. Trigger runs and
-delegated tasks don't write them: their output is a result, not a conversation.
+- **never**: reads or harmless actions. Runs without asking.
+- **recommended**: changes Janus's own records. Runs without asking.
+- **required**: the biggest effects. Asks in chat and is Off for unattended
+  runs by default.
 
 ## How permissions work
 
-- **Chat** offers every built-in tool below except *Mail processing* (that one
-  is only for the Mail processing trigger) and *Start conversations* (that one
-  is only for trigger runs; in chat Janus is already talking to you), plus the
-  *Remote MCP tools* of your enabled MCP servers and your switched-on
-  [*Remote agents*](#remote-agents). A tool
-  is offered only when its own condition is met:
-    - *Read mail*, *Relabel mail*, *Send mail*, *Read mail rules*, and *Manage
-      mail rules* need a connected mail account, and *Read WhatsApp* and *Send
-      WhatsApp* an enabled WhatsApp account;
-    - *Calendar tools* need a connected calendar, *Jira task tools* a connected
-      task tracker, and *Dashboard tools* either of the two;
-    - *GitHub tools*, *Linear tools*, and *Web search* need the instance-wide
-      GitHub token, Linear key, or search provider set up by an administrator;
-    - the five *Microsoft* tools (Outlook mail, calendar, Teams chats, and the
-      two send tools) need the instance-wide Microsoft 365 sign-in
-      (`janus microsoft login`, see [Configuration](configuration.md#microsoft-365-outlook-and-teams))
-      and are for administrators only;
-    - the *Azure resources* tool needs `JANUS_AZURE_ENABLED=true` (see
-      [Configuration](configuration.md#azure-resources)) and is for administrators only;
-    - *Image generation* needs an image provider and its API key, set up by
-      an administrator;
-    - *Skill library tools* are for administrators only;
-    - *Self-evolution tools* are for an administrator who switched the
-      self-evolution loop on, with GitHub and Linear set up;
-    - *Shell* is for administrators only, and only when the operator turned
-      it on with `shell_tool_enabled` (off by default);
-    - *Coding agents* is for administrators only, and only when the operator
-      turned it on with `coding_agents_enabled` (off by default) and at least
-      one coding-agent CLI is installed.
+Two switches decide what a toolbox may do, one for chat and one for runs
+nobody watches. Both are yours alone: other users' settings never apply to
+you.
 
-    Everything else is always offered. The **Unattended** switch does not
-    apply in chat.
+### Unattended switch
 
-    **Janus asks before the tools with the biggest effects.** The tools
-    marked "Unattended default: Off" below (*Send mail*, *Send Microsoft Outlook mail*, *Send Microsoft Teams
-    messages*, *Send WhatsApp*, *Change local planner*, *GitHub tools*, *Linear tools*, *Web page reader*, *Propose wiki
-    edits*, *Manage mail rules*, *Skill library tools*, *Self-evolution tools*,
-    *Shell*) ask for your OK in chat, unless you chose *Always allow* for one
-    (see below).
-    When Janus calls one, the reply pauses and an approval card appears in the
-    conversation, in the sidebar chat, on the Chat page, and in every UI
-    shell. It shows the tool, why it needs your approval, and the arguments
-    Janus wants to use (passwords and tokens shown as `[redacted]`):
-    - **Approve** runs the tool with exactly those arguments, once. The next
-      call, even to the same tool, asks again.
-    - **Always allow** runs this call too, and switches the tool's **In chat**
-      setting to *Always allow*: from your next message on, Janus uses that
-      tool in chat without asking. Change it back on Settings → Tools &
-      Connections.
-    - **Deny** does not run it. Janus is told `BLOCKED: ... was not run
-      because the user declined` and carries on with its reply.
-    - If you do not answer within 5 minutes (an administrator can change
-      this with `chat_tool_approval_timeout_seconds`), or you close the tab
-      or lose the connection, the call is not run either. Reconnecting never
-      runs or re-asks a call that was waiting.
+Triggers, automations and delegated tasks run with nobody watching, so they
+cannot ask you. Each toolbox has an **Unattended: Allowed / Off** switch
+instead.
 
-    After you decide, the card turns into the tool's chip below, marked
-    *approved by you* or *denied*, and the decision is saved with the
-    conversation. A chat app that cannot show the card (the iOS app, for
-    now) gets `BLOCKED` for these tools instead: they never run unasked.
+- **Defaults:** toolboxes with confirmation level `required` start Off.
+  Everything else starts Allowed. **Reset** returns a toolbox to its default.
+- **BLOCKED answer:** a tool whose Unattended switch is Off is still offered
+  to a saved trigger that lists it. Calling it answers
+  `BLOCKED: ... was not run because the user has switched it off for
+  unattended runs`, changes nothing, and is listed under **Refused tool
+  calls**.
+- **No tool list:** a one-time trigger or delegated task that names no tools
+  is offered only the Allowed ones. One that names an Off tool fails before
+  anything runs.
+- Switching a writing toolbox to Allowed asks you to confirm first.
 
-    **You choose how each of these tools behaves in chat.** On Settings →
-    Tools & Connections each of these tools has an **In chat** switch next to
-    **Unattended**:
-    - **Ask every time** (the default) offers the tool and shows the
-      approval card for every call, as above.
-    - **Always allow** offers the tool and runs it without a card. The
-      call still shows as a chip under the reply.
-    - **Off in chat** takes the tool out of chat completely: Janus does not
-      see it, cannot call it, and cannot ask for it. Use this for a tool you
-      never want suggested in chat, such as *Send mail*.
+`BLOCKED` also appears when the integration behind a tool is not connected,
+and after something Janus read in the same turn looked like a prompt
+injection. Then every tool with outside or lasting effects answers `BLOCKED`
+for the rest of that reply or run.
 
-    Above the list, **In chat: Allow all without asking** switches every
-    approval card off at once; tools set to *Off in chat* stay off. Settings
-    asks you to confirm before turning it on. There is no "allow for the
-    rest of this conversation". The **In chat** settings are yours alone
-    (other users' settings never apply to you) and do not change what
-    triggers, automations, or background tasks may do; that is the
-    **Unattended** switch. Tools that run without asking have no **In chat**
-    switch.
+### In chat switch
 
-    **Page actions change only what you see.** With *Page actions* Janus can
-    open another page, set a filter, open, highlight, or scroll to something
-    you can see, or fill in the "Add manual topic" form for you. They run
-    without asking because they change nothing in your data: a filled-in form
-    is never submitted, and anything that does change data still goes through
-    the tools above. Janus can only act on items listed on your screen, and
-    your browser checks every request again against the page you have open.
-    Each action shows as a chip (for example *open_item · Invoice overdue*)
-    with **Undo** where that is cheap. They are chat-only and stop for the
-    rest of a reply once something Janus read looked like a prompt injection.
+Toolboxes with confirmation level `required` also have an **In chat** switch:
 
-    **Page introspection only looks.** With *Page introspection* Janus can
-    read an outline of the page you have open (regions, headings, buttons,
-    links, form-field labels, short visible text) and the layout and colour
-    styles of one element, to answer "why is this button greyed out?" or
-    "why does this look wrong?". It runs without asking because it changes
-    nothing, and it never sees what you typed into a form, password fields,
-    the chat panel, or anything a page marks private. It is chat-only, and
-    the outline is treated as untrusted data. See
-    [Page introspection](#page-introspection).
+| Value | Effect |
+| --- | --- |
+| **Ask every time** (default) | Each call shows an approval card. |
+| **Always allow** | Runs without a card. The call still shows as a chip. |
+| **Off in chat** | Janus does not see the toolbox in chat at all. |
 
-    **UI blocks only show something.** With *UI blocks* Janus can put a
-    card, table, chart, checklist, or a row of buttons into its reply. They
-    change nothing; a button only sends a chat message asking Janus to run a
-    tool, and that tool then follows the rules above (an approval card for the
-    biggest effects). See [UI blocks](#ui-blocks).
+The **approval card** shows the tool, the reason, and the exact arguments
+(secrets shown as `[redacted]`):
 
-    **Image generation sends your prompt to a cloud provider.** When you ask
-    for a picture, Janus writes a prompt and sends it to the image provider
-    your administrator chose (OpenAI, Gemini, or OpenRouter). It runs without
-    an approval card, but it costs money on that account, so Janus only calls
-    it when you ask for an image. See [Image generation](#image-generation).
+- **Approve** runs this one call.
+- **Always allow** runs it and switches the toolbox to *Always allow*.
+- **Deny** does not run it. Janus is told `BLOCKED` and carries on.
+- No answer within 5 minutes (`chat_tool_approval_timeout_seconds`), a closed
+  tab or a lost connection also means no run.
 
-    Each reply lists the tools Janus called as chips under the message. A
-    chip shows whether the call is still running, finished, failed, or was
-    **blocked** (refused, for example because the integration it needs is not
-    connected), and how long it took. Click it to expand the arguments Janus
-    passed and the start of the result (up to about 4 KB, marked
-    *truncated* when cut), with a **Copy** button. Passwords, tokens, API
-    keys, and similar fields in the arguments are shown as `[redacted]`.
-    Results are shown as plain text, exactly as the tool returned them, since
-    they can contain mail or web content. The calls are saved with the
-    conversation.
+A client that cannot show approval cards (the iOS app) gets `BLOCKED` for
+these toolboxes. Other toolboxes have no In chat switch and run without
+asking.
 
-    **This turn** shows Janus's steps while it works on a reply. Each time
-    Janus decides to call tools is one step, listed with its tool calls and
-    its state: *generated* (decided, not started), *running*, *waiting for
-    approval* (an approval card above is open for one of its calls),
-    *completed*, or *failed* (a call failed or was blocked or denied). On the
-    Chat page it sits beside the conversation on wide screens; in the sidebar
-    chat, and on narrower screens, it is a collapsed **This turn** bar above
-    the chat that you can open. Steps are not saved: after a reload the
-    conversation still shows its tool chips, but not the steps.
-- **Unattended runs** -- triggers (including the built-in Morning briefing,
-  Afternoon digest, and Mail processing) and background tasks Janus delegates
-  -- follow each tool's **Unattended** switch, *Allowed* or *Off*. Tools marked
-  "Unattended default: Off" below have the biggest effects; everything else is
-  *Allowed* until you change it.
+### Modes: per_tool and allow_all
 
-  **Unattended: Allow everything**, above the list on Settings → Tools &
-  Connections, overrides every switch at once: every tool runs in triggers,
-  automations, and background tasks, *Off* ones included, with nobody asked.
-  It also opens *Image generation*, your *Remote MCP tools*, and your
-  *Remote agents* to those runs.
-  It does not open *Page actions*, *Page introspection*, *UI blocks*,
-  *Propose automations*, or *Propose character changes* (they need you in
-  the chat), the *Self-evolution tools* (they keep their own switch), or
-  write tools for delegated background tasks (those still only read).
-  Settings asks you to confirm before turning it on, and every run still
-  records which tools it used. With the per-tool setting (the default),
-  what an *Off* tool does depends on the run:
-    - **A saved trigger** (one listed on Settings → Triggers, built-in or your
-      own) gets exactly the tools selected on it, plus *Core tools*. An *Off*
-      tool among them is still offered, but calling it answers `BLOCKED: ...
-      was not run because the user has switched it off for unattended runs`,
-      and the run continues and lists it under **Refused tool calls**. On a
-      trigger you wrote yourself, selecting a tool allows it for that trigger
-      even when it is *Off*; the built-in triggers do not get this.
-    - **A one-time trigger or follow-up with no tool list**, and **a delegated
-      background task with no tool list**, get only the tools that are
-      *Allowed*. *Off* tools are not offered at all, so there is nothing to
-      call and no `BLOCKED` answer.
-    - **A one-time trigger or delegated task that names its tools** fails as a
-      whole, before anything runs, when one of the named tools is *Off*. Its
-      error names the tool with `confirmation_required`.
-- `BLOCKED ... the integration it needs is not connected` means the account
-  or service behind the tool is not set up yet. Settings → Tools &
-  Connections shows such a tool as **Not connected yet**. A one-time trigger
-  or delegated task that named that tool fails instead of answering
-  `BLOCKED`.
-- `BLOCKED ... looked like a prompt injection` means something Janus read in
-  the same turn (mail, web results, tickets) contained instructions aimed at
-  Janus, so it stopped before doing anything consequential. Ask again in a new
-  message if you really want the action.
-- **Optional model-based check.** Janus spots such instructions with
-  built-in rules, which catch the usual wordings in English and German. Under
-  Settings → Tools & Connections, **Model-based prompt-injection check**
-  (off by default) adds a second look: outside text the rules find clean
-  but that looks borderline (it talks to an "AI" or "assistant" about
-  instructions, or is mostly in another script) is also shown to your
-  utility model. When the model thinks it is an injection, Janus treats it
-  like a rule hit: the safety notice names it with a `model_` label, and the
-  same tools stop. The model can only add a warning, never remove one. Each
-  text is checked once and remembered (only a fingerprint, never the text).
-  If the model fails, is slow, or the card's monthly token budget is spent,
-  Janus keeps the rules' result and carries on. Your own chat messages are
-  never checked. A slow check still counts against the budget: Janus sets
-  its estimated tokens aside before asking and keeps them when it stops
-  waiting. With a cloud utility model (hosted Ollama included), borderline
-  outside text is sent to that provider, so the card asks before it switches
-  on.
-- Background tasks Janus delegates only ever get read-only tools, and only
-  ones the task that started them had.
+Above the list sit two modes, one per switch. Both default to `per_tool`,
+which follows each toolbox's own switch. Settings asks you to confirm before
+`allow_all`.
 
-See [Runtime triggers](runtime-triggers.md) and
-[Configuration](configuration.md#janus-character-triggers-and-tool-permissions)
-for the full picture.
+- **Unattended: Allow everything** confirms every toolbox for unattended runs,
+  Off ones included. It also unlocks *Image generation*, *Remote MCP tools*
+  and *Remote agents* for those runs.
+- **In chat: Allow all** runs every toolbox in chat without an approval card.
+  Toolboxes set to *Off in chat* stay off.
+
+### Locked for unattended runs
+
+These toolboxes are chat-only. Their Unattended switch is locked, and no
+trigger definition can use them:
+
+- *Propose automations* (`triggers.propose`)
+- *Page actions* (`ui_actions`)
+- *UI blocks* (`ui_blocks`)
+- *Page introspection* (`ui_introspection`)
+- *Propose character changes* (`character.propose`)
+- *Image generation* (`images`), *Remote MCP tools* and *Remote agents*,
+  unless Unattended is set to **Allow everything**
+
+### Definition tool lists and approved proposals
+
+A saved trigger gets the toolboxes selected on it, plus *Core tools*.
+
+- On a **definition you wrote**, selecting a toolbox allows it for that
+  definition even when its Unattended switch is Off.
+- A **definition Janus proposed** gets the same only after you approve it,
+  and only while its approval fingerprint still matches. See
+  [Automations Janus proposes](runtime-triggers.md#automations-janus-proposes).
+- **Built-in triggers** do not get this. They follow your switches.
+
+### Delegated tasks
+
+A delegated child task gets only read-only toolboxes, and only ones its parent
+had. *Allow everything* does not change this. Locked toolboxes, *Shell*,
+*Coding agents* and remote tools never reach a child.
+
+### Follow-up chain guard
+
+The *Trigger tools* toolbox is Allowed by default because it guards itself. A
+follow-up scheduled by a trigger run is at most two levels deep, at most three
+per run, at most ten per day per user, at least 15 minutes ahead, and one-time
+only. See [The follow-up chain guard](runtime-triggers.md#the-follow-up-chain-guard).
+
+### Self-evolution has its own switch
+
+*Self-evolution tools* ignore the Unattended switch and *Allow everything*.
+They run unattended exactly when the self-evolution loop is switched on, and
+never when it is off, not even on a definition that lists them.
 
 ## How Janus picks tools
 
-Janus does not hand the model every tool it may use. Before each chat message,
-each ad-hoc follow-up it scheduled, and each delegated task, a quick call to the
-*utility model* (Settings -> AI & System) picks the toolboxes the request needs,
-and only those are offered. This keeps each request smaller and faster.
+Janus does not offer the model every allowed toolbox. Before each chat
+message, each ad-hoc follow-up, and each delegated task, a quick call to the
+utility model (Settings → AI & System) picks the toolboxes the request needs.
 
-- **It can only narrow.** The pick is limited to what your settings already
-  allow: the tools above, your *Unattended* and *In chat* switches, a saved
-  automation's own tool list, and what a delegated task was granted. A tool the
-  model names that you have not allowed is dropped, and tools that ask before
-  each call still ask.
-- **It fails safe.** If the utility model is not set up, too slow, or answers
-  with something unusable, Janus offers every tool it is allowed to use, as
-  before.
-- **You can see it.** Above the chat, *Tools picked for this message* lists the
-  chosen tools and why. An automation's run result has a *Tool selection* line.
-- **Asking for more.** If a tool was left out, ask for it ("use the calendar").
-  Janus can add it with `request_tools`; it is offered from your next message on
-  and stays for the rest of the conversation.
-- Saved automations (including the morning briefing, digest and mail
-  processing) always get the tools you picked for them; nothing is narrowed.
-- An administrator can turn this off with `tool_selection_enabled = false`
-  (see [Configuration](configuration.md)).
+- **It only narrows.** The pick is limited to what your switches, a
+  definition's tool list or a delegation grant already allow. Approval cards
+  still appear.
+- **It fails safe.** Without a usable utility model, or after a timeout
+  (`tool_selection_timeout_seconds`, default 10), Janus offers everything it
+  is allowed to use.
+- *Core tools* and *Janus documentation* are always offered.
+- Saved triggers, built-ins included, always get exactly their own tool list.
+- In chat, *Tools picked for this message* shows the choice and why. If a tool
+  is missing, ask for it ("use the calendar"). Janus adds it with
+  `request_tools` from your next message on.
+- An administrator can turn selection off with `tool_selection_enabled =
+  false`.
+
+## Toolbox reference
+
+Unless noted, a toolbox is offered in chat and to unattended runs. "Unattended
+Off" means its Unattended switch starts Off.
 
 ## Core tools
 
-`get_current_datetime`. Always available. Unattended default: Allowed.
+`core` · never. `get_current_datetime`. Always available.
 
 ## System introspection tools
 
-`list_recent_events` reads the Janus event log. In chat an admin sees the whole
-log; everywhere else Janus reads only your own entries. Unattended default:
-Allowed.
+`events` · never. `list_recent_events` reads the event log. In chat an admin
+sees the whole log; everywhere else Janus reads only your own entries.
 
 ## Trigger history
 
-`list_my_trigger_history` reads the outcomes of your own trigger runs, so a run
-can check what earlier runs found. Unattended default: Allowed.
+`trigger-history` · never. `list_my_trigger_history` reads the outcomes of
+your own trigger runs, so a run can check what earlier runs found.
 
 ## Read mail
 
-`search_emails`, `get_email_detail`, `get_email_details_batch` search and read
-the mail Janus stored from your own accounts. Needs a connected mail account.
-Mail text is treated as untrusted. Unattended default: Allowed.
+`mail` · never. Search and read stored mail from your own accounts. Needs a
+connected mail account. Mail text is untrusted content.
 
 ## Relabel mail
 
-`relabel_email`, `relabel_emails_batch` change a message's Janus label
-(IMPORTANT, DIGEST, IGNORE, SPAM). Relabelling teaches your own rules. Needs a
-connected mail account. Unattended default: Allowed.
+`mail.label` · recommended. Change a message's label (IMPORTANT, DIGEST,
+IGNORE, SPAM). Needs a connected mail account.
 
 ## Send mail
 
-`send_email` sends mail from one of your own active accounts. Unattended
-default: **Off**.
-
-## Send WhatsApp
-
-`send_whatsapp_message` sends a plain-text WhatsApp message as you, from one
-of your enabled WhatsApp accounts. It sends either into a chat Janus already
-stored (a person or a group, by the `id` from `list_whatsapp_conversations`)
-or to a phone number in international format (for example `+4915112345678`),
-which starts a new direct chat. When you have several enabled accounts and
-Janus sends to a phone number, it has to name the account.
-
-- **Asks first.** In chat every message shows an approval card with the
-  recipient and the exact text, unless you chose *Always allow*.
-- **Needs a live connection.** The message goes out over the account's
-  running WhatsApp connection. When that connection is down, Janus gets an
-  error and nothing is sent.
-- **Stored.** A sent message appears in the conversation as an outgoing
-  message.
-- **Text only.** No pictures, files, reactions, or WhatsApp Status posts.
-  At most 4,096 characters per message.
-
-Unattended default: **Off**.
-
-## Notify me on WhatsApp
-
-`notify_me_on_whatsapp` lets the built-in Secretary interrupt you with one
-short WhatsApp message on **your own number**, for something time-critical that
-you would otherwise miss. It cannot message anyone else: the recipient is the
-number you set under **Settings → Notifications → Secretary**, never something
-Janus chooses.
-
-- **Off until you switch it on.** Janus does not even see the tool until you
-  turn on *WhatsApp alerts* and enter your number (international format, such
-  as `+4915112345678`), and you have a connected WhatsApp account.
-- **Only for runs nobody watches.** Not offered in chat.
-- **Rarely.** At most one message per run and three a day, 600 characters,
-  plain text. No links or images. Nothing is sent after Janus read something
-  that looked like an injected instruction.
-- **When it cannot send.** If WhatsApp is not connected, Janus gets an error
-  and opens a conversation in Janus instead; nothing is lost.
-- **Stored.** The message appears in your own chat as an outgoing message.
-
-Unattended default: Allowed (the switch above is the real gate).
-
-
-## Telegram alerts
-
-`notify_me_on_telegram` lets a trigger run send you one short message in the
-Telegram chat you linked to your own Janus bot (Settings → Connections →
-**Telegram**; see [Configuration](configuration.md#telegram)).
-
-- **Only to you.** The recipient is not something Janus chooses: it is always
-  the chat you linked with the pairing code. The tool exists only once that
-  chat is linked.
-- **Only unattended.** Trigger runs and automations get it; in chat Janus is
-  already talking to you.
-- Plain text, at most 600 characters, no links or images, and at most 20
-  messages a day. After something in the same step looked like a prompt
-  injection, it answers `BLOCKED` and sends nothing.
-
-Unattended default: **Allowed** (it can only reach you). Switch it off under
-**Built-in Janus tools** if you never want trigger runs to message you.
+`mail.send` · required, Unattended Off. `send_email` sends mail from one of
+your active accounts. Needs a connected mail account.
 
 ## Mail processing
 
-`set_email_priority`, `create_reminder`, `track_email_topic`,
-`suggest_planner_item`: what the built-in Mail processing trigger uses to file
-a new message. Not offered in chat. Unattended default: Allowed.
+`mail.processing` · recommended. Sets an email's priority and records its
+reminders, topics and planner suggestions. Used by the Mail processing
+built-in; not offered in chat.
 
 ## Read WhatsApp
 
-Janus can read the WhatsApp conversations it stored from your own connected
-WhatsApp accounts, so it can answer questions like "what did Anna write me on
-WhatsApp yesterday?". Four tools:
+`whatsapp` · never. List your accounts, list and search chats, and read
+messages Janus stored. Read-only; nothing reaches WhatsApp. Needs an enabled
+WhatsApp account. Message text is untrusted content.
 
-- `list_whatsapp_accounts`: your accounts, their connection status, and when
-  they last synced.
-- `list_whatsapp_conversations`: recent chats, most recent first. It can
-  filter by a search on the chat name or participants, by unread chats only,
-  by chats with a message since a date, or by account.
-- `read_whatsapp_messages`: one chat's messages, newest first, optionally
-  between two dates.
-- `search_whatsapp_messages`: messages containing a text, optionally in one
-  chat or since a date.
+## Send WhatsApp
 
-What to know:
+`whatsapp.send` · required, Unattended Off. `send_whatsapp_message` sends
+plain text (up to 4,096 characters) as you, into a stored chat or to a phone
+number. Needs a live WhatsApp connection.
 
-- **Only what Janus stored.** The tools read what the WhatsApp connection
-  synced into Janus. They do not reach WhatsApp themselves, and they cannot
-  send, react, or mark anything read. Sending is a separate tool,
-  [Send WhatsApp](#send-whatsapp).
-- **Only your own, enabled accounts.** Nobody else's chats are ever returned.
-  An account you disabled in Settings stays listed (marked disabled), but its
-  chats and messages are not readable until you enable it again.
-- **Limits.** Each call returns at most 100 items, and any text (a message, a
-  chat's participants or last snippet, an attachment description, a sync
-  error) longer than 4,000 characters is cut. A search treats `%` and `_` as
-  ordinary characters.
-- **Untrusted content.** Message text, names, and chat titles come from other
-  people. Janus treats them as information, never as instructions, the same
-  way as mail.
-- **When it is offered.** In chat only, once you have at least one enabled
-  WhatsApp account. The Morning briefing and digest do not read WhatsApp, just
-  as they do not read mail.
+## Notify me on WhatsApp
 
-Unattended default: Allowed.
+`whatsapp.notify_me` · recommended. Sends one short alert to **your own**
+number: at most one per run and three a day, 600 characters, no links.
+Unattended runs only. Needs a connected WhatsApp account and *WhatsApp alerts*
+with your number on Settings → Daily Briefing.
+
+## Telegram alerts
+
+`telegram.notify` · recommended. `notify_me_on_telegram` sends one short
+message to the Telegram chat you linked: 600 characters, no links, at most 20
+a day. Unattended runs only. Needs a linked bot (see
+[Integrations](integrations.md)).
 
 ## Calendar tools
 
-`list_calendar_events`, `get_event_detail` read the events of your own connected
-calendars and the reminder entries Janus created from your mail; other users'
-events are never visible. Unattended default: Allowed.
+`calendar` · never. Read events from your connected calendars and reminders
+Janus created. Needs a connected calendar.
 
 ## Microsoft Outlook mail
 
-`microsoft_list_mail`, `microsoft_get_mail` list, search, and read messages in
-your Microsoft 365 (Outlook) mailbox through Microsoft Graph, as you. This is
-separate from *Read mail*, which reads the IMAP mail Janus stored. Needs the
-Microsoft sign-in and the `Mail.Read` permission. Administrators only. Mail
-text is treated as untrusted. Unattended default: Allowed.
+`microsoft.mail` · never. List, search and read your Outlook mailbox through
+Microsoft Graph. Administrators only; needs the Microsoft sign-in
+(`janus microsoft login`). Not offered in chat.
 
 ## Microsoft Outlook calendar
 
-`microsoft_list_calendar_events` lists your Outlook calendar events (recurring
-events expanded) in UTC. Needs the Microsoft sign-in and the `Calendars.Read`
-permission. Administrators only. Unattended default: Allowed.
+`microsoft.calendar` · never. List your Outlook calendar events.
+Administrators only; needs the Microsoft sign-in. Not offered in chat.
 
 ## Microsoft Teams chats
 
-`microsoft_list_teams_chats`, `microsoft_read_teams_chat` list your Teams chats
-with their members and read the newest messages of one chat. Needs the
-Microsoft sign-in and the `Chat.Read` (or `Chat.ReadWrite`) permission.
-Administrators only. Chat text is treated as untrusted. Unattended default:
-Allowed.
+`microsoft.teams` · never. List your Teams chats and read their messages.
+Administrators only; needs the Microsoft sign-in. Not offered in chat.
 
 ## Send Microsoft Outlook mail
 
-`microsoft_send_mail` sends a plain-text mail from your Outlook mailbox. Needs
-the `Mail.Send` permission. Administrators only. Chat pauses for your approval
-on every call. Unattended default: **Off**.
+`microsoft.mail.send` · required, Unattended Off. Send plain-text mail from
+your Outlook mailbox. Administrators only; needs the Microsoft sign-in. Not
+offered in chat.
 
 ## Send Microsoft Teams messages
 
-`microsoft_send_teams_message` posts a plain-text message into one of your
-Teams chats as you, so the recipients see it as written by you. Needs the
-`Chat.ReadWrite` permission. Administrators only. Chat pauses for your approval
-on every call. Unattended default: **Off**.
+`microsoft.teams.send` · required, Unattended Off. Post a plain-text message
+into one of your Teams chats as you. Administrators only; needs the Microsoft
+sign-in. Not offered in chat.
 
 ## Azure resources
 
-`azure_list_subscriptions`, `azure_list_resource_groups`, `azure_list_resources`
-list what the machine's Azure identity can see in Azure Resource Manager
-(read-only; no create, change, or delete). The identity comes from
-`DefaultAzureCredential`: a service principal in the environment, a managed
-identity, or the `az login` session of the machine Janus runs on. It is off
-unless `JANUS_AZURE_ENABLED=true`, and administrators only. Resource names and
-tags are treated as untrusted content.
+`azure.resources` · never. List subscriptions, resource groups and resources
+the machine's Azure identity can see. Read-only. Administrators only; needs
+`JANUS_AZURE_ENABLED=true`. Not offered in chat.
 
 ## Jira task tools
 
-`list_tasks`, `get_task_detail` read tasks from your own Jira integration; other
-users' tasks are never visible. Unattended default: Allowed.
+`jira` · never. Read tasks from your Jira integration. Needs a connected Jira
+account.
 
 ## Read local planner
 
-`list_local_tasks`, `get_local_task` read Janus's own planner. Unattended
-default: Allowed.
+`planner.local` · never. Read Janus's own planner tasks. Always available.
 
 ## Change local planner
 
-`create_local_task`, `update_local_task`, `complete_local_task`,
-`move_local_task`, `reorder_local_task`. Unattended default: **Off**.
+`planner.local.write` · required, Unattended Off. Create, update, complete,
+move and reorder local planner tasks.
 
 ## Planner suggestions
 
-*Read planner suggestions* (`planner.suggestions`):
-`list_planner_suggestions` (pending suggestions, filtered by text, type, or
-source email) and `find_duplicate_planner_suggestions`. Titles come from
-incoming mail, so their output is treated as untrusted. Unattended default:
-Allowed.
+Three toolboxes:
 
-*Dismiss planner suggestions* (`planner.suggestions.review`):
-`dismiss_planner_suggestions` (by ids or filters; everything only with
-`all_pending`), `dismiss_duplicate_planner_suggestions` (keeps the newest of
-each group), and `restore_planner_suggestions`. Dismissing never changes the
-planner, and nothing here approves a suggestion. Unattended default: Allowed.
-
-*Suggest planner items* (`planner.suggest`): `propose_planner_item` records a
-pending task, event, or change that no single email caused (the Secretary uses
-it), labelled *Janus agent*. It uses the same dedupe as mail suggestions: a
-waiting suggestion is updated instead of duplicated, and one you dismissed or
-applied recently is not proposed again. It never changes the planner.
-Unattended default: Allowed.
+- `planner.suggestions` · never. List pending suggestions and find
+  duplicates.
+- `planner.suggestions.review` · recommended. Dismiss suggestions in bulk,
+  dismiss duplicates, restore dismissed ones. Never changes the planner.
+- `planner.suggest` · recommended. Propose a planner item no single email
+  caused (the Secretary uses it). Not offered in chat.
 
 ## Dashboard tools
 
-`get_daily_briefing`, `list_dashboard_widgets`, `update_dashboard_widget`,
-`set_dashboard_widget_prompt`, `clear_dashboard_widget_prompt`. Triggers Janus
-schedules itself never get the two widget-prompt tools. Unattended default:
-Allowed.
+`dashboard` · recommended. Read the briefing and dashboard widgets, change
+widgets and widget prompts. Needs a connected calendar or task tracker. Ad-hoc
+triggers never get the widget-prompt tools.
 
 ## GitHub tools
 
-`list_prs`, `merge_pr` on the instance's configured GitHub token. Unattended
-default: **Off**.
+`github` · required, Unattended Off. List and merge pull requests with the
+instance's GitHub token, which an administrator sets up.
 
 ## Linear tools
 
-`list_linear_teams`, `list_linear_tasks`, `add_linear_task`,
-`add_linear_subtask`, `update_linear_task`, `comment_on_linear_task`,
-`start_linear_task`, `start_linear_subtask`, on the instance's Linear API key.
-Unattended default: **Off**; in chat, Janus asks before each call.
-
-- **Teams.** `list_linear_teams` shows every team the key can see, with its
-  id, key, name, and whether it is the default. Wherever a tool takes a
-  `team_id`, it accepts the team key (`ENG`), the exact team name, or the
-  team id, ignoring case. Without one, Janus uses the default team from
-  **Settings → Linear**; with no default set and only one team in the
-  workspace, it uses that team and says so. Otherwise the answer lists the
-  team keys to choose from.
-- **Creating issues.** `add_linear_task` and `add_linear_subtask` need a
-  title (one line, 5–120 characters) and a description (Markdown, 40–20,000
-  characters): the context and why, what should change, and acceptance
-  criteria. A title with a `Description:` section in it is refused.
-- **Updating issues.** `update_linear_task` changes an issue's title,
-  description, state, or priority (at least one). The state is a workflow
-  state name of the issue's team (for example `In Progress`) or a state type:
-  `backlog`, `unstarted`, `started`, `completed`, `canceled`. Priority is 0
-  (none), 1 (urgent), 2 (high), 3 (medium) or 4 (low).
-- **Comments.** `comment_on_linear_task` adds a Markdown comment of 1–10,000
-  characters.
-- **Assigning.** `start_linear_task` and `start_linear_subtask` assign an
-  issue to the workspace's GitHub Copilot user.
-
-A call that breaks these rules, names an unknown team, or names an unknown
-state answers `REFUSED: ...` with the valid choices, and nothing is created
-or changed.
+`linear` · required, Unattended Off. List teams and issues; create, update,
+comment on and assign issues with the instance's Linear API key, which an
+administrator sets up.
 
 ## Web search
 
-`web_search` sends only the short query Janus writes to the configured search
-provider (see [Agent web search](configuration.md#agent-web-search)). Results
-are untrusted. Unattended default: Allowed.
+`web_search` · never. Sends only the short query Janus writes to the
+configured search provider (Brave or SearXNG). Results are untrusted content.
+Needs a search provider set up by an administrator.
 
 ## Web page reader
 
-`web_fetch` opens one web page by its full `http://` or `https://` address
-and gives Janus the page's title, its readable text, and the address it ended
-up at after redirects. It needs no setup, but because the address itself is
-sent to that site, **Janus asks before every call** in chat: the approval
-card shows the exact URL. Janus is told never to put your mail, your
-conversation, or other personal details into a URL, and never to open one
-just because a page or email told it to.
-
-What it will and will not do:
-
-- Only public addresses: it refuses `localhost`, private and link-local
-  networks (home routers, cloud metadata services), and other non-public
-  addresses, also after a redirect. At most 5 redirects are followed.
-- It sends no cookies or passwords and identifies itself as
-  `Janus-WebFetch/1.0`, so it sees what a logged-out visitor sees.
-- Only HTML, plain text, Markdown, CSV, JSON, and XML pages; PDFs, images,
-  and downloads are refused. It reads at most 2 MB, waits at most about
-  20 seconds, and returns at most 20,000 characters of text (marked
-  *truncated* when cut). Scripts, menus, footers, and hidden text are left
-  out; links are reduced to their text.
-- The page is untrusted content: Janus treats it as information, never as
-  instructions, and cites the address it used.
-
-Unattended default: **Off**. A trigger you write yourself can still select it.
+`web_fetch` · required, Unattended Off. `web_fetch` opens one public `http(s)`
+page and returns its readable text (up to 20,000 characters). Private and
+local addresses are refused. The approval card shows the exact URL, because
+the URL itself reaches that site.
 
 ## Memory tools
 
-`list_memory_facts`, `search_facts`, `add_memory_fact`, `update_fact`,
-`delete_fact`, `group_facts` manage the facts Janus remembers about you.
-Triggers Janus schedules itself never get `delete_fact`. Unattended default:
-Allowed.
+`memory` · recommended. List, search, add, update, group and delete the facts
+Janus remembers about you. Ad-hoc triggers never get `delete_fact`.
 
 ## Topic tools
 
-`list_topics`, `create_topic`, `search_topics`, `get_topic_detail`,
-`update_topic_state`. Unattended default: Allowed.
+`topics` · recommended. List, search, create and update tracked topics.
 
 ## Knowledge search
 
-`search_knowledge`, `get_entity` search everything Janus has ingested and the
-people, organizations, and projects it extracted. Unattended default: Allowed.
+`knowledge` · never. Search everything Janus ingested, and look up extracted
+people, organizations and projects with their relations.
 
 ## Read the wiki
 
-`list_wiki`, `read_wiki`. Unattended default: Allowed.
+`wiki` · never. List and read your wiki pages.
 
 ## Propose wiki edits
 
-`propose_wiki_edit` suggests a new text for a wiki page; nothing changes until
-you accept it. Unattended default: **Off**.
+`wiki.propose` · required, Unattended Off. Propose a new text for a wiki page.
+Nothing changes until you accept it.
 
 ## Trigger tools
 
-`create_scheduled_trigger`, `list_my_triggers`, `get_trigger`,
-`cancel_trigger`. Trigger runs may schedule a few one-time follow-ups within
-fixed limits (see [Runtime triggers](runtime-triggers.md)). Unattended
-default: Allowed.
+`triggers` · recommended. Schedule, list, inspect and cancel your one-time
+follow-ups. Bounded by the
+[follow-up chain guard](runtime-triggers.md#the-follow-up-chain-guard).
 
 ## Start conversations
 
-`start_conversation` lets a trigger run (including a follow-up Janus
-scheduled, or a saved trigger you selected it on) start a new chat with you
-that opens with a message from Janus, for example "Your flight was moved;
-should I update the calendar?". The chat appears in your conversation list
-marked **Started by Janus** and **New** until you open it, the Chat entry of
-the navigation shows how many such chats are new, and a local (non-server)
-install also shows a desktop notification. Reply in it like in any other
-chat.
-
-Limits: one new chat per run and five per day, only for you (it can never
-write into an existing chat or anyone else's), no links to other sites, URLs,
-or images in the message (links inside Janus such as `/settings` are fine),
-and nothing after Janus read something that looked like a prompt injection in
-the same run. Not offered in chat or to background tasks. Unattended
-default: Allowed.
+`conversations.start` · recommended. Lets a trigger run open a new chat with
+you, marked **Started by Janus**. At most one per run and five a day, no
+outside links. Unattended runs only; delegated tasks never get it.
 
 ## Propose automations
 
-Janus drafts a saved trigger for you to review on Settings → Triggers; a draft
-never runs until you approve it. Chat only: no unattended run can use it, so
-its switch is locked.
+`triggers.propose` · recommended. Draft trigger definitions that stay disabled
+until you approve them on Settings → Triggers. Chat only (locked). See
+[Automations Janus proposes](runtime-triggers.md#automations-janus-proposes).
 
 ## Character state
 
-`get_character_state` lets Janus explain its current adaptive character state:
-tone, verbosity, proactivity, and current focus, the values you allow for each,
-its last few changes, and its open proposals. Read-only. Unattended default:
-Allowed.
+`character` · never. `get_character_state` reads Janus's adaptive character
+state: tone, verbosity, proactivity, focus, their bounds, recent changes and
+open proposals.
 
 ## Propose character changes
 
-`propose_character_state` lets Janus suggest a different tone, verbosity,
-proactivity, or current focus, for example after you ask for shorter answers.
-Nothing changes until you approve the proposal on Settings → Character, and
-only values inside the bounds you set are accepted. At most one proposal per
-chat turn. Janus never changes its constitution. Chat only: no unattended run
-can use it, so its switch is locked.
+`character.propose` · recommended. Propose a change to the character state
+within the bounds you set. Nothing changes until you approve it on Settings →
+Character. Chat only (locked).
 
 ## Read mail rules
 
-`list_mail_rules`, `list_pending_rule_suggestions`. Needs a connected mail
-account. Unattended default: Allowed.
+`rules` · never. List mail classification rules and pending rule suggestions.
+Needs a connected mail account.
 
 ## Manage mail rules
 
-`create_mail_rule`, `update_mail_rule`, `delete_mail_rule`,
-`approve_rule_suggestion`, `dismiss_rule_suggestion`. Unattended default:
-**Off**.
+`rules.write` · required, Unattended Off. Create, update and delete rules;
+approve or dismiss rule suggestions. Needs a connected mail account.
 
 ## Task delegation tools
 
-`delegate_task`, `get_delegated_task`, `list_delegated_tasks` hand a bounded,
-read-only sub-question to a background task. Unattended default: Allowed.
-
-In a trigger run Janus also gets `wait_for_delegated_tasks`: the run pauses
-after its answer (status `waiting`) until the tasks it delegated have
-finished, then continues automatically with their results. A run can wait
-only once, only for tasks it delegated itself, and the built-in briefing,
-digest, and mail processing runs never wait. In chat, Janus checks on
-delegated tasks with `get_delegated_task` instead.
-
-A background task that was cut off (for example because Janus restarted) is
-started again once, automatically; if that is cut off too, it is reported as
-failed.
-
-The tasks Janus delegated from a chat are listed in that chat: a collapsed
-**Delegated tasks (n)** line above the conversation, with an **n active** badge
-while any is queued or running. Open it to see, for each task, its status
-(queued, running, completed, or failed), the question it was given, the tools
-it could use (requested tools it did not get, because they are not read-only
-or were not available to the chat, are listed as *withheld*), and its answer
-or error. The list updates by itself while a task is running and when a reply
-finishes; **Show more** loads older tasks. A task cut off by a restart shows as queued again while
-it is started a second time, and as failed ("interrupted") if that is cut off
-too.
-Only you see the tasks of your own conversations.
+`delegation` · recommended. `delegate_task`, `get_delegated_task` and
+`list_delegated_tasks` hand a read-only sub-question to a background child
+task. In a trigger run, `wait_for_delegated_tasks` pauses the run until its
+children finish. See [Delegation](runtime-triggers.md#delegation).
 
 ## Skill library tools
 
-`create_skill`, `list_skills`, `update_skill`, `search_remote_skills`,
-`import_remote_skill`. Administrators only: skills steer every user's Janus.
-Unattended default: **Off**.
+`skills` · required, Unattended Off. Create, update, search and import skills
+in the shared skill library. Administrators only, because skills steer every
+user's Janus.
 
 ## Janus documentation
 
-`list_docs`, `read_doc`, `search_docs` let Janus read this documentation, so it
-can answer "how do I...", "what does this setting do", "why was my tool call
-BLOCKED", and "what can you do" from the docs instead of guessing. Read-only.
-The dated review and security assessment reports under `reviews/` are not
-offered to Janus. Unattended default: Allowed.
+`docs` · never. `list_docs`, `read_doc` and `search_docs` read this
+documentation, so Janus can answer "how do I…" or "why was my tool call
+BLOCKED" from the docs. Always available. Dated review reports are not
+offered.
 
 ## Page actions
 
-`ui_navigate`, `ui_set_filter`, `ui_open_item`, `ui_highlight`,
-`ui_scroll_to`, `ui_prefill_form` let Janus act on the page you have open in
-the web UI: "open the mail from Anna", "filter to important", "go to triggers
-and show the failed runs", "highlight the topic about the kitchen". They do
-nothing on the server; your browser performs them and reports back, and
-Janus is told when the page could not do something (or did not answer within
-10 seconds, `chat_ui_action_timeout_seconds`), so it never claims a change
-that did not happen.
-
-- **Where:** the Dashboard (scroll to a widget; open or highlight a listed
-  email, topic, or calendar event), Emails (priority filter, open,
-  highlight), Memory → Topics (status filter and search, open, highlight,
-  fill in "Add manual topic"), and Settings → Triggers (open the tab, filter
-  the recent runs by status or kind, show finished follow-ups, expand or
-  highlight a trigger). Janus can open any page of the app, and the Memory and
-  Settings tabs.
-- **Only what you see:** Janus may only open or highlight items that are
-  listed on your screen, only set the filters and values a page offers, and
-  only fill in the fields of the "Add manual topic" form. It never submits a
-  form.
-- **Undo:** each action appears as a chip under the reply. Opening a page,
-  changing a filter, opening an item, and filling in the form have an
-  **Undo** button (go back, restore the previous value, close the item, clear
-  what was filled in) while the conversation is open in that tab.
-- **Chat only**, in the web UI: no trigger or background task can use them, so
-  the switch is locked. A chat app that cannot perform them (the iOS app, for
-  now) gets an error instead. After something Janus read in the same turn
-  looked like a prompt injection, every page action answers `BLOCKED`, even
-  opening another page.
+`ui_actions` · never. Navigate, set a filter, open, highlight or scroll to an
+item, or prefill a form on the page you have open. Only items on your screen;
+forms are never submitted. Chat only (locked), in the web UI. Timeout:
+`chat_ui_action_timeout_seconds` (10 s).
 
 ## Page introspection
 
-`get_ui_snapshot` and `get_element_styles` let Janus look at the page you have
-open in the web UI when you ask about what you see: "why is the save button
-greyed out?", "I don't see the error message", "why does this look wrong?".
-Janus first uses the short page description every message carries (the page,
-its filters, and the listed items); it calls these tools only when it needs
-more.
-
-- **What Janus can see:** `get_ui_snapshot` returns an outline of the page:
-  its regions (header, navigation, main area, side panels, dialogs), headings,
-  buttons, links, form fields with their labels and whether they are
-  disabled, required, or marked invalid, image descriptions, alerts, and short
-  pieces of visible text, plus the window size, scroll position, light or
-  dark mode, and which UI look (classic, terminal, console) you use. Each
-  element gets a short reference such as `e12`; `get_element_styles(e12)`
-  then returns that element's position and size and a fixed set of layout and
-  colour styles (display, visibility, size, spacing, colours, fonts, ...).
-  References are only valid until the next outline.
-- **What Janus never sees:** what you typed or picked in a form field
-  (values are never read), password fields (left out entirely), editable text
-  areas, the chat panel itself, and anything a page marks private. Link
-  targets are sent without their query string.
-- **Bounded and treated as untrusted:** an outline holds at most 200 elements
-  and 24 KB, checked again by the server. Page text can come from mail and
-  other outside sources, so Janus treats the outline as data, never
-  instructions; if it looks like a prompt injection, the reply carries a
-  safety notice and page actions and other consequential tools answer
-  `BLOCKED` for the rest of that reply.
-- **Nothing changes:** both tools only read; your page is not altered. Janus
-  waits up to 10 seconds for the page to answer
-  (`chat_ui_action_timeout_seconds`, shared with page actions) and says so
-  when it did not.
-- **Chat only**, in the web UI: no trigger or background task can use them, so
-  the switch is locked. A chat app that cannot answer (the iOS app, the CLI)
-  gets an "unavailable" error instead.
+`ui_introspection` · never. `get_ui_snapshot` and `get_element_styles` read
+an outline of your open page and one element's styles. Never sees form
+values, passwords or the chat panel. Chat only (locked), in the web UI.
 
 ## UI blocks
 
-`render_ui` lets Janus answer with a small piece of structured UI instead of
-only text: a summary card, a table, a bar, line, or pie chart, a checklist, a
-list of key/value facts, a row of buttons, or an image. Ask for it ("show my
-open tasks as a table", "chart this week's mail by day"), or Janus uses it on
-its own when it fits. The blocks appear under the reply in the sidebar chat
-and on the Chat page, in every UI shell, and are saved with the conversation,
-so they look the same after a reload.
-
-- **Display only:** a block changes nothing. Everything in it is shown as
-  plain text (no formatting, HTML, or scripts), links go only to pages of
-  Janus or to `https://` sites (shown with their address, opened in a new
-  tab), and images only come from Janus itself, never from another site.
-- **Buttons ask, they do not act:** clicking a button such as *Snooze* sends
-  a normal chat message, for example `Run "Snooze": call snooze_topic with
-  {"topic_id": 4}`, which you can see in the conversation. Janus then runs
-  the tool in its reply like any other request, so tools that need your OK
-  still show their approval card. Each button works once.
-- **Size limits:** a table has at most 50 rows and 8 columns, a chart 50
-  points and 5 series, a checklist 50 items, a row of buttons 6 buttons, and a
-  reply at most 8 blocks. Janus is told when a block does not fit and tries
-  again or answers in text.
-- **When a block cannot be shown** (for example after a downgrade, or if it
-  was damaged), the chat shows its raw content with "Could not render this
-  block" instead; the rest of the conversation is unaffected.
-- **Chat only**, in the web UI: no trigger or background task can use it, so
-  the switch is locked. A chat app that cannot show blocks (the iOS app, for
-  now) gets a plain-text answer instead. After something Janus read in the
-  same turn looked like a prompt injection, blocks with buttons or links to
-  other sites answer `BLOCKED`; other blocks still show.
+`ui_blocks` · never. `render_ui` adds a card, table, chart, checklist, facts
+list, buttons or image to a reply. Display only: a button just sends a chat
+message. Chat only (locked), in the web UI.
 
 ## Image generation
 
-`generate_image` lets Janus draw a picture when you ask for one ("draw a
-lighthouse at dusk as a watercolor", "make a flat icon of a calendar"). The
-picture appears in the reply in the sidebar chat and on the Chat page, in
-every UI shell, with a **Download** link, and stays with the conversation, so
-it is still there after a reload.
-
-- **Off until an administrator turns it on:** pick a provider and model on
-  **Settings → AI & System → Image generation** (see
-  [Configuration](configuration.md#image-generation)). Until then Janus is not
-  offered the tool and tells you it cannot draw. Ollama and Anthropic models
-  cannot make images.
-- **The prompt leaves your machine:** the description Janus writes (and any
-  style you asked for) is sent to OpenAI, Google Gemini, or OpenRouter with
-  the API key stored for that provider, and that provider's terms apply. Do
-  not ask for pictures of things you would not send there.
-- **It costs money:** each image is a paid request on that account. The tool
-  runs without an approval card, but it shows as a chip under the reply with
-  the prompt Janus used, and every image is recorded in the event log
-  (provider, model, and prompt length, never the prompt itself).
-- **Where images are kept:** as files in Janus's data directory, one folder per
-  user, never inside the database. Only you can open your images, at
-  `/api/images/<id>` while you are signed in; another user gets "not found".
-  **Deleting a conversation deletes its images.** Each user can keep up to
-  200 MB of images (an administrator can change this); when you reach the
-  limit, Janus refuses new images until you delete conversations with images.
-- **Chat only**, in the web UI, unless you chose **Unattended: Allow
-  everything** (see [How permissions work](#how-permissions-work)): then a
-  trigger or automation can generate images too. Such an image is stored
-  without a conversation, the run's result names its `/api/images/<id>`
-  link, and it counts toward your 200 MB until you delete it with
-  `DELETE /api/images/<id>`. Otherwise the switch is locked. A chat app that cannot show images (the
-  iOS app, for now) gets an error before anything is sent or paid for. After
-  something Janus read in the same turn looked like a prompt injection (for
-  example a mail asking Janus to draw something), image generation answers
-  `BLOCKED` and nothing is sent; ask again in a new message.
+`images` · recommended. `generate_image` sends a prompt to the image provider
+an administrator chose and shows the picture in chat. Each image is a paid
+request. Images are stored per user (200 MB by default) and deleted with
+their conversation. Chat only (locked) unless Unattended is set to **Allow
+everything**. Needs an image provider set up by an administrator.
 
 ## Self-evolution tools
 
-`self_evolution_status`, `file_improvement_issue`, `start_implementation_job`,
-`merge_feature_pr`, `merge_release_pr`, `schedule_production_self_check`: the
-opt-in loop in which Janus files issues about its own gaps, starts Claude Code
-implementation jobs, merges the resulting pull requests and the release, and
-checks production afterwards -- **without asking anyone first**.
-
-- **Off until an administrator turns it on** on **Settings → Tools &
-  Connections → Self-evolution** (see
-  [Configuration](configuration.md#self-evolution-loop)). Its **Unattended**
-  switch follows that setting and cannot be changed on the tools list; while
-  it is off, every call answers that self-evolution is switched off.
-- **What it may merge:** only pull requests opened by a Claude Code session it
-  started (the description must name that session), minor or patch Dependabot
-  bumps (merged one at a time, at the owner's request), revert pull requests it
-  opened, and the release-please pull request after its feature.
-- **Gates in code, not approvals:** a pull request is merged only when every
-  CI check on it passed, GitHub reports it mergeable, it targets the default
-  branch, and it touches nothing in the scope fence (authentication, the tool
-  policy, the prompt-injection guard, CI and deploy files, migrations, and the
-  loop itself). The release PR is merged only after the loop merged the
-  feature and the release contains it. Per day at most 5 issues, 3 jobs, 3
-  feature merges, 3 release merges, 3 self-checks, and 3 revert PRs.
-- **If the production check fails** after a release, Janus alerts you, files
-  a Linear issue, and opens a revert pull request (merged later through the
-  same gates).
-- Every attempt, refusal, and result is listed on the settings card and in the
-  event log. A refused call answers `REFUSED: ...` and changes nothing. In
-  chat each call asks first, like the other tools with the biggest effects.
-
-See the [feature spec](feature-specs/autonomous-self-evolution-loop.md) for
-every gate.
+`self_evolution` · required. File improvement issues, start implementation
+jobs, merge gated pull requests and releases, and schedule production
+self-checks. Administrators only; needs GitHub and Linear and the
+self-evolution loop switched on (Settings → Tools & Connections). Its
+Unattended switch follows that setting.
 
 ## Shell
 
-`run_shell_command` runs one command on the machine Janus runs on and gives
-Janus its exit code and output. It is meant for a **local, personal
-install**: Janus can look things up or change things on your own computer
-when you ask it to.
-
-- **Off until the operator turns it on** with `shell_tool_enabled = true` in
-  `settings.toml` (or `JANUS_SHELL_TOOL_ENABLED=true`); see
-  [Configuration](configuration.md#shell-tool). Leave it off on a shared or
-  hosted server. **Administrators only.**
-- **Janus asks before every command** in chat: the approval card shows the
-  exact command. Commands longer than 1,000 characters, or with control or
-  invisible characters (other than tab and newline), are refused, so the
-  card can never be cut or hide part of what runs. Read it
-  before you approve: a harmless-looking command can still delete files or
-  send data off the machine.
-- **No shell by default.** The command is split like a shell would split it
-  and run directly, so pipes (`|`), redirection (`>`), `&&`, `*` globs, and
-  `$VARIABLES` are passed as plain text. The operator can allow them with
-  `shell_tool_allow_shell_syntax = true` (commands then run through
-  `/bin/sh -c`).
-- **Fenced process.** Commands run in `shell_tool_working_dir` (default: your
-  home directory), with no input (no interactive prompts, no `sudo`
-  password), a time limit (`shell_tool_timeout_seconds`, default 30 s), and
-  an output cap (`shell_tool_output_max_bytes`, default 16,000 bytes of
-  stdout and stderr together). When the time or output limit is hit, or the
-  command finishes, everything it started in its process group is stopped.
-  A program that detaches itself completely (a daemon) keeps running, but
-  Janus does not wait for it.
-- **No secrets.** A command sees only `PATH`, `HOME`, `USER`, `LOGNAME`,
-  `SHELL`, `LANG`, `LC_ALL`, `LC_CTYPE`, `TERM`, `TZ`, and `TMPDIR` from
-  Janus's environment, never Janus's own settings or API keys. It still runs
-  as the same operating-system user as Janus, so it can read any file that
-  user can (including the Janus database and key file).
-- The output is untrusted content: Janus treats it as information, never as
-  instructions. After something Janus read in the same step looked like a
-  prompt injection, *Shell* answers `BLOCKED`; ask again in a new message.
-- Delegated background tasks never get it.
-
-Unattended default: **Off**. You can switch it on for unattended runs, and a
-trigger you write yourself that selects *Shell* runs its commands **without
-asking**, so only do that for commands you trust.
+`shell` · required, Unattended Off. `run_shell_command` runs one command on
+the Janus host: no shell syntax by default, a timeout, an output cap, and a
+minimal environment. Administrators only; off until the operator sets
+`shell_tool_enabled = true`.
 
 ## Coding agents
 
-`ask_coding_agent` lets Janus ask a coding agent installed on the machine
-Janus runs on for help: Claude Code (`claude`) or the OpenAI Codex CLI
-(`codex`). Janus stays one assistant; the
-coding agent is a tool it calls, like an MCP server. It is meant for a
-**local, personal install** where you already use one of those CLIs and are
-logged in to it.
-
-- **Off until the operator turns it on** with `coding_agents_enabled = true`;
-  see [Configuration](configuration.md#coding-agents-tool). Only agents whose
-  program is installed are offered. **Administrators only.**
-- **Janus asks before every question** in chat: the approval card shows the
-  agent and the exact prompt. The other agent does not see your conversation,
-  only that prompt, and the prompt goes to that agent's model provider under
-  your own account. Prompts longer than 1,000 characters, with invisible
-  characters, or starting with `-` (which the agent would read as an option)
-  are refused.
-- **Read-only by default.** The agents can read and explain the files in
-  `coding_agents_working_dir`, but not change them. Claude Code is given only
-  its file-reading tools (and with edits allowed, its file-editing tools,
-  never a shell), whatever you allowed in your own Claude settings. With
-  `coding_agents_allow_edits = true` they may edit files there.
-- **Fenced process**, as for *Shell*: no input, a time limit
-  (`coding_agents_timeout_seconds`, default 300 s), an output cap
-  (`coding_agents_output_max_bytes`, default 50,000 bytes), and everything the
-  agent started is stopped when it finishes. The agent sees only the basic
-  environment (`PATH`, `HOME`, `LANG`, ...) plus the names listed in
-  `coding_agents_env_passthrough`, for example an API key the CLI needs;
-  never Janus's own settings.
-- The answer is another agent's untrusted output: Janus checks it and never
-  follows instructions in it. After a suspected prompt injection in the same
-  step, *Coding agents* answers `BLOCKED`.
-- Delegated background tasks never get it.
-
-Unattended default: **Off**. If you switch it on, unattended runs can ask
-coding agents without asking you first.
-
-Want another coding agent supported? Open a
-[feature request](https://github.com/thomasniebler/janus/issues/new).
-
-See the [feature spec](feature-specs/external-agents.md) for every gate and
-the planned remote (A2A) agents.
+`coding_agents` · required, Unattended Off. `ask_coding_agent` asks a local
+coding-agent CLI (Claude Code or Codex) one question, read-only unless the
+operator allows edits. Administrators only; off until the operator sets
+`coding_agents_enabled = true` and a CLI is installed.
 
 ## Remote MCP tools
 
-Tools from MCP servers you added on Settings → Tools & Connections. In chat,
-Janus is offered every tool you left enabled on a server that is enabled and
-whose last **Discover** succeeded. A change there (a server or tool switched
-off, a new discovery) applies from your next message.
-
-- **Names and arguments.** Each tool appears as `mcp_<server number>_<tool>` with
-  the server's own description, and its arguments come from the input schema
-  the server published, so Janus fills them in instead of guessing. A schema
-  Janus cannot map (for example one using references or mixed types) falls
-  back to a single free-form `arguments` object. Like JSON Schema, extra
-  arguments are accepted unless the schema forbids them.
-- **Asking first.** A tool the server marks read-only (`readOnlyHint`) runs
-  without asking. Every other call waits for your approval, and the approval
-  card shows the exact arguments, which are the ones sent to the server.
-  Arguments are checked after you approve, so a call that lacks a required
-  argument still shows a card and the error appears only after approval
-  (checking before the card is planned, JAN-351). The card's reason names the
-  server and tool; the server's own description appears only as quoted text.
-  You can set such a tool to **Off in chat**
-  through the tool-policy API, or switch it off on its server.
-  The read-only mark is the server's own claim: enable only servers you
-  trust that far, and switch off any tool you do not want Janus to use.
-- **Untrusted descriptions.** A server writes its tools' names, descriptions,
-  and argument descriptions itself, and that text reaches the model. Janus
-  shortens it and scans it for prompt injections when you run **Discover**.
-  A tool whose text looks like one is switched off and marked in its server's
-  tool list. Switch it back on only if you trust the server: that accepts
-  the current text. If the server later changes the text, the tool is
-  switched off again.
-- **Untrusted output.** What a remote tool returns is treated like a web
-  page. It is marked as outside content and scanned for prompt injections.
-  After something looked like one, every remote tool, including read-only
-  ones, is refused for the rest of that reply, because each call sends
-  arguments Janus chose to another server.
-- **Chat only**, unless you chose **Unattended: Allow everything**: then
-  triggers and automations get your remote tools too, without asking.
-  Otherwise their **Unattended** switch is locked, and no trigger definition
-  can list them. Delegated background tasks never get them.
-- In the server's tool list, each tool shows whether it runs without asking
-  or asks before each call, and whether it was switched off for its
-  description.
-- Removing a server, or a tool disappearing on the next **Discover**, also
-  removes that tool's **In chat** setting.
-
-A server signs Janus in one of two ways:
-
-- **OAuth**: enter the server's authorization endpoint, token endpoint, and
-  client ID, then click **Authorize** when discovery asks for it. You sign in
-  on the provider's page.
-- **Bearer token**: for a server that gives you a fixed access token (common
-  for self-hosted or local MCP servers), paste it into **Bearer token** when
-  you add the server, or open the server's details later to save, replace, or
-  remove it (the token controls are hidden while the server's OAuth endpoints
-  and client ID are filled in).
-  Janus stores it encrypted, sends it as `Authorization: Bearer
-  ...` on every request to that server, and never shows it again. A server
-  uses one or the other, not both. Changing the server's address removes the
-  saved token unless you enter a new one at the same time. If the server
-  rejects the token (during **Discover** or when Janus calls one of its
-  tools), the server shows **Token rejected**: save a new token and run
-  **Discover** again.
+`mcp.<server>.<tool>`. Tools from the MCP servers you added on Settings →
+Tools & Connections. A tool the server marks read-only (`readOnlyHint`) is
+`never`; every other one is `required` and asks before each call. Output and
+descriptions are untrusted content. Chat only (locked) unless Unattended is
+set to **Allow everything**. See [Integrations](integrations.md).
 
 ## Remote agents
 
-Agents outside Janus that speak the
-[Agent2Agent (A2A) protocol](https://a2a-protocol.org/), added on Settings →
-Tools & Connections under **Remote agents**. Janus stays one assistant: a
-remote agent is a tool it can call, `ask_agent_<number>`, much like a remote
-MCP tool. Use it for services you trust that are better at something than
-Janus, for example a company's support agent or a research agent.
-
-- **Adding one.** Give it a name and the agent's URL (the address that serves
-  `/.well-known/agent-card.json`), plus a bearer token if the agent needs
-  one. Janus fetches the agent card and shows what the agent says about
-  itself (its skills are the agent's own, unverified description). Only
-  public HTTPS addresses are accepted, or `http://` on this machine for local
-  experiments.
-- **Off until you switch it on.** A new agent is offered to Janus only after
-  its card was fetched and you clicked **Switch on**. If the card cannot be
-  fetched later (**Refresh card**), the agent is switched off.
-- **Janus asks before every message** in chat: the approval card shows the
-  exact prompt, which leaves this machine for a service you do not control.
-  The agent sees only that prompt, never your conversation. Prompts longer
-  than 1,000 characters or with invisible characters are refused.
-- **Its answer is untrusted.** Janus treats it as information, never as
-  instructions. After something in the same step looked like a prompt
-  injection, remote agents answer `BLOCKED`. An agent that keeps working on
-  a task is asked for the result for up to two minutes; after that Janus
-  reports how far it got.
-- **Chat only**, unless you chose **Unattended: Allow everything**, like
-  remote MCP tools. Delegated background tasks never get them.
-- **Bearer token.** Stored encrypted, sent as `Authorization: Bearer ...`
-  only to the host of the URL you entered (if the agent card names another
-  host, Janus refuses instead of sending it), never shown again. Changing the agent's URL removes the token and switches
-  the agent off. Removing an agent also removes its **In chat** setting.
-
-See the [External Agents feature spec](feature-specs/external-agents.md) for
-the protocol details and every gate.
-
+`a2a.<id>` · required. `ask_agent_<id>` sends one prompt to an Agent2Agent
+(A2A) agent you added and switched on. The agent sees only that prompt. Its
+answer is untrusted content. Chat only (locked) unless Unattended is set to
+**Allow everything**. See [Integrations](integrations.md).
