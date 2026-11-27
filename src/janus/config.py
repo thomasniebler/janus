@@ -190,9 +190,9 @@ _SETTINGS_TEMPLATE = f"""\
 # Include the public hostname(s) that users and proxies should send.
 # allowed_hosts = ["localhost", "127.0.0.1"]
 
-# Browser origin allowlist used for CORS and WebSocket Origin checks.
-# In production, set this to the exact public dashboard origin(s), for example:
-# allowed_origins = ["https://janus.example.com"]
+# Extra browser origins for CORS and WebSocket Origin checks; the origin of
+# base_url is always allowed. The default lists the Vite dev server.
+# allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 # Expose FastAPI's interactive API docs and OpenAPI schema publicly.
 # Leave disabled unless you explicitly need them.

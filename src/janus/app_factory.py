@@ -53,7 +53,7 @@ from janus.api import (
 )
 from janus.api import status as status_api
 from janus.config import settings
-from janus.request_origin import TrustedProxyHeadersMiddleware
+from janus.request_origin import TrustedProxyHeadersMiddleware, browser_origins
 from janus.resources import frontend_dist_dir
 from janus.startup import ensure_runtime_initialized, stop_runtime_trigger_worker
 from janus.websocket.briefing import register_briefing_websocket
@@ -132,7 +132,7 @@ def create_fastapi_app() -> FastAPI:
 
     api.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.allowed_origins,
+        allow_origins=browser_origins(settings),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

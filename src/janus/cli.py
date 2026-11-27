@@ -16,6 +16,7 @@ from janus.cli_update import update
 from janus.config import _SETTINGS_TEMPLATE, _normalize_allowed_origin, get_config_file_path, settings
 from janus.desktop.tray import create_tray_icon, set_tray_dashboard_url
 from janus.processor import validate_regex
+from janus.request_origin import browser_origins
 from janus.services import auth_service, update_boot
 from janus.services.database_copy_service import DatabaseCopyError, copy_database
 from janus.services.topic_service import TopicService
@@ -521,13 +522,6 @@ def config_doctor():  # noqa: C901
     except ValueError:
         normalized_public_origin = raw_public_origin
 
-    if normalized_public_origin not in active_settings.allowed_origins:
-        errors_found.append(
-            f"The public server origin ({normalized_public_origin}) derived from base_url is not in allowed_origins. "
-            "CORS and WebSocket connections from the built-in dashboard will be rejected. "
-            f'Add it: allowed_origins = ["{normalized_public_origin}"]'
-        )
-
     bind_origin_host = (
         "localhost" if active_settings.host in ("0.0.0.0", "127.0.0.1", "::", "::1") else active_settings.host
     )
@@ -543,9 +537,8 @@ def config_doctor():  # noqa: C901
     except ValueError:
         normalized_bind_origin = raw_bind_origin
 
-    if (
-        normalized_bind_origin != normalized_public_origin
-        and normalized_bind_origin not in active_settings.allowed_origins
+    if normalized_bind_origin != normalized_public_origin and normalized_bind_origin not in browser_origins(
+        active_settings
     ):
         warnings_found.append(
             f"The bind-address origin ({normalized_bind_origin}) is not in allowed_origins. "

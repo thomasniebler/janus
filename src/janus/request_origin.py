@@ -13,7 +13,7 @@ from fastapi import Request
 from starlette.datastructures import URL, Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from janus.config import Settings
+from janus.config import Settings, _normalize_allowed_origin
 from janus.config import settings as app_settings
 
 
@@ -110,6 +110,23 @@ def _host_is_allowed(host: str | None, allowed_hosts: Sequence[str]) -> bool:
         return True
 
     return False
+
+
+def browser_origins(settings: Settings) -> list[str]:
+    """Origins allowed for CORS and WebSocket checks: ``allowed_origins`` plus the origin of ``base_url``.
+
+    The dashboard Janus serves itself (from ``base_url``) can therefore always reach its own API
+    and WebSockets, whatever ``allowed_origins`` lists.
+    """
+    origins = list(settings.allowed_origins)
+    base = urlsplit(settings.base_url.strip())
+    try:
+        base_origin = _normalize_allowed_origin(f"{base.scheme}://{base.netloc}")
+    except ValueError:
+        return origins
+    if base_origin not in origins:
+        origins.append(base_origin)
+    return origins
 
 
 def _origin_is_allowed(origin: str | None, allowed_origins: Sequence[str]) -> bool:
@@ -312,7 +329,7 @@ class TrustedProxyHeadersMiddleware:
 
     def _origin_allowed(self, scope: Scope) -> bool:
         headers = Headers(scope=scope)
-        return _origin_is_allowed(headers.get("origin"), self.settings.allowed_origins)
+        return _origin_is_allowed(headers.get("origin"), browser_origins(self.settings))
 
     async def _reject_host(self, scope: Scope, send: Send) -> None:
         if scope["type"] == "websocket":

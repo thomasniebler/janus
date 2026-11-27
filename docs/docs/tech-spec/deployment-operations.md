@@ -6,7 +6,7 @@
 - **Python 3.12+.** A host with an older system Python needs an app-managed runtime (uv-managed Python on Uberspace).
 - **Persistent paths.** Database, Fernet key, logs, images and the lock live outside the install directory. Defaults: database `$XDG_DATA_HOME/janus/janus.db`, key `<data dir>/.janus_key`, images `<data dir>/images`, log `$XDG_STATE_HOME/janus/janus.log`. All are configurable.
 - **Server mode.** `JANUS_SERVER_MODE` (or `--server-mode`) turns off desktop integrations: no tray icon, no desktop notifications.
-- **Behind a proxy.** Set `JANUS_TRUSTED_PROXY_HOPS`, `JANUS_ALLOWED_HOSTS`, `ALLOWED_ORIGINS` and `JANUS_BASE_URL` to the public origin, so cookies, redirects and OAuth callbacks use the HTTPS URL. The web app uses same-origin API and WebSocket URLs.
+- **Behind a proxy.** Set `JANUS_TRUSTED_PROXY_HOPS`, `JANUS_ALLOWED_HOSTS` and `JANUS_BASE_URL` to the public origin (the `base_url` origin is always an allowed browser origin; `ALLOWED_ORIGINS` adds others), so cookies, redirects and OAuth callbacks use the HTTPS URL. The web app uses same-origin API and WebSocket URLs.
 - **Optional extras.** `whatsapp` (Neonize, needs glibc ≥ 2.34), `desktop` (pystray, Pillow), `documents` (markitdown; its onnxruntime needs glibc ≥ 2.27), `postgres` (psycopg2). Production on Uberspace (glibc 2.17) installs none: no WhatsApp, no tray, and only TXT, Markdown and CSV documents are ingested. Without `whatsapp`, the WhatsApp service reports "not installed" instead of failing.
 - **Hardening defaults.** API docs and browser setup stay closed (`JANUS_PUBLIC_API_DOCS_ENABLED`, `JANUS_PUBLIC_SETUP_ENABLED` false); the first admin is created over SSH with `janus user bootstrap-admin`.
 

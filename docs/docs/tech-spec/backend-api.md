@@ -7,7 +7,7 @@ The backend is a FastAPI app built by `app_factory.create_fastapi_app()`. Router
 `app_factory.py`:
 
 - builds the app with `/apidocs` and `/openapi.json` only when `JANUS_PUBLIC_API_DOCS_ENABLED` is on;
-- adds CORS (from `ALLOWED_ORIGINS`) and `TrustedProxyHeadersMiddleware` (forwarded headers, host and origin checks, security headers; see [auth and security](auth-security.md#proxy-host-origin-and-cookie-policy));
+- adds CORS (from `request_origin.browser_origins`: `ALLOWED_ORIGINS` plus the `base_url` origin) and `TrustedProxyHeadersMiddleware` (forwarded headers, host and origin checks, security headers; see [auth and security](auth-security.md#proxy-host-origin-and-cookie-policy));
 - includes every router with the CSRF dependency (`security.enforce_csrf_for_cookie_auth`), which applies to cookie sessions on mutating methods;
 - mounts the built frontend's `/assets` (`frontend/dist`, or the wheel's `janus/_data/frontend`) and serves `index.html` for every other non-API path (`serve_spa`);
 - registers the three WebSockets.
@@ -80,7 +80,7 @@ The router list in `app_factory.py` is the source of truth; `src/janus/api/CODEM
 
 ## WebSockets
 
-All three authenticate with `get_websocket_user_or_none` (cookie or bearer JWT), check `Origin` against `ALLOWED_ORIGINS`, and close anonymous connections with code 1008. None holds a database session while idle.
+All three authenticate with `get_websocket_user_or_none` (cookie or bearer JWT), check `Origin` against `request_origin.browser_origins`, and close anonymous connections with code 1008. None holds a database session while idle.
 
 ### `/ws/chat`
 

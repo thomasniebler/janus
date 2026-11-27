@@ -235,6 +235,25 @@ def test_openapi_docs_can_be_enabled_explicitly(client, monkeypatch):
     assert "/openapi.json" in response.text
 
 
+def test_cors_allows_the_base_url_origin_without_listing_it(client, monkeypatch):
+    """The dashboard served from base_url passes CORS even when allowed_origins only lists the dev server."""
+    monkeypatch.setattr(config.settings, "allowed_origins", ["http://localhost:5173"])
+    monkeypatch.setattr(config.settings, "base_url", "http://testserver:8080")
+    monkeypatch.setattr(config.settings, "allowed_hosts", ["testserver"])
+    preflight = {"access-control-request-method": "GET"}
+
+    with SyncASGIClient(create_fastapi_app()) as cors_client:
+        allowed = cors_client.request(
+            "OPTIONS", "/api/status", headers={**preflight, "origin": "http://testserver:8080"}
+        )
+        rejected = cors_client.request(
+            "OPTIONS", "/api/status", headers={**preflight, "origin": "http://testserver:9090"}
+        )
+
+    assert allowed.headers.get("access-control-allow-origin") == "http://testserver:8080"
+    assert "access-control-allow-origin" not in rejected.headers
+
+
 def test_no_route_is_registered_twice():
     """Every path and method pair maps to exactly one route."""
     seen: dict[tuple[str, str], int] = {}

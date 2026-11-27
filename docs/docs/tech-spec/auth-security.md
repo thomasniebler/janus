@@ -41,7 +41,7 @@ Scripts and small devices that cannot hold a browser session use a device token 
 
 - **Forwarded headers.** Trusted only for `JANUS_TRUSTED_PROXY_HOPS` hops (default 0). uvicorn's own proxy-header handling is off, so the middleware is the only authority. The reconstructed scheme and host drive cookie flags, OAuth callback URLs and redirects.
 - **Host allowlist.** The effective `Host` must be in `JANUS_ALLOWED_HOSTS`; anything else is rejected before routing.
-- **Origin allowlist.** `ALLOWED_ORIGINS` drives CORS and WebSocket `Origin` checks. A WebSocket handshake with a missing or unknown origin is refused, which is why the iOS client sets `Origin` itself.
+- **Origin allowlist.** `request_origin.browser_origins` (`ALLOWED_ORIGINS` plus the origin of `base_url`) drives CORS and WebSocket `Origin` checks. A WebSocket handshake with a missing or unknown origin is refused, which is why the iOS client sets `Origin` itself.
 - **Cookies.** `HttpOnly`, and `Secure` whenever the effective scheme is HTTPS.
 - **Headers.** Every response gets a Content-Security-Policy (`script-src 'self'`, `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, frame protection and `Referrer-Policy: strict-origin-when-cross-origin`.
 

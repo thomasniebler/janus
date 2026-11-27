@@ -54,15 +54,14 @@ This writes `~/.config/janus/settings.toml` with every setting commented out. Ge
 openssl rand -hex 32
 ```
 
-Then set it in the file, together with the address you will open in the browser:
+Then set it in the file:
 
 ```toml
 # ~/.config/janus/settings.toml
 secret_key = "paste-your-generated-key-here"
-allowed_origins = ["http://localhost:8080", "http://127.0.0.1:8080"]
 ```
 
-`allowed_origins` matters because the chat connection checks the browser's origin. Its default only lists the frontend development server on port 5173, so without this line the dashboard loads but chat cannot connect.
+The chat connection checks the browser's origin. Janus always allows the origin of `base_url` (default `http://localhost:8080`), so opening that address works without further settings.
 
 Check what Janus will use, and look for common mistakes:
 
@@ -199,6 +198,6 @@ Other optional pieces:
 
 **The dashboard shows a blank page from a git checkout.** Build the web app (`cd frontend && npm run build`).
 
-**Chat does not connect.** The address you open in the browser must be in `allowed_origins` (step 2). Run `uv run janus config doctor`; it names the origin to add.
+**Chat does not connect.** Open Janus at its `base_url` (default `http://localhost:8080`). Any other address, such as `http://127.0.0.1:8080`, must be listed in `allowed_origins`; see [Configuration](configuration.md#all-settings).
 
 **`/setup` returns "Initial setup is not available".** Public setup is off. Use `janus user bootstrap-admin`, or turn `public_setup_enabled` on.
