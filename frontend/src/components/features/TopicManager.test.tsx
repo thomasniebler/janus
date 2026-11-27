@@ -69,7 +69,6 @@ describe('TopicManager', () => {
         },
       ])
     );
-    vi.mocked(topicApi.listSuggestions).mockResolvedValue(response([]));
     vi.mocked(topicApi.get).mockResolvedValue(
       response({
         id: 11,
@@ -136,7 +135,6 @@ describe('TopicManager', () => {
 
   it('creates a manual topic with marker keywords', async () => {
     vi.mocked(topicApi.list).mockResolvedValue(response([]));
-    vi.mocked(topicApi.listSuggestions).mockResolvedValue(response([]));
     vi.mocked(topicApi.create).mockResolvedValue(
       response({
         id: 21,
@@ -225,7 +223,6 @@ describe('TopicManager', () => {
         },
       ])
     );
-    vi.mocked(topicApi.listSuggestions).mockResolvedValue(response([]));
     vi.mocked(topicApi.get).mockResolvedValue(
       response({
         id: 21,
@@ -310,7 +307,6 @@ describe('TopicManager', () => {
         },
       ])
     );
-    vi.mocked(topicApi.listSuggestions).mockResolvedValue(response([]));
 
     renderManager();
 
@@ -347,7 +343,6 @@ describe('TopicManager', () => {
         },
       ])
     );
-    vi.mocked(topicApi.listSuggestions).mockResolvedValue(response([]));
     vi.mocked(topicApi.delete).mockResolvedValue(response(undefined));
 
     const confirmSpy = vi.spyOn(window, 'confirm');
@@ -396,7 +391,6 @@ describe('TopicManager', () => {
         },
       ])
     );
-    vi.mocked(topicApi.listSuggestions).mockResolvedValue(response([]));
 
     renderManager();
 

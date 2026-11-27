@@ -14,7 +14,6 @@ export type { LLMModelListRequest, LLMProviderId, Task, UIVersion };
 type ApiSchemas = components['schemas'];
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
-export type ClarificationStatus = 'pending' | 'approved' | 'dismissed';
 export type TopicStatus = 'candidate' | 'active' | 'snoozed' | 'resolved' | 'ignored';
 export type PlannerItemSource = 'manual' | 'email_agent' | 'digest_agent' | 'janus_agent' | 'imported';
 export type PlannerSuggestionStatus = 'pending' | 'approved' | 'dismissed' | 'applied';
@@ -194,24 +193,6 @@ export interface Rule {
   priority: 'important' | 'digest' | 'ignore' | 'spam';
   is_active: boolean;
   order: number;
-}
-
-export interface EmailClarificationRequest {
-  id: number;
-  email_id: number;
-  applied_rule_id?: number | null;
-  previous_priority: 'important' | 'digest' | 'ignore' | 'spam';
-  requested_priority: 'important' | 'digest' | 'ignore' | 'spam';
-  suggested_rule_name: string;
-  suggested_rule_pattern: string;
-  suggested_rule_field: string;
-  suggested_rule_priority: 'important' | 'digest' | 'ignore' | 'spam';
-  suggestion_confidence: ConfidenceLevel;
-  suggestion_reason: string;
-  status: ClarificationStatus;
-  created_at: string;
-  updated_at: string;
-  email: Pick<Email, 'id' | 'sender' | 'subject' | 'snippet' | 'priority' | 'classification_confidence'>;
 }
 
 export interface MailIngestionSettings {
@@ -481,19 +462,6 @@ export interface TopicDetail extends TopicSummary {
   evidence: TopicEvidence[];
 }
 
-export interface TopicSuggestion {
-  id: number;
-  user_id: number;
-  topic_id?: number | null;
-  suggestion_type: 'rename' | 'merge' | 'pin' | 'ignore_pattern' | 'promote_pattern';
-  status: ClarificationStatus;
-  payload_json?: string | null;
-  reason: string;
-  confidence: ConfidenceLevel;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface TopicUpdate {
   title?: string;
   summary?: string | null;
@@ -659,7 +627,6 @@ export interface CharacterProfile {
   core_values: string[];
   non_negotiables: string[];
   traits: CharacterTrait[];
-  exploration_rate: number;
   /** Free text appended to the rendered constitution. */
   additional_instructions?: string | null;
   /** Replaces the built-in rules for which chat facts Janus remembers. */

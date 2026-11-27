@@ -186,3 +186,25 @@ def test_dot_segments_and_non_json_success_are_rejected():
         client.list_resource_groups("..")
     with pytest.raises(AzureError):
         client.list_subscriptions()
+
+
+def test_chat_offers_it_to_an_admin_only(db, monkeypatch):
+    """Chat allowlists azure.resources; the admin-only gate still applies there."""
+    from janus.capability_profile import user_connected_capabilities
+    from janus.runtime_adapter import TASK_MODE_ALLOWED_TOOL_IDS, RuntimeAdapter
+
+    monkeypatch.setattr(azure_auth_service, "is_enabled", lambda settings=None: True)
+    assert "azure.resources" in TASK_MODE_ALLOWED_TOOL_IDS["chat"]
+
+    def chat_tools(user):
+        prepared = RuntimeAdapter(db, user).prepare_step(
+            task_id="t",
+            objective="list my Azure resources",
+            requested_tool_ids=("azure.resources",),
+            task_mode="chat",
+            granted_capabilities=user_connected_capabilities(db, user),
+        )
+        return {tool.name for tool in prepared.tools}
+
+    assert "azure_list_resources" in chat_tools(_user(db, "owner", admin=True))
+    assert not chat_tools(_user(db, "colleague", admin=False))

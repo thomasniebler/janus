@@ -21,7 +21,6 @@ const toDraft = (profile: CharacterProfile): CharacterDraft => ({
   core_values: [...profile.core_values],
   non_negotiables: [...profile.non_negotiables],
   traits: profile.traits.map((trait) => ({ ...trait })),
-  exploration_rate: profile.exploration_rate,
   additional_instructions: profile.additional_instructions ?? '',
   memory_instructions: profile.memory_instructions ?? '',
 });
@@ -93,7 +92,6 @@ export const CharacterProfileManager: React.FC = () => {
       core_values: coreValues,
       non_negotiables: nonNegotiables,
       traits: draftValue.traits,
-      exploration_rate: draftValue.exploration_rate,
       additional_instructions: draftValue.additional_instructions?.trim() || null,
       memory_instructions: draftValue.memory_instructions?.trim() || null,
     };
@@ -254,30 +252,6 @@ export const CharacterProfileManager: React.FC = () => {
         {previewMutation.isError && <CardContent><p className="text-sm text-red-400">Could not render the preview.</p></CardContent>}
       </Card>
 
-      <Card>
-        <CardHeader>
-          <h3 className="font-bold">Bounded exploration</h3>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Controls how often Janus may explore its configured adaptive tendencies. It cannot change identity, authority, or safety rules.</p>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <label className="flex items-center gap-3 text-sm" htmlFor="character-exploration-rate">
-            <input
-              id="character-exploration-rate"
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={currentDraft.exploration_rate}
-              onChange={(event) => update('exploration_rate', Number(event.target.value))}
-              className="w-full accent-primary"
-            />
-            <span className="w-12 text-right font-mono">{Math.round(currentDraft.exploration_rate * 100)}%</span>
-          </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {currentDraft.traits.length === 0 ? 'No adaptive tendencies are configured yet; this setting is saved for future trait controls.' : `${currentDraft.traits.length} adaptive tendencies will be preserved.`}
-          </p>
-        </CardContent>
-      </Card>
     </form>
   );
 };

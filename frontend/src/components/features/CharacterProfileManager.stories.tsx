@@ -14,7 +14,6 @@ const profile: CharacterProfile = {
   core_values: ['Be useful', 'Be honest, even when it is inconvenient', 'Protect the user\'s time'],
   non_negotiables: ['Never send external messages without explicit confirmation', 'Never fabricate data'],
   traits: [],
-  exploration_rate: 0.2,
 };
 
 const seed = (data: CharacterProfile | undefined) => (queryClient: QueryClient) => {
@@ -54,7 +53,6 @@ export const MinimalConstitution: Story = {
         core_values: ['Be useful'],
         non_negotiables: ['Be honest'],
         traits: [],
-        exploration_rate: 0,
       })
     ),
   ],

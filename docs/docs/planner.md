@@ -32,6 +32,10 @@ janus planner add "Work Jira" jira --api-url https://example.atlassian.net
 The command prompts for the token. Enter `email:api_token` for Jira Cloud, or
 a personal access token on its own. `janus planner list` shows your sources.
 
+`PROVIDER` is one of `jira`, `google_calendar`, `google_tasks` or
+`microsoft_calendar`; connect Google and Outlook in Settings rather than with
+this command. Any other provider is refused before the token prompt.
+
 ## Sync
 
 Janus syncs every active source every 30 minutes. Each sync fetches tasks and

@@ -140,8 +140,12 @@ export const GitHubConfig: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) => {
               <code className="text-xs bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">repo</code> scope.
             </li>
             <li>
-              For a fine-grained token, grant <strong>Issues: Read and write</strong> on the target
-              repository.
+              For a fine-grained token, grant <strong>Pull requests: Read and write</strong> and{' '}
+              <strong>Contents: Read and write</strong> (needed to merge), plus <strong>Issues: Read and write</strong>{' '}
+              to file issues from chat, on the target repository. The self-evolution loop also needs{' '}
+              <strong>Checks: Read</strong> and <strong>Commit statuses: Read</strong>. A classic token with the{' '}
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">repo</code> scope covers all
+              of these.
             </li>
             <li>Paste the token below and optionally set a default repository.</li>
           </ol>

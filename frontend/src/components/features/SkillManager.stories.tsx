@@ -33,6 +33,7 @@ const seed =
 const meta = {
   title: 'Features/SkillManager',
   component: SkillManager,
+  args: { isAdmin: true },
 } satisfies Meta<typeof SkillManager>;
 
 export default meta;
@@ -40,6 +41,12 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Populated: Story = {
+  decorators: [withQueryData(seed(skills))],
+};
+
+/** A non-admin reads the shared library but gets no create, import, edit or delete controls. */
+export const ReadOnly: Story = {
+  args: { isAdmin: false },
   decorators: [withQueryData(seed(skills))],
 };
 

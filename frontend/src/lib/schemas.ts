@@ -67,7 +67,6 @@ export const plannerSettingsSchema = z.looseObject({
 });
 
 const emailPrioritySchema = z.enum(['important', 'digest', 'ignore', 'spam']);
-const confidenceSchema = z.enum(['high', 'medium', 'low']);
 
 export const emailTopicBadgeSchema = z.looseObject({
   id: z.number(),
@@ -347,33 +346,6 @@ export const ruleSchema = z.looseObject({
 });
 
 export const ruleListSchema = z.array(ruleSchema);
-
-export const emailClarificationSchema = z.looseObject({
-  id: z.number().int(),
-  email_id: z.number().int(),
-  applied_rule_id: z.number().int().nullable().optional(),
-  previous_priority: emailPrioritySchema,
-  requested_priority: emailPrioritySchema,
-  suggested_rule_name: z.string(),
-  suggested_rule_pattern: z.string(),
-  suggested_rule_field: z.string(),
-  suggested_rule_priority: emailPrioritySchema,
-  suggestion_confidence: confidenceSchema,
-  suggestion_reason: z.string(),
-  status: z.enum(['pending', 'approved', 'dismissed']),
-  created_at: z.string(),
-  updated_at: z.string(),
-  email: z.looseObject({
-    id: z.number().int(),
-    sender: z.string(),
-    subject: z.string(),
-    snippet: z.string(),
-    priority: emailPrioritySchema,
-    classification_confidence: confidenceSchema.nullable().optional(),
-  }),
-});
-
-export const emailClarificationListSchema = z.array(emailClarificationSchema);
 
 const plannerAccountSchema = z.looseObject({
   id: z.number().int(),

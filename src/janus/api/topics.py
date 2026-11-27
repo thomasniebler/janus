@@ -37,61 +37,6 @@ def list_topics(
     return service.list_topics(user.id, query=query, status=_parse_status(status_value), limit=limit)
 
 
-@router.get("/suggestions", response_model=list[topic_schemas.TopicSuggestionResponse])
-def list_topic_suggestions(
-    status_value: str | None = Query(alias="status", default=None),
-    db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
-):
-    """List topic suggestions for the authenticated user."""
-    parsed_status = None
-    if status_value is not None:
-        try:
-            parsed_status = models.TopicSuggestionStatus(status_value)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="status must be one of: pending, approved, dismissed",
-            ) from exc
-    return TopicService(db).list_suggestions(user.id, status=parsed_status)
-
-
-@router.post("/suggestions/{suggestion_id}/approve", response_model=topic_schemas.TopicSuggestionResponse)
-def approve_topic_suggestion(
-    suggestion_id: int,
-    db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
-):
-    """Approve one topic suggestion."""
-    service = TopicService(db)
-    try:
-        return service.update_suggestion_status(
-            user_id=user.id,
-            suggestion_id=suggestion_id,
-            status=models.TopicSuggestionStatus.APPROVED,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
-
-@router.post("/suggestions/{suggestion_id}/dismiss", response_model=topic_schemas.TopicSuggestionResponse)
-def dismiss_topic_suggestion(
-    suggestion_id: int,
-    db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
-):
-    """Dismiss one topic suggestion."""
-    service = TopicService(db)
-    try:
-        return service.update_suggestion_status(
-            user_id=user.id,
-            suggestion_id=suggestion_id,
-            status=models.TopicSuggestionStatus.DISMISSED,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
-
 @router.get("/{topic_id}", response_model=topic_schemas.TopicDetail)
 def get_topic_detail(
     topic_id: int,

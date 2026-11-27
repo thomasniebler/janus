@@ -22,7 +22,9 @@ mail access yet, the button reads **Connect …** again, and signing in once mor
 grants it. See [Integrations](integrations.md).
 
 Each account card has buttons to edit, test the connection, and delete. IMAP
-passwords and tokens are stored encrypted.
+passwords and tokens are stored encrypted. Janus starts reading a mailbox as
+soon as it is added or switched on, and stops when it is switched off or
+deleted; changing its address, server or login reconnects it.
 
 A few things differ for Outlook mailboxes: Janus never marks their mail read on
 the server, and a message moved into the inbox later is not picked up.
@@ -94,10 +96,6 @@ When you change a mail's priority on the **Emails** page (with the
 correction as an active rule for similar mail, or updates the matching rule
 it already has.
 
-**Clarify misunderstandings**, above the rule list, holds rule suggestions
-waiting for you: the mail, the old and new priority, and the suggested rule.
-**Approve rule** saves it; **Dismiss** drops it.
-
 You can also ask Janus in chat to draft or change a rule. Changing rules from a
 trigger run needs the `rules.write` toolbox, which is Off for unattended runs
 by default (see [Tools](tools.md#how-permissions-work)).
@@ -111,11 +109,9 @@ a script to show without opening the dashboard.
 | --- | --- | --- | --- |
 | Conversation Janus started, unread | A trigger run, such as the Secretary | `mark_read` | Open it in Chat |
 | Planner suggestion | Mail processing, digest, Secretary | `dismiss` | Dashboard → Planner Suggestions |
-| Topic suggestion | Topic tracking | `dismiss` | Memory → Topics |
-| Rule suggestion | Clarify misunderstandings | `dismiss` | Memory → Mail Prioritization Rules |
 | Automation Janus proposed | `triggers.propose` in chat | none | Settings → Triggers |
 
-A device can only mark a conversation read or dismiss a pending suggestion.
+A device can only mark a conversation read or dismiss a pending planner suggestion.
 **Approving stays in the web app**: an approval can let an unattended run use a
 tool, and a token on a laptop should not be able to grant that. Items marked
 `needs_web` (automation proposals) can only be opened.
@@ -152,7 +148,7 @@ Each item has:
 
 | Field | Content |
 | --- | --- |
-| `kind` | `conversation`, `planner_suggestion`, `topic_suggestion`, `email_clarification`, or `trigger_proposal` |
+| `kind` | `conversation`, `planner_suggestion`, or `trigger_proposal` |
 | `id` | The item's id within its kind |
 | `title`, `summary` | Short plain text (at most 120 and 300 characters) |
 | `created_at` | When the item appeared |

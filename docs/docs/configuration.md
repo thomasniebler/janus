@@ -16,7 +16,7 @@ Janus reads each instance setting from the first source that has it, highest pri
 | 3 | `~/.config/janus/settings.toml` | Lowercase keys such as `secret_key`. Created by `janus config init`. |
 | 4 | Built-in defaults | See [All settings](#all-settings). |
 
-Each setting is named once in each form: the TOML key (`server_mode`) and the environment variable (`JANUS_SERVER_MODE`). Six settings have no `JANUS_` prefix in the environment: `DATABASE_URL`, `HOST`, `PORT`, `ALLOWED_ORIGINS`, `ALGORITHM` and `ACCESS_TOKEN_EXPIRE_MINUTES`. The comment at the top of the generated `settings.toml` says every key maps to `JANUS_*`; for these six it does not. `base_url` accepts both `JANUS_BASE_URL` and `BASE_URL`.
+Each setting is named once in each form: the TOML key (`server_mode`) and the environment variable (`JANUS_SERVER_MODE`). Six settings have no `JANUS_` prefix in the environment: `DATABASE_URL`, `HOST`, `PORT`, `ALLOWED_ORIGINS`, `ALGORITHM` and `ACCESS_TOKEN_EXPIRE_MINUTES`. `base_url` accepts both `JANUS_BASE_URL` and `BASE_URL`.
 
 In the environment, `ALLOWED_ORIGINS` and `JANUS_ALLOWED_HOSTS` are comma-separated lists. The coding-agent list and table settings are JSON, for example `JANUS_CODING_AGENTS_ENV_PASSTHROUGH='["OPENAI_API_KEY"]'`.
 
@@ -38,9 +38,8 @@ janus config doctor   # check for common mistakes
 |---|---|
 | `secret_key` is still the placeholder | Error |
 | `port` differs from the port in a localhost `base_url` | Error |
-| The origin of `base_url` is missing from `allowed_origins` | Error |
 | `DATABASE_URL` needs a driver that is not installed (for example PostgreSQL without the `postgres` extra) | Error |
-| The bind address origin is missing from `allowed_origins` | Warning |
+| The bind address origin is neither the `base_url` origin nor in `allowed_origins` | Warning |
 | The `base_url` host is missing from `allowed_hosts` | Warning |
 | The Fernet key file does not exist yet (it is created on the first start) | Warning |
 | `server_mode` with a plain-HTTP public `base_url`, or with a localhost `base_url` | Warning |
@@ -49,7 +48,6 @@ A minimal file for a local install:
 
 ```toml
 secret_key = "output of: openssl rand -hex 32"
-allowed_origins = ["http://localhost:8080", "http://127.0.0.1:8080"]
 ```
 
 Keep the file private (`chmod 600`) once it holds secrets such as `google_client_secret`.
@@ -85,7 +83,7 @@ Janus follows the XDG base directories. Each one honours its `XDG_*_HOME` variab
 | `host` | `HOST` | `127.0.0.1` | Address the server binds to. |
 | `port` | `PORT` | `8080` | Port the server listens on. |
 | `base_url` | `JANUS_BASE_URL` or `BASE_URL` | `http://localhost:8080` | Public address of Janus, used for OAuth redirect URIs and links. |
-| `allowed_origins` | `ALLOWED_ORIGINS` | `http://localhost:5173`, `http://127.0.0.1:5173` | Browser origins allowed for CORS and WebSocket connections. Add the address you open Janus at. |
+| `allowed_origins` | `ALLOWED_ORIGINS` | `http://localhost:5173`, `http://127.0.0.1:5173` | Extra browser origins allowed for CORS and WebSocket connections. The origin of `base_url` (scheme, host and port) is always allowed in addition, so list only other addresses you open Janus at, such as `http://127.0.0.1:8080`. |
 | `allowed_hosts` | `JANUS_ALLOWED_HOSTS` | `localhost`, `127.0.0.1`, `[::1]` | Host headers Janus accepts. Other hosts get 400. |
 | `trusted_proxy_hops` | `JANUS_TRUSTED_PROXY_HOPS` | `0` | Reverse proxies whose `Forwarded` / `X-Forwarded-*` headers Janus trusts. |
 | `public_api_docs_enabled` | `JANUS_PUBLIC_API_DOCS_ENABLED` | `false` | Serves `/apidocs`, `/apiredoc` and `/openapi.json`. |

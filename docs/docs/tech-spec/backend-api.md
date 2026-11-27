@@ -7,7 +7,7 @@ The backend is a FastAPI app built by `app_factory.create_fastapi_app()`. Router
 `app_factory.py`:
 
 - builds the app with `/apidocs` and `/openapi.json` only when `JANUS_PUBLIC_API_DOCS_ENABLED` is on;
-- adds CORS (from `ALLOWED_ORIGINS`) and `TrustedProxyHeadersMiddleware` (forwarded headers, host and origin checks, security headers; see [auth and security](auth-security.md#proxy-host-origin-and-cookie-policy));
+- adds CORS (from `request_origin.browser_origins`: `ALLOWED_ORIGINS` plus the `base_url` origin) and `TrustedProxyHeadersMiddleware` (forwarded headers, host and origin checks, security headers; see [auth and security](auth-security.md#proxy-host-origin-and-cookie-policy));
 - includes every router with the CSRF dependency (`security.enforce_csrf_for_cookie_auth`), which applies to cookie sessions on mutating methods;
 - mounts the built frontend's `/assets` (`frontend/dist`, or the wheel's `janus/_data/frontend`) and serves `index.html` for every other non-API path (`serve_spa`);
 - registers the three WebSockets.
@@ -48,14 +48,14 @@ Semgrep rule `janus-unscoped-owned-row-lookup` flags `db.get(models.X, id)` on o
 | `/api/conversations` | `conversations.py` | chat history, messages with tool calls and UI blocks, delegations of a conversation |
 | `/api/dashboard` | `dashboard.py` | dashboard data (emails, WhatsApp, events, task tree, topics), widget preferences |
 | `/api/desktop` | `desktop.py` | `summary` JSON for desktop widgets |
-| `/api/emails` | `emails.py` | mail accounts, rules, clarifications, notification preferences, mail settings, email list and relabel |
+| `/api/emails` | `emails.py` | mail accounts, rules, notification preferences, mail settings, email list and relabel |
 | `/api/errors` | `errors.py` | error groups (admin) |
 | `/api/events` | `events.py` | event log, owner-scoped (admins see all), paginated, filterable |
 | `/api/inbox` | `inbox.py` | action inbox and device tokens |
 | `/api/github`, `/api/linear` | `github.py`, `linear.py` | instance-wide integration settings |
 | `/api/images` | `images.py` | generated images, owner-scoped, `no-store` |
 | `/api/memory` | `memory.py` | memory facts, compaction |
-| `/api/topics` | `topics.py` | tracked topics, evidence, suggestions, preferences |
+| `/api/topics` | `topics.py` | tracked topics and their evidence |
 | `/api/knowledge` | `knowledge.py` | uploads, sources, extraction settings, entities, merge suggestions, search, graph |
 | `/api/wiki` | `wiki.py` | wiki pages, revisions, proposals, provenance |
 | `/api/planner` | `planner.py`, `planner_sources.py`, `planner_items.py`, `planner_suggestions.py`, `llm_models.py` | planner accounts and sync, imported events and tasks, local tasks and events, suggestions and bulk dismissal, LLM settings, model listing and connection test |
@@ -80,7 +80,7 @@ The router list in `app_factory.py` is the source of truth; `src/janus/api/CODEM
 
 ## WebSockets
 
-All three authenticate with `get_websocket_user_or_none` (cookie or bearer JWT), check `Origin` against `ALLOWED_ORIGINS`, and close anonymous connections with code 1008. None holds a database session while idle.
+All three authenticate with `get_websocket_user_or_none` (cookie or bearer JWT), check `Origin` against `request_origin.browser_origins`, and close anonymous connections with code 1008. None holds a database session while idle.
 
 ### `/ws/chat`
 
@@ -118,7 +118,7 @@ Tells a tab which data domains changed so it can refetch (`websocket/changes.py`
 
 ## Action inbox
 
-`services/inbox_service.py` aggregates what waits for the user: unread Janus-started conversations, pending planner suggestions, topic suggestions, mail clarifications and proposed trigger definitions. `GET /api/inbox` returns at most 50 items (20 per source), newest first, with an `ETag` for cheap polling. Titles and summaries are untrusted text, cut and stripped of control and bidi characters. `POST /api/inbox/{kind}/{id}/{action}` runs `mark_read` (conversations) or `dismiss` (planner, topic, clarification); anything else is `404`. Trigger proposals are listed but can only be approved in the web app. Device tokens are covered in [auth and security](auth-security.md#device-tokens).
+`services/inbox_service.py` aggregates what waits for the user: unread Janus-started conversations, pending planner suggestions and proposed trigger definitions. `GET /api/inbox` returns at most 50 items (20 per source), newest first, with an `ETag` for cheap polling. Titles and summaries are untrusted text, cut and stripped of control and bidi characters. `POST /api/inbox/{kind}/{id}/{action}` runs `mark_read` (conversations) or `dismiss` (planner suggestions); anything else is `404`. Trigger proposals are listed but can only be approved in the web app. Device tokens are covered in [auth and security](auth-security.md#device-tokens).
 
 ## Status and events
 

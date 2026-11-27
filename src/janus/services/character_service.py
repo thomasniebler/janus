@@ -14,7 +14,6 @@ DEFAULT_CHARACTER = CharacterProfilePayload(
     core_values=["Be useful", "Be honest", "Respect user agency"],
     non_negotiables=["Do not invent facts", "Do not bypass authorization", "Protect private data"],
     traits=[],
-    exploration_rate=0.0,
 )
 
 
@@ -48,7 +47,6 @@ def constitution_from_payload(
             )
             for trait in payload.traits
         ),
-        exploration_rate=payload.exploration_rate,
         additional_instructions=payload.additional_instructions or "",
     )
 
@@ -83,7 +81,6 @@ def get_character_constitution(db: Session, user_id: int) -> CharacterConstituti
             core_values=tuple(DEFAULT_CHARACTER.core_values),
             non_negotiables=tuple(DEFAULT_CHARACTER.non_negotiables),
             traits=(),
-            exploration_rate=DEFAULT_CHARACTER.exploration_rate,
         )
     return CharacterConstitution(
         constitution_id=profile.constitution_id,
@@ -101,7 +98,6 @@ def get_character_constitution(db: Session, user_id: int) -> CharacterConstituti
             )
             for trait in profile.traits or ()
         ),
-        exploration_rate=profile.exploration_rate,
         additional_instructions=profile.additional_instructions or "",
     )
 
@@ -126,7 +122,6 @@ def save_character_profile(db: Session, user_id: int, payload: CharacterProfileP
     profile.core_values = list(payload.core_values)
     profile.non_negotiables = list(payload.non_negotiables)
     profile.traits = [trait.model_dump() for trait in payload.traits]
-    profile.exploration_rate = payload.exploration_rate
     profile.additional_instructions = payload.additional_instructions
     profile.memory_instructions = payload.memory_instructions
     profile.updated_at = now

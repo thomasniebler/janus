@@ -70,7 +70,7 @@ def _only(tools: Iterable[BaseTool], names: frozenset[str]) -> list[BaseTool]:
 _MAIL_READ_TOOLS = frozenset({"search_emails", "get_email_detail", "get_email_details_batch"})
 _MAIL_LABEL_TOOLS = frozenset({"relabel_email", "relabel_emails_batch"})
 _MAIL_SEND_TOOLS = frozenset({"send_email"})
-_RULE_READ_TOOLS = frozenset({"list_mail_rules", "list_pending_rule_suggestions"})
+_RULE_READ_TOOLS = frozenset({"list_mail_rules"})
 _LOCAL_TASK_READ_TOOLS = frozenset({"list_local_tasks", "get_local_task"})
 
 
@@ -399,7 +399,7 @@ def _build_default_registry() -> ToolRegistry:
             ToolRegistryEntry(
                 id="rules",
                 display_name="Read mail rules",
-                description="List email classification rules and pending learned rule suggestions.",
+                description="List email classification rules.",
                 required_capabilities=("rules",),
                 operation="read",
                 risk_level="low",
@@ -413,7 +413,7 @@ def _build_default_registry() -> ToolRegistry:
             ToolRegistryEntry(
                 id="rules.write",
                 display_name="Manage mail rules",
-                description="Create, update, and delete classification rules; approve or dismiss rule suggestions.",
+                description="Create, update, and delete classification rules.",
                 required_capabilities=("rules",),
                 operation="write",
                 risk_level="medium",

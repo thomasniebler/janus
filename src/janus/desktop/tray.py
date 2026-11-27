@@ -9,6 +9,18 @@ logger = logging.getLogger("janus")
 
 _tray_dashboard_url = settings.base_url
 
+#: What a failed tray import needs, per session type (docs/docs/desktop.md, "Tray icon").
+_DESKTOP_EXTRA_HINT = (
+    'install the desktop extra (uv tool install "janus-assistant[desktop]" or uv sync --extra desktop)'
+)
+_WAYLAND_TRAY_HINT = (
+    "on Wayland the tray also needs PyGObject importable from Janus's Python environment and the GTK 3 and "
+    "Ayatana AppIndicator libraries: install python-gobject gtk3 libayatana-appindicator (Arch) or python3-gi "
+    "gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 (Debian/Ubuntu), then add PyGObject to the environment "
+    '(uv tool install --force "janus-assistant[desktop]" --with PyGObject); '
+    'see the Desktop docs, "Tray icon on Wayland"'
+)
+
 
 def set_tray_dashboard_url(url: str) -> None:
     """Set the dashboard URL opened by the tray menu."""
@@ -22,14 +34,16 @@ def create_tray_icon():
         logger.info("Skipping Janus tray icon because no graphical session is available.")
         return
 
-    if os.environ.get("WAYLAND_DISPLAY"):
+    wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
+    if wayland:
         os.environ["PYSTRAY_BACKEND"] = "appindicator"
 
     try:
         import pystray
         from PIL import Image, ImageDraw
     except Exception as exc:
-        logger.warning("Skipping Janus tray icon because desktop dependencies are unavailable: %s", exc)
+        hint = _WAYLAND_TRAY_HINT if wayland else _DESKTOP_EXTRA_HINT
+        logger.warning("Skipping Janus tray icon because desktop dependencies are unavailable (%s); %s", exc, hint)
         return
 
     width, height = 64, 64

@@ -25,7 +25,7 @@ All long-running work goes through `worker_manager` (supervised daemon threads; 
 | `runtime-triggers` | `startup` (when `JANUS_RUNTIME_TRIGGER_WORKER_ENABLED`) | `DurableTriggerWorker.run_forever`: scheduler tick, then claim and run queued trigger runs |
 | `knowledge-index` | `startup` (when `JANUS_KNOWLEDGE_INDEX_WORKER_ENABLED`) | every 60 s: ingest knowledge sources, then embed stale facts, topics, chunks and entities |
 | `telegram:<user id>` | `startup`, `POST /api/telegram/connect` | long-poll the user's bot |
-| `imap:<address>` | `cli.start` | initial sync, then IMAP IDLE with heartbeat; Outlook accounts poll Microsoft Graph instead |
+| `imap:<address>` | `cli.start`, adding or switching on a mailbox (`workers/email.start_mailbox_worker`); stopped on delete, switch-off or disconnect | initial sync, then IMAP IDLE with heartbeat; Outlook accounts poll Microsoft Graph instead. A per-mailbox stop event ends the loop within about a second |
 | `whatsapp:<account id>` | `cli.start`, setup completion | one blocking Neonize connection, event-driven |
 | `planner` | `cli.start` | sync every planner account every 30 minutes, emit `planner.*` events |
 | `error-compaction` | `cli.start` | compact grouped error events once a day |

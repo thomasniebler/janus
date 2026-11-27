@@ -41,7 +41,7 @@ Scripts and small devices that cannot hold a browser session use a device token 
 
 - **Forwarded headers.** Trusted only for `JANUS_TRUSTED_PROXY_HOPS` hops (default 0). uvicorn's own proxy-header handling is off, so the middleware is the only authority. The reconstructed scheme and host drive cookie flags, OAuth callback URLs and redirects.
 - **Host allowlist.** The effective `Host` must be in `JANUS_ALLOWED_HOSTS`; anything else is rejected before routing.
-- **Origin allowlist.** `ALLOWED_ORIGINS` drives CORS and WebSocket `Origin` checks. A WebSocket handshake with a missing or unknown origin is refused, which is why the iOS client sets `Origin` itself.
+- **Origin allowlist.** `request_origin.browser_origins` (`ALLOWED_ORIGINS` plus the origin of `base_url`) drives CORS and WebSocket `Origin` checks. A WebSocket handshake with a missing or unknown origin is refused, which is why the iOS client sets `Origin` itself.
 - **Cookies.** `HttpOnly`, and `Secure` whenever the effective scheme is HTTPS.
 - **Headers.** Every response gets a Content-Security-Policy (`script-src 'self'`, `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, frame protection and `Referrer-Policy: strict-origin-when-cross-origin`.
 
@@ -62,7 +62,7 @@ Closed by default: `/openapi.json`, `/apidocs` and `/apiredoc` exist only with `
 
 - **Service-layer ownership.** User-owned rows are read and changed through `*_for_user` methods that filter on the owner in the same query; a foreign id answers like a missing one. See [Backend and API](backend-api.md#ownership-rule).
 - **Mail through its account.** An email belongs to its account's owner. Mail reads, the briefing's mail, and the mail tools start from `EmailService.query_emails_for_user`. `send_email` sends only from the owner's own active account.
-- **Rules.** Rules, mail accounts and planner accounts always have an owner (`user_id NOT NULL`). Rule evaluation, rule learning and clarification approvals touch only the mail owner's rules.
+- **Rules.** Rules, mail accounts and planner accounts always have an owner (`user_id NOT NULL`). Rule evaluation and rule learning touch only the mail owner's rules.
 - **Derived context.** Reminders (owned through their source mail), the planner outlook, calendar and task tools, topic capture and IMPORTANT-mail notifications all follow the mail or account owner.
 - **Event log.** `events.user_id` records whom an event concerns. Interactive admins see every row; everyone else, and every unattended run, sees only the owner's rows (see [LLM and agent safety](llm-agent-safety.md#event-log-and-trigger-history)).
 - **User deletion.** `DELETE /api/auth/users/{username}` deletes owned rows that SQLite would not cascade (device tokens, webhook endpoints, remote A2A agents, the Telegram bot, character state) and turns the user's events into system rows, so a reused id inherits nothing.

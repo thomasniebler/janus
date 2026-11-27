@@ -75,9 +75,7 @@ You can **pin** a topic to keep it visible. A pinned topic also gets a wiki page
 
 Each topic lists the evidence behind it: emails, reminders, calendar events, tasks and memory facts. Open a topic on the Topics tab to see why it exists.
 
-### Suggestions and preferences
-
-The Topics tab shows pending topic suggestions (rename, merge, pin, ignore pattern, promote pattern). You approve or dismiss them there or in the [action inbox](inbox.md). Janus does not generate these suggestions on its own yet.
+### Preferences
 
 Topic tracking follows per-user preferences. They have no settings page yet, so the defaults apply:
 
@@ -198,7 +196,6 @@ The character profile is Janus's constitution. It is rendered into every system 
 | Values and boundaries | Core values and non-negotiables, one per line |
 | Additional instructions | Free text appended to the constitution |
 | Memory instructions | Replaces the built-in rules for which chat facts get remembered |
-| Bounded exploration | A rate for exploring adaptive tendencies; it has no visible effect today |
 
 **Prompt preview** shows the rendered system prompt and the effective memory rules before you save.
 
@@ -226,7 +223,7 @@ Janus reads its own state with the `character` toolbox. A proposed focus that lo
 
 A skill is a named block of instructions, in the `SKILL.md` format. Every skill in the library is rendered into Janus's system prompt.
 
-On Settings → Skills you can:
+Every signed-in user can read the library on Settings → Skills. Admins can also:
 
 - create, edit and delete skills;
 - describe a goal under **What should this skill do?** and let the design assistant draft the skill;
@@ -234,7 +231,7 @@ On Settings → Skills you can:
 
 ### Skill suggestions
 
-**Suggested skills** looks at your chats from the last 30 days. When the same run of two to four tools appears in at least three turns, it offers that sequence as a skill. Up to five suggestions are shown.
+**Suggested skills** (shown to admins) looks at your chats from the last 30 days. When the same run of two to four tools appears in at least three turns, it offers that sequence as a skill. Up to five suggestions are shown.
 
 - **Draft skill** hands the sequence to the design assistant. Nothing joins the library until you save the draft.
 - A dismissed suggestion stays hidden for 30 days.
@@ -246,6 +243,6 @@ Suggestions use no model call; they count tool sequences.
 The library is shared by every user on the instance, so a skill steers everyone's Janus.
 
 - In chat, only admins get the `skills` toolbox. It always asks for approval.
-- Settings → Skills is open to every signed-in user.
+- On Settings → Skills, only admins can create, edit, delete or import skills. Other users see the library read-only; the API answers their writes with 403.
 
 See [Tools](tools.md) for how toolboxes and approvals work, and [Runtime triggers](runtime-triggers.md) for the built-in triggers mentioned above.

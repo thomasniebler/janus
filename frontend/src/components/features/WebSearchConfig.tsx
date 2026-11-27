@@ -93,7 +93,10 @@ export const WebSearchConfig: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) => 
             <strong className="text-gray-700 dark:text-gray-200">Brave Search</strong> — uses the Brave Search API and
             requires an API key.
           </p>
-          <p>Web search is available in chat only; scheduled triggers and delegated tasks cannot use it.</p>
+          <p>
+            Chat can search once a provider is set up. Unattended runs (triggers that select it, follow-ups, background
+            tasks) can search too unless you switch <em>Web search</em> off under <strong>Built-in Janus tools</strong>.
+          </p>
         </div>
 
         <div className="grid gap-4">

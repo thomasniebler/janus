@@ -9,7 +9,7 @@ React components; each one's stories, tests and `*Fixtures.ts` sit next to it. B
 | `layout-v2/`, `layout-v3/` | UIv2 terminal and UIv3 rusty-console shells |
 | `ui/` | Atomic primitives |
 | Chat (`features/`) | BriefingChat (the chat view), `features/ui-blocks/` (generative blocks), TurnTimeline, turnTimelineDock, ToolCallInspector, ToolApprovalCard, ToolsetSelectionNote, DelegatedTasksPanel, TypingDots, `features/Janus*.tsx`, janusConversations |
-| Domain (`features/`) | `features/Briefing*.tsx`, `features/Dashboard*.tsx`, `features/Email*.tsx` + emailPriority, `features/Topic*.tsx`, `features/Knowledge*.tsx`, `features/Wiki*.tsx` + wikiLinkTarget, MemoryManager, RuleManager, SkillManager, SkillSuggestions, CharacterProfileManager, `features/characterState/` |
+| Domain (`features/`) | `features/Briefing*.tsx`, `features/Dashboard*.tsx`, `features/Email*.tsx` + emailPriority, `features/Topic*.tsx`, `features/Knowledge*.tsx`, `features/Wiki*.tsx` + wikiLinkTarget, MemoryManager, RuleManager, SkillManager, SkillCatalogImport, SkillSuggestions, CharacterProfileManager, `features/characterState/` |
 | Settings (`features/`) | `features/*Config.tsx`, `features/*Settings.tsx`, `features/Account*.tsx`, PasswordChangeCard, LLMModelSelect, ModelChoiceFields, GitHubModelsAzureFields, MCPRegistryManager (hosts ToolPermissions, A2AAgentManager, InjectionClassifierCard), WhatsAppAccountManager, whatsappSetupSession |
 | Triggers | RuntimeTriggerManager, `features/triggers/` |
 | Page folders | `features/tasks/`, `features/planner/`, `features/stats/` |

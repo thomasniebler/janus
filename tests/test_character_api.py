@@ -30,12 +30,14 @@ def test_character_defaults_are_owner_scoped_and_put_versions(auth_client, db):
             "core_values": ["Be useful"],
             "non_negotiables": ["Do not bypass authorization"],
             "traits": [{"name": "initiative", "baseline": 0.6, "max_delta": 0.1}],
+            # An older client may still send the removed exploration setting; it is ignored.
             "exploration_rate": 0.2,
         },
     )
     assert response.status_code == 200
     assert response.json()["version"] == 1
     assert response.json()["traits"][0]["name"] == "initiative"
+    assert "exploration_rate" not in response.json()
 
     response = auth_client.put(
         "/api/character",
@@ -45,7 +47,6 @@ def test_character_defaults_are_owner_scoped_and_put_versions(auth_client, db):
             "core_values": ["Be useful"],
             "non_negotiables": ["Do not bypass authorization"],
             "traits": [],
-            "exploration_rate": 0.0,
         },
     )
     assert response.status_code == 200
@@ -78,7 +79,6 @@ def test_character_instructions_persist_and_shape_prompts(auth_client, db):
         "core_values": ["Be useful"],
         "non_negotiables": ["Do not bypass authorization"],
         "traits": [],
-        "exploration_rate": 0.0,
         "additional_instructions": "Answer in German.\nKeep it short.",
         "memory_instructions": "- Only remember project names.",
     }

@@ -6,14 +6,10 @@ import { createThrowawayUser, signInAs, type E2EUser } from './helpers';
 const ACCOUNT_NAME = 'E2E rules mailbox';
 const NEWSLETTER_SENDER = 'news@rules-e2e.example';
 const NEWSLETTER_SUBJECT = 'E2E weekly newsletter';
-const APPROVE_SENDER = 'boss@rules-e2e.example';
-const DISMISS_SENDER = 'promo@rules-e2e.example';
 
 /**
- * Seeds an inactive mailbox (never monitored) with three mails and two pending
- * clarifications. Mail only arrives over IMAP and no current code path queues a
- * clarification, so both are written directly; everything after that runs against the
- * real backend through the UI.
+ * Seeds an inactive mailbox (never monitored) with one mail. Mail only arrives over IMAP,
+ * so it is written directly; everything after that runs against the real backend through the UI.
  */
 const SEED_SCRIPT = `
 from datetime import datetime, UTC
@@ -35,16 +31,6 @@ def mail(uid, sender, subject, priority):
     return record
 
 mail(1, "${NEWSLETTER_SENDER}", "${NEWSLETTER_SUBJECT}", models.Priority.IMPORTANT)
-for uid, sender, subject in ((2, "${APPROVE_SENDER}", "E2E quarterly numbers"), (3, "${DISMISS_SENDER}", "E2E big sale")):
-    record = mail(uid, sender, subject, models.Priority.DIGEST)
-    db.add(models.EmailClarificationRequest(
-        user_id=user.id, email_id=record.id,
-        previous_priority=models.Priority.DIGEST, requested_priority=models.Priority.IMPORTANT,
-        suggested_rule_name=f"Messages from {sender}", suggested_rule_pattern=f"^{sender}$",
-        suggested_rule_field="sender", suggested_rule_priority=models.Priority.IMPORTANT,
-        suggestion_confidence=models.ConfidenceLevel.HIGH,
-        suggestion_reason=f"You corrected an email from {sender} to important.",
-    ))
 db.commit()
 `;
 
@@ -57,10 +43,9 @@ const openRulesTab = async (page: Page) => {
 const cardWithHeading = (page: Page, title: string) =>
   page.locator('div.rounded-lg.border').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).last();
 
-// The mailbox, its mail and clarifications, and every rule belong to one throwaway user that
-// the tests share (JAN-336), so "No pending clarifications" is this user's own state, never
-// the shared e2e admin's.
-test.describe('Mail prioritization rules and clarifications (JAN-142)', () => {
+// The mailbox, its mail, and every rule belong to one throwaway user that the tests share
+// (JAN-336), never the shared e2e admin.
+test.describe('Mail prioritization rules (JAN-142)', () => {
   let owner: E2EUser;
 
   test.beforeAll(async ({ adminRequest }) => {
@@ -125,30 +110,5 @@ test.describe('Mail prioritization rules and clarifications (JAN-142)', () => {
 
     await openRulesTab(page);
     await expect(cardWithHeading(page, `Messages from ${NEWSLETTER_SENDER}`)).toContainText('digest');
-  });
-
-  test('approves one clarification into a rule and dismisses another', async ({ page }) => {
-    await openRulesTab(page);
-    await expect(page.getByRole('heading', { name: 'Clarify misunderstandings' })).toBeVisible();
-
-    const approveCard = cardWithHeading(page, 'E2E quarterly numbers');
-    const dismissCard = cardWithHeading(page, 'E2E big sale');
-    await expect(approveCard).toContainText(APPROVE_SENDER);
-    await expect(approveCard).toContainText('high confidence');
-    await expect(approveCard).toContainText(`Suggested rule: Messages from ${APPROVE_SENDER}`);
-    await expect(dismissCard).toContainText(DISMISS_SENDER);
-
-    await approveCard.getByRole('button', { name: 'Approve rule' }).click();
-    await expect(page.getByRole('heading', { name: 'E2E quarterly numbers' })).toHaveCount(0);
-    await expect(cardWithHeading(page, `Messages from ${APPROVE_SENDER}`)).toContainText('important');
-
-    await dismissCard.getByRole('button', { name: 'Dismiss' }).click();
-    await expect(page.getByText('No pending clarifications.', { exact: false })).toBeVisible();
-    await expect(page.getByRole('heading', { name: `Messages from ${DISMISS_SENDER}` })).toHaveCount(0);
-
-    // Both decisions persist.
-    await page.reload();
-    await expect(page.getByText('No pending clarifications.', { exact: false })).toBeVisible();
-    await expect(cardWithHeading(page, `Messages from ${APPROVE_SENDER}`)).toBeVisible();
   });
 });

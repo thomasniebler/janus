@@ -24,10 +24,6 @@ vi.mock('../components/features/KnowledgeSourcesManager', () => ({
   KnowledgeSourcesManager: () => <div>Mock knowledge sources</div>,
 }));
 
-vi.mock('../components/features/EmailClarificationQueue', () => ({
-  EmailClarificationQueue: () => <div>Mock clarification queue</div>,
-}));
-
 vi.mock('../components/features/RuleManager', () => ({
   RuleManager: () => <div>Mock rule manager</div>,
 }));

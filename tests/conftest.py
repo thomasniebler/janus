@@ -215,6 +215,35 @@ def reset_neonize_probe(monkeypatch):
     monkeypatch.setattr(whatsapp_neonize, "_neonize_probe_result", whatsapp_neonize._PROBE_UNSET)
 
 
+class FakeMailboxWorkerManager:
+    """Records mailbox monitor starts and stops instead of opening IMAP or Graph connections."""
+
+    def __init__(self) -> None:
+        """Starts with nothing recorded."""
+        self.started: list[tuple[str, tuple]] = []
+        self.stopped: list[str] = []
+
+    def start(self, label, target, args=(), restart_policy=True) -> None:
+        """Records the start; the worker body never runs."""
+        self.started.append((label, args))
+
+    def stop(self, label, *, timeout=5.0) -> bool:
+        """Records the stop."""
+        self.stopped.append(label)
+        return True
+
+
+@pytest.fixture(autouse=True)
+def mailbox_workers(monkeypatch):
+    """Adding a mailbox starts its monitor thread; in tests that thread is only recorded."""
+    from janus.workers import email as email_worker
+
+    fake = FakeMailboxWorkerManager()
+    monkeypatch.setattr(email_worker, "worker_manager", fake)
+    monkeypatch.setattr(email_worker, "_stop_events", {})
+    return fake
+
+
 @pytest.fixture
 def db():
     """Creates all tables, yields a session, then drops all tables."""

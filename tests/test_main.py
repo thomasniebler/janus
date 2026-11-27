@@ -43,6 +43,32 @@ def test_main_import_and_tray_creation_are_safe_without_pystray_in_headless_mode
     main.create_tray_icon()
 
 
+def test_tray_skip_on_wayland_says_what_to_install(monkeypatch, caplog):
+    """Without PyGObject, pystray's AppIndicator backend fails to import; the warning names the packages."""
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "pystray":
+            raise ImportError("this platform is not supported: No module named 'gi'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-1")
+    monkeypatch.delenv("PYSTRAY_BACKEND", raising=False)
+    monkeypatch.delitem(sys.modules, "pystray", raising=False)
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    from janus.desktop import tray
+
+    with caplog.at_level("WARNING", logger="janus"):
+        tray.create_tray_icon()
+
+    message = caplog.text
+    assert "No module named 'gi'" in message
+    assert "python-gobject" in message
+    assert "python3-gi" in message
+    assert "--with PyGObject" in message
+
+
 def test_desktop_summary_prints_waybar_json(monkeypatch):
     """The desktop command stays valid JSON and bar-friendly."""
     main = importlib.import_module("janus.main")
@@ -672,20 +698,20 @@ def test_config_doctor_reverse_proxy_public_base_url(monkeypatch, tmp_path):
     assert "The bind-address origin (https://localhost:8102) is not in allowed_origins" in result.output
 
 
-def test_config_doctor_origin_not_in_allowed_origins(monkeypatch, tmp_path):
-    """The public origin from ``base_url`` should drive the allowed_origins error."""
+def test_config_doctor_accepts_base_url_origin_missing_from_allowed_origins(monkeypatch, tmp_path):
+    """The base_url origin is always allowed, so leaving it out of allowed_origins is not an error."""
     result = _run_config_doctor(
         monkeypatch,
         tmp_path,
         base_url="https://myapp.example.com",
         port=443,
         host="0.0.0.0",
-        allowed_origins=["https://localhost"],
+        allowed_origins=["http://localhost:5173"],
         allowed_hosts=["myapp.example.com"],
     )
 
-    assert result.exit_code == 1, result.output
-    assert "The public server origin (https://myapp.example.com) derived from base_url" in result.output
+    assert result.exit_code == 0, result.output
+    assert "derived from base_url" not in result.output
 
 
 def test_config_doctor_http_server_mode(monkeypatch, tmp_path):

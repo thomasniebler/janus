@@ -2,6 +2,7 @@
 
 import email
 import logging
+import threading
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -51,14 +52,38 @@ def initial_history_limit(db: "Session | None" = None) -> int:
 class IMAPMonitor:
     """Monitors an IMAP account for new emails."""
 
-    def __init__(self, account: models.EmailAccount):
+    def __init__(self, account: models.EmailAccount, stop_event: threading.Event | None = None):
         """Initializes an IMAP monitor for a given account.
 
         Args:
             account (EmailAccount): The email account to monitor.
+            stop_event (threading.Event | None): Set to end ``idle_loop`` (the mailbox was
+                deactivated or deleted). A monitor without one runs until its thread dies.
         """
         self.account = account
         self.client = None
+        self._stop = stop_event or threading.Event()
+
+    @property
+    def stopped(self) -> bool:
+        """Whether the monitor was asked to stop."""
+        return self._stop.is_set()
+
+    def _pause(self, seconds: float) -> bool:
+        """Waits ``seconds`` unless asked to stop first; returns whether it was asked to stop."""
+        return self._stop.wait(seconds)
+
+    def _idle_wait(self, seconds: float) -> list:
+        """Waits up to ``seconds`` inside IDLE for server responses, in one-second steps so a stop lands fast."""
+        deadline = time.monotonic() + seconds
+        while not self.stopped:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return []
+            responses = self.client.idle_check(timeout=min(1.0, remaining))
+            if responses:
+                return responses
+        return []
 
     def _fetch_in_batches(self, message_ids: list[Any], parts: list[bytes]) -> list[tuple[Any, dict[bytes, Any]]]:
         """Fetch IMAP messages in bounded chunks to avoid oversized UID FETCH commands."""
@@ -409,50 +434,6 @@ class IMAPMonitor:
         results.sort(key=lambda e: (e["received_at"], e["uid"]), reverse=True)
         return results
 
-    def fetch_new_emails(self) -> list[dict]:
-        """Fetches unseen emails from the server.
-
-        Returns:
-            List[dict]: A list of dictionary representations of new emails.
-        """
-        if not self.client:
-            self.connect()
-
-        # Search for unseen messages
-        messages = self.client.search(["UNSEEN"])
-        results = []
-
-        if not messages:
-            return []
-
-        # Use BODY.PEEK[] to avoid marking as seen
-        for msgid, data in self._fetch_in_batches(messages, [b"BODY.PEEK[]", b"INTERNALDATE"]):
-            email_body = data[b"BODY[]"]
-            internal_date = data.get(b"INTERNALDATE")
-            message = email.message_from_bytes(email_body)
-
-            sender_name, sender_email = email_utils.parseaddr(message.get("From"))
-            subject = message.get("Subject")
-            message_id = message.get("Message-ID")
-
-            body = self._extract_body(message)
-
-            results.append(
-                {
-                    "uid": msgid,
-                    "message_id": message_id,
-                    "sender": sender_email,
-                    "subject": subject,
-                    "snippet": body[:100].strip(),
-                    "body": body,
-                    "received_at": self._resolve_received_at(message, internal_date=internal_date, uid=msgid),
-                    "account_id": self.account.id,
-                    "attachments": self._extract_attachments(message),
-                }
-            )
-
-        return results
-
     def _write_heartbeat(self, status: models.MonitorStatus, error: str | None = None) -> None:
         """Persists monitor liveness and status to the database."""
         write_heartbeat(self.account, status, error)
@@ -470,11 +451,13 @@ class IMAPMonitor:
         _heartbeat_interval = 30  # seconds
         _last_heartbeat = time.monotonic()
 
-        while True:
+        while not self.stopped:
             try:
                 self.client.idle()
-                responses = self.client.idle_check(timeout=_heartbeat_interval)
+                responses = self._idle_wait(_heartbeat_interval)
                 self.client.idle_done()
+                if self.stopped:
+                    break
 
                 now = time.monotonic()
                 if now - _last_heartbeat >= _heartbeat_interval:
@@ -500,7 +483,8 @@ class IMAPMonitor:
                     models.EventType.ERROR, "IMAPMonitor", f"Error in IDLE loop for {self.account.email}: {e}"
                 )
                 self._write_heartbeat(models.MonitorStatus.ERROR, error=error_msg)
-                time.sleep(10)  # Wait before retry
+                if self._pause(10):  # Wait before retry
+                    break
                 try:
                     self.connect()
                     # Catch up on any emails that arrived during the outage
@@ -513,6 +497,8 @@ class IMAPMonitor:
                     _last_heartbeat = time.monotonic()
                 except Exception:
                     pass  # Supervisor will restart the whole worker on persistent failure
+        self.logout()
+        event_logger.log(models.EventType.INFO, "IMAPMonitor", f"Stopped IDLE loop for {self.account.email}")
 
 
 def write_heartbeat(

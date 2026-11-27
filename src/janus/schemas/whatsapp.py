@@ -15,13 +15,17 @@ from janus.models import (
     WhatsAppSetupStatus,
 )
 
+#: ``initial_history_days`` is still accepted and stored (the column stays) but nothing reads it: WhatsApp sends
+#: history once after pairing, as much as it decides to.
+_HISTORY_DAYS_NOTE = "Ignored. Accepted for compatibility; WhatsApp sends history once after pairing."
+
 
 class WhatsAppAccountBase(BaseModel):
     """Shared fields for a WhatsApp account."""
 
     display_name: str
     is_enabled: bool = True
-    initial_history_days: int = Field(default=3, ge=1, le=30)
+    initial_history_days: int = Field(default=3, ge=1, le=30, deprecated=True, description=_HISTORY_DAYS_NOTE)
     session_data: str | None = None
     session_database_path: str | None = None
 
@@ -35,7 +39,7 @@ class WhatsAppAccountUpdate(BaseModel):
 
     display_name: str | None = None
     is_enabled: bool | None = None
-    initial_history_days: int | None = Field(default=None, ge=1, le=30)
+    initial_history_days: int | None = Field(default=None, ge=1, le=30, deprecated=True, description=_HISTORY_DAYS_NOTE)
     session_data: str | None = None
     session_database_path: str | None = None
 
@@ -118,7 +122,7 @@ class WhatsAppSetupSessionCreate(BaseModel):
     """Payload for creating a transient WhatsApp setup session."""
 
     display_name: str
-    initial_history_days: int = Field(default=3, ge=1, le=30)
+    initial_history_days: int = Field(default=3, ge=1, le=30, deprecated=True, description=_HISTORY_DAYS_NOTE)
     account_id: int | None = None
 
 
