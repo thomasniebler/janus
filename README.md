@@ -17,7 +17,7 @@ A privacy-first, local-first personal AI agent. Janus runs on your own machine, 
 
 ```bash
 uv tool install janus-assistant                         # or: pipx install janus-assistant
-janus config init                                       # then set secret_key and allowed_origins in ~/.config/janus/settings.toml
+janus config init                                       # then set secret_key in ~/.config/janus/settings.toml
 janus user bootstrap-admin admin && janus start         # create the first admin, then open http://localhost:8080
 ```
 

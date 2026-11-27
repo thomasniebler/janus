@@ -56,16 +56,14 @@ For access from other machines, keep Janus on `127.0.0.1` and put an HTTPS rever
 server_mode = true
 base_url = "https://janus.example.com"
 allowed_hosts = ["janus.example.com"]
-allowed_origins = ["https://janus.example.com"]
 trusted_proxy_hops = 1
 public_setup_enabled = false
 ```
 
 | Setting | Why |
 |---|---|
-| `base_url` | OAuth redirect URIs and links use it. It must be the public address. |
+| `base_url` | OAuth redirect URIs and links use it. It must be the public address. Its origin is always allowed for CORS and the chat connection; list any other browser origin in `allowed_origins`. |
 | `allowed_hosts` | Janus answers 400 to any other `Host` header. |
-| `allowed_origins` | The browser's chat connection is refused from any other origin. |
 | `trusted_proxy_hops` | With `1`, Janus trusts the scheme, host and client address from the last proxy's `Forwarded` or `X-Forwarded-*` headers. Login cookies are then marked secure and rate limits see the real client. Leave it at `0` without a proxy, or clients could spoof those headers. |
 | `public_setup_enabled` | Keep the browser setup screen off on a public server. Create the first admin with `janus user bootstrap-admin` over SSH. |
 

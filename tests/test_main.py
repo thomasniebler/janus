@@ -698,20 +698,20 @@ def test_config_doctor_reverse_proxy_public_base_url(monkeypatch, tmp_path):
     assert "The bind-address origin (https://localhost:8102) is not in allowed_origins" in result.output
 
 
-def test_config_doctor_origin_not_in_allowed_origins(monkeypatch, tmp_path):
-    """The public origin from ``base_url`` should drive the allowed_origins error."""
+def test_config_doctor_accepts_base_url_origin_missing_from_allowed_origins(monkeypatch, tmp_path):
+    """The base_url origin is always allowed, so leaving it out of allowed_origins is not an error."""
     result = _run_config_doctor(
         monkeypatch,
         tmp_path,
         base_url="https://myapp.example.com",
         port=443,
         host="0.0.0.0",
-        allowed_origins=["https://localhost"],
+        allowed_origins=["http://localhost:5173"],
         allowed_hosts=["myapp.example.com"],
     )
 
-    assert result.exit_code == 1, result.output
-    assert "The public server origin (https://myapp.example.com) derived from base_url" in result.output
+    assert result.exit_code == 0, result.output
+    assert "derived from base_url" not in result.output
 
 
 def test_config_doctor_http_server_mode(monkeypatch, tmp_path):

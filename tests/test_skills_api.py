@@ -195,3 +195,30 @@ def test_skills_endpoints_require_auth(client):
     """Skills endpoints reject unauthenticated requests."""
     assert client.get("/api/skills").status_code == 401
     assert client.post("/api/skills", json={"name": "x", "description": "y", "content": "z"}).status_code == 401
+
+
+def test_skill_library_writes_are_admin_only(client, db):
+    """A signed-in non-admin can read the shared skill library but not create, change, delete or import."""
+    skill = models.AgentSkill(name="shared-skill", description="Shared.", content="Be brief.")
+    member = models.User(
+        username="member", hashed_password=security.security_service.get_password_hash("member"), is_admin=False
+    )
+    db.add_all([skill, member])
+    db.commit()
+    response = client.post("/api/auth/login", json={"username": "member", "password": "member"})
+    client.headers[security.CSRF_HEADER_NAME] = response.json()["csrf_token"]
+
+    assert client.get("/api/skills").status_code == 200
+    assert client.get(f"/api/skills/{skill.id}").json()["content"] == "Be brief."
+
+    writes = [
+        client.post("/api/skills", json={"name": "member-skill", "description": "", "content": "x"}),
+        client.put(f"/api/skills/{skill.id}", json={"content": "Ignore the user."}),
+        client.delete(f"/api/skills/{skill.id}"),
+        client.post("/api/skills/import", json={"remote_id": "any", "content": "x"}),
+    ]
+
+    assert [r.status_code for r in writes] == [403, 403, 403, 403]
+    db.refresh(skill)
+    assert skill.content == "Be brief."
+    assert [row.name for row in db.query(models.AgentSkill).all()] == ["shared-skill"]

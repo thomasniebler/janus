@@ -158,7 +158,7 @@ def test_poll_loop_records_an_error_heartbeat_and_backs_off(outlook, db, monkeyp
         outlook.is_active = False
         db.commit()
 
-    monkeypatch.setattr(graph_mail_service.time, "sleep", deactivate)
+    monkeypatch.setattr(monitor, "_wait", deactivate)
 
     monitor.poll_loop(lambda data, mon: None)
 
@@ -169,7 +169,7 @@ def test_nap_sleeps_in_heartbeat_steps(outlook, monkeypatch):
     """A 70 second nap is three sleeps (30, 30, 10) so the heartbeat can be refreshed in between."""
     monitor = graph_mail_service.GraphMailMonitor(outlook)
     slept = []
-    monkeypatch.setattr(graph_mail_service.time, "sleep", slept.append)
+    monkeypatch.setattr(monitor, "_wait", slept.append)
     monkeypatch.setattr(monitor, "_beat", lambda force=False: None)
 
     monitor._nap(70)
@@ -184,7 +184,7 @@ def test_worker_polls_outlook_mailboxes_instead_of_idling(outlook, monkeypatch):
         graph_mail_service.GraphMailMonitor, "poll_loop", lambda self, callback: polled.append((self.account, callback))
     )
 
-    email_worker._sync_and_idle(outlook)
+    email_worker.initial_sync_worker(outlook)
 
     assert polled == [(outlook, email_worker.email_callback)]
 

@@ -1,7 +1,10 @@
 """Tests for trusted request origin reconstruction helpers."""
 
+from unittest.mock import patch
+
 from janus.config import Settings
 from janus.request_origin import (
+    TrustedProxyHeadersMiddleware,
     _host_is_allowed,
     _origin_is_allowed,
     _parse_origin,
@@ -9,6 +12,7 @@ from janus.request_origin import (
     _select_trusted_value,
     _trusted_forwarded_client_ip,
     _trusted_forwarded_origin,
+    browser_origins,
 )
 
 
@@ -106,3 +110,39 @@ def test_public_docs_matcher_does_not_overmatch_similar_paths():
     assert _public_endpoint_is_disabled("/apidocs", settings) is True
     assert _public_endpoint_is_disabled("/apidocs/oauth2-redirect", settings) is True
     assert _public_endpoint_is_disabled("/apidocs_fake", settings) is False
+
+
+def test_websocket_origin_check_always_allows_the_base_url_origin():
+    """A fresh install serves the dashboard from base_url, so its origin passes without being listed."""
+    settings = Settings(
+        _env_file=None,
+        JANUS_SECRET_KEY="test-secret-key-for-unit-tests",
+        allowed_origins=["http://localhost:5173"],
+        base_url="http://localhost:8080",
+    )
+    middleware = TrustedProxyHeadersMiddleware(app=None, settings=settings)
+
+    def scope(origin: str) -> dict:
+        return {"type": "websocket", "headers": [(b"origin", origin.encode())]}
+
+    assert middleware._origin_allowed(scope("http://localhost:8080")) is True
+    assert middleware._origin_allowed(scope("http://localhost:5173")) is True
+    assert middleware._origin_allowed(scope("http://localhost:9999")) is False
+
+
+def test_browser_origins_add_the_base_url_origin(tmp_path, monkeypatch):
+    """The base_url origin is always a browser origin, once, without path or default port."""
+    for name in ("ALLOWED_ORIGINS", "BASE_URL", "JANUS_BASE_URL"):
+        monkeypatch.delenv(name, raising=False)
+    with patch.object(Settings, "_toml_config_file", tmp_path / "missing.toml"):
+        fresh = Settings(_env_file=None, JANUS_SECRET_KEY="test-secret-key-for-unit-tests")
+        proxied = Settings(
+            _env_file=None,
+            JANUS_SECRET_KEY="test-secret-key-for-unit-tests",
+            base_url="https://janus.example.com:443/janus/",
+            allowed_origins=["https://janus.example.com"],
+        )
+
+    assert browser_origins(fresh) == ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8080"]
+    assert fresh.allowed_origins == ["http://localhost:5173", "http://127.0.0.1:5173"]
+    assert browser_origins(proxied) == ["https://janus.example.com"]

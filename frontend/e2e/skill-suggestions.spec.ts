@@ -4,12 +4,15 @@ import { expect, test } from './fixtures';
 // JAN-407: skill suggestions. Three seeded chat turns (written by the real models, as the chat
 // handler would) used the same tools in the same order. Settings -> Skills offers that routine;
 // "Draft skill" opens the skill editor with the designer's goal prefilled (nothing is saved),
-// and "Not now" hides it. Every test runs as its own throwaway user.
+// and "Not now" hides it. Every test runs as its own throwaway user. The skill library is
+// shared by the instance, so only an admin sees suggestions and the write controls: the drafting
+// test promotes its user, the read-only test keeps a plain member.
 
 test.use({ asThrowawayUser: true });
 
-const SEED_TURNS = `
+const SEED_TURNS = (admin: boolean) => `
 from janus import models
+user.is_admin = ${admin ? 'True' : 'False'}
 for index in range(3):
     conversation = models.Conversation(user_id=user.id, title=f"E2E routine {index}")
     db.add(conversation)
@@ -24,7 +27,7 @@ print("ok")
 `;
 
 test('a repeated tool routine is offered as a skill, drafted, and dismissed', async ({ page, account }) => {
-  await runBackendPython(SEED_TURNS, [], { as: account.username });
+  await runBackendPython(SEED_TURNS(true), [], { as: account.username });
   await page.goto('/settings?tab=skills');
 
   const card = page.getByTestId('skill-suggestions');
@@ -40,5 +43,16 @@ test('a repeated tool routine is offered as a skill, drafted, and dismissed', as
   await expect(page.getByTestId('skill-suggestions')).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Skills' })).toBeVisible();
+  await expect(page.getByTestId('skill-suggestions')).toHaveCount(0);
+});
+
+test('a non-admin reads the skill library without write controls or suggestions', async ({ page, account }) => {
+  await runBackendPython(SEED_TURNS(false), [], { as: account.username });
+  await page.goto('/settings?tab=skills');
+
+  await expect(page.getByRole('heading', { name: 'Skills' })).toBeVisible();
+  await expect(page.getByText(/only admins can change it/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New Skill' })).toHaveCount(0);
+  await expect(page.getByText('Import from GitHub community catalog')).toHaveCount(0);
   await expect(page.getByTestId('skill-suggestions')).toHaveCount(0);
 });

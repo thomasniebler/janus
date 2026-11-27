@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from asgi_client import SyncASGIClient
+from fastapi.routing import APIRoute, APIWebSocketRoute
 
 from janus import config, database, llm_service, models, security, status_service, time_utils
 from janus.api import dashboard as dashboard_api
@@ -229,6 +230,38 @@ def test_openapi_docs_can_be_enabled_explicitly(client, monkeypatch):
     assert response.status_code == 200
     assert "swagger-ui" in response.text
     assert "/openapi.json" in response.text
+
+
+def test_cors_allows_the_base_url_origin_without_listing_it(client, monkeypatch):
+    """The dashboard served from base_url passes CORS even when allowed_origins only lists the dev server."""
+    monkeypatch.setattr(config.settings, "allowed_origins", ["http://localhost:5173"])
+    monkeypatch.setattr(config.settings, "base_url", "http://testserver:8080")
+    monkeypatch.setattr(config.settings, "allowed_hosts", ["testserver"])
+    preflight = {"access-control-request-method": "GET"}
+
+    with SyncASGIClient(create_fastapi_app()) as cors_client:
+        allowed = cors_client.request(
+            "OPTIONS", "/api/status", headers={**preflight, "origin": "http://testserver:8080"}
+        )
+        rejected = cors_client.request(
+            "OPTIONS", "/api/status", headers={**preflight, "origin": "http://testserver:9090"}
+        )
+
+    assert allowed.headers.get("access-control-allow-origin") == "http://testserver:8080"
+    assert "access-control-allow-origin" not in rejected.headers
+
+
+def test_no_route_is_registered_twice():
+    """Every path and method pair maps to exactly one route."""
+    seen: dict[tuple[str, str], int] = {}
+    for route in create_fastapi_app().routes:
+        if not isinstance(route, APIRoute | APIWebSocketRoute):
+            continue
+        for method in getattr(route, "methods", None) or {"WEBSOCKET"}:
+            key = (route.path, method)
+            seen[key] = seen.get(key, 0) + 1
+
+    assert {key: count for key, count in seen.items() if count > 1} == {}
 
 
 def test_unexpected_host_headers_are_rejected(client, monkeypatch):

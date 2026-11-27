@@ -8,7 +8,7 @@ from janus import builtin_triggers, database, event_logger, models, processor, s
 from janus.graph_mail_service import GraphMailMonitor
 from janus.imap_service import IMAPMonitor
 from janus.schemas import email as email_schemas
-from janus.services import email_service, oauth_connection_service
+from janus.services import email_service, mailbox_service, oauth_connection_service
 from janus.services.whatsapp_service import phone_to_jid
 
 router = APIRouter(prefix="/api/emails", tags=["emails"])
@@ -47,8 +47,7 @@ async def add_account(
     user: models.User = Depends(security.get_current_user),
 ):
     """Adds a new email account owned by the current user."""
-    service = email_service.EmailService(db)
-    return service.add_account(account_data.model_dump(), user_id=user.id)
+    return mailbox_service.add_account(db, account_data.model_dump(), user_id=user.id)
 
 
 @router.patch("/accounts/{account_id}", response_model=email_schemas.EmailAccount)
@@ -59,8 +58,9 @@ async def update_account(
     user: models.User = Depends(security.get_current_user),
 ):
     """Updates an existing email account owned by the current user."""
-    service = email_service.EmailService(db)
-    account = service.update_account_for_user(account_id, user.id, account_data.model_dump(exclude_none=True))
+    account = mailbox_service.update_account_for_user(
+        db, account_id, user.id, account_data.model_dump(exclude_none=True)
+    )
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     return account
@@ -71,8 +71,7 @@ async def delete_account(
     account_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(security.get_current_user)
 ):
     """Removes an email account owned by the current user."""
-    service = email_service.EmailService(db)
-    if not service.delete_account_for_user(account_id, user.id):
+    if not mailbox_service.delete_account_for_user(db, account_id, user.id):
         raise HTTPException(status_code=404, detail="Account not found")
     return {"status": "success"}
 

@@ -209,51 +209,6 @@ class EmailService(BaseService):
 
         return payloads
 
-    def add_account(self, data: dict, user_id: int | None = None) -> models.EmailAccount:
-        """Adds a new email account."""
-        if "password" in data:
-            data["password"] = security.security_service.encrypt(data["password"])
-        if user_id is not None:
-            data["user_id"] = user_id
-        new_account = models.EmailAccount(**data)
-        self.db.add(new_account)
-        self.db.commit()
-        self.db.refresh(new_account)
-        return new_account
-
-    def update_account_for_user(self, account_id: int, user_id: int, data: dict) -> models.EmailAccount | None:
-        """Updates an email account owned by ``user_id``.
-
-        Returns ``None`` when the account does not exist or belongs to another
-        user, so callers answer both cases with the same non-disclosing 404.
-        """
-        account = self.get_account_for_user(account_id, user_id)
-        if not account:
-            return None
-
-        if account.auth_type != "password":
-            # Gmail/Outlook mailboxes read through their connection; their server and identity are fixed.
-            for locked in ("password", "imap_server", "imap_port", "username", "email"):
-                data.pop(locked, None)
-        password = data.pop("password", None)
-        for field, value in data.items():
-            setattr(account, field, value)
-        if password:
-            account.password = security.security_service.encrypt(password)
-
-        self.db.commit()
-        self.db.refresh(account)
-        return account
-
-    def delete_account_for_user(self, account_id: int, user_id: int) -> bool:
-        """Removes an email account owned by ``user_id``; ``False`` if missing or foreign."""
-        account = self.get_account_for_user(account_id, user_id)
-        if not account:
-            return False
-        self.db.delete(account)
-        self.db.commit()
-        return True
-
     def get_rules(self, user_id: int) -> list[models.Rule]:
         """Returns ``user_id``'s prioritization rules ordered by evaluation order."""
         return self.db.query(models.Rule).filter(models.Rule.user_id == user_id).order_by(models.Rule.order.asc()).all()
