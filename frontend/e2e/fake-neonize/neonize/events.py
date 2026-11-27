@@ -17,6 +17,10 @@ class LoggedOutEv(SimpleNamespace):
     """The linked device was logged out on the phone."""
 
 
+class ConnectFailureEv(SimpleNamespace):
+    """WhatsApp refused the connection (`Reason`, `Message`)."""
+
+
 class MessageEv(SimpleNamespace):
     """One live message (`Info`, `Message`)."""
 

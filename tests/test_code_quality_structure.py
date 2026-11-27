@@ -80,14 +80,6 @@ CORE_MODULE_BUDGET_EXCEPTIONS = {
     # secretary's WhatsApp alert in the injection-escalated tool names, then to 619 for the
     # chat allowlist's coding agents entry (JAN-403).
     "src/janus/runtime_adapter.py": 619,
-    # Raised from 650 for the extra `collections.abc` import line of the pyupgrade
-    # auto-fix (JAN-259); lowered to 644 when the timestamp parsing moved to
-    # time_utils.epoch_to_utc (JAN-346); raised to 667 for the trigger-event hooks of the
-    # live connector (JAN-361: own identity on connect or first message, live/new/incoming/
-    # has-content gate in _ingest), then to 672 for the review fixes; the event logic itself
-    # lives in whatsapp_trigger_events.py. Raised to 676 for telling a missing optional
-    # `whatsapp` extra apart from a native-library load failure in the import probe.
-    "src/janus/whatsapp_neonize.py": 676,
 }
 
 API_HELPER_BASELINE = {

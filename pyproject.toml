@@ -224,6 +224,7 @@ source_modules = [
   "janus.triggers",
   "janus.unattended_execution",
   "janus.whatsapp_neonize",
+  "janus.whatsapp_translate",
   "janus.whatsapp_trigger_events",
   "janus.worker_manager",
   "janus.workers"

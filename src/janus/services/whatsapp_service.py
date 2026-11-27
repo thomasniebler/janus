@@ -8,7 +8,8 @@ from typing import Any
 from janus import models, time_utils
 from janus.security import security_service
 from janus.services.base import BaseService
-from janus.whatsapp_neonize import NeonizeAdapter, NeonizeConversationPayload, NeonizeMessagePayload
+from janus.whatsapp_neonize import NeonizeAdapter
+from janus.whatsapp_translate import NeonizeConversationPayload, NeonizeMessagePayload
 
 #: Longest message text Janus sends in one WhatsApp message (JAN-360).
 MAX_SEND_CHARS = 4096
