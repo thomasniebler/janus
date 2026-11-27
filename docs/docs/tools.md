@@ -215,35 +215,34 @@ Janus created. Needs a connected calendar.
 
 `microsoft.mail` · never. List, search and read your Outlook mailbox through
 Microsoft Graph. Administrators only; needs the Microsoft sign-in
-(`janus microsoft login`). Not offered in chat.
+(`janus microsoft login`).
 
 ## Microsoft Outlook calendar
 
 `microsoft.calendar` · never. List your Outlook calendar events.
-Administrators only; needs the Microsoft sign-in. Not offered in chat.
+Administrators only; needs the Microsoft sign-in.
 
 ## Microsoft Teams chats
 
 `microsoft.teams` · never. List your Teams chats and read their messages.
-Administrators only; needs the Microsoft sign-in. Not offered in chat.
+Administrators only; needs the Microsoft sign-in.
 
 ## Send Microsoft Outlook mail
 
 `microsoft.mail.send` · required, Unattended Off. Send plain-text mail from
-your Outlook mailbox. Administrators only; needs the Microsoft sign-in. Not
-offered in chat.
+your Outlook mailbox. Administrators only; needs the Microsoft sign-in.
 
 ## Send Microsoft Teams messages
 
 `microsoft.teams.send` · required, Unattended Off. Post a plain-text message
 into one of your Teams chats as you. Administrators only; needs the Microsoft
-sign-in. Not offered in chat.
+sign-in.
 
 ## Azure resources
 
 `azure.resources` · never. List subscriptions, resource groups and resources
 the machine's Azure identity can see. Read-only. Administrators only; needs
-`JANUS_AZURE_ENABLED=true`. Not offered in chat.
+`JANUS_AZURE_ENABLED=true`.
 
 ## Jira task tools
 
