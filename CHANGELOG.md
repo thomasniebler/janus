@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.17.1](https://github.com/thomasniebler/janus/compare/v1.17.0...v1.17.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* resolve the code issues found while rewriting the docs ([#21](https://github.com/thomasniebler/janus/issues/21)) ([409b986](https://github.com/thomasniebler/janus/commit/409b986df22f87cdd99e27a1f4d5518cd1e252cd))
+* **whatsapp:** pair on a fresh session store and fail instead of hanging without a QR ([#20](https://github.com/thomasniebler/janus/issues/20)) ([d846ee2](https://github.com/thomasniebler/janus/commit/d846ee22af0e97fc1535cb1e83700793b5f55a5c))
+
+
+### Documentation
+
+* rewrite the documentation from scratch ([#19](https://github.com/thomasniebler/janus/issues/19)) ([d188729](https://github.com/thomasniebler/janus/commit/d1887290802f80dbdbe9f8a211c1032a201e99dc))
+
 ## [1.17.0](https://github.com/thomasniebler/janus/compare/v1.16.0...v1.17.0) (2026-11-26)
 
 
