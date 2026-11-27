@@ -178,7 +178,6 @@ def create_fastapi_app() -> FastAPI:
     api.include_router(self_evolution.router, dependencies=csrf_dependencies)
     api.include_router(whatsapp.router, dependencies=csrf_dependencies)
     api.include_router(telegram.router, dependencies=csrf_dependencies)
-    api.include_router(telegram.router, dependencies=csrf_dependencies)
     # Its public delivery URL sends no session cookie, so the cookie-only CSRF check never applies to it.
     api.include_router(webhooks.router, dependencies=csrf_dependencies)
     api.include_router(docs.router, dependencies=csrf_dependencies)

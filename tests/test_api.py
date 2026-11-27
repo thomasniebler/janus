@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from asgi_client import SyncASGIClient
+from fastapi.routing import APIRoute, APIWebSocketRoute
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm.attributes import NO_VALUE
 
@@ -232,6 +233,19 @@ def test_openapi_docs_can_be_enabled_explicitly(client, monkeypatch):
     assert response.status_code == 200
     assert "swagger-ui" in response.text
     assert "/openapi.json" in response.text
+
+
+def test_no_route_is_registered_twice():
+    """Every path and method pair maps to exactly one route."""
+    seen: dict[tuple[str, str], int] = {}
+    for route in create_fastapi_app().routes:
+        if not isinstance(route, APIRoute | APIWebSocketRoute):
+            continue
+        for method in getattr(route, "methods", None) or {"WEBSOCKET"}:
+            key = (route.path, method)
+            seen[key] = seen.get(key, 0) + 1
+
+    assert {key: count for key, count in seen.items() if count > 1} == {}
 
 
 def test_unexpected_host_headers_are_rejected(client, monkeypatch):
