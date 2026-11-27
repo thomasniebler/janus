@@ -32,7 +32,6 @@ def _response_from_profile(profile: models.CharacterProfile) -> character_schema
         core_values=profile.core_values,
         non_negotiables=profile.non_negotiables,
         traits=profile.traits,
-        exploration_rate=profile.exploration_rate,
         additional_instructions=profile.additional_instructions,
         memory_instructions=profile.memory_instructions,
         created_at=profile.created_at,

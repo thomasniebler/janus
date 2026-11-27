@@ -1,7 +1,6 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BookOpen, Brain, FileText, Network, Scale, Tags } from 'lucide-react';
-import { EmailClarificationQueue } from '../components/features/EmailClarificationQueue';
 import { PageSectionNav } from '../components/layout/PageSectionNav';
 import { KnowledgeGraphManager } from '../components/features/KnowledgeGraphManager';
 import { KnowledgeSourcesManager } from '../components/features/KnowledgeSourcesManager';
@@ -173,9 +172,6 @@ const MemoryPage: React.FC = () => {
                     using the chat sidebar to help draft or refine a rule, then manage it here.
                   </p>
                 </Card>
-                <ErrorBoundary title="Clarification queue crashed">
-                  <EmailClarificationQueue />
-                </ErrorBoundary>
                 <ErrorBoundary title="Rule management crashed">
                   <RuleManager />
                 </ErrorBoundary>

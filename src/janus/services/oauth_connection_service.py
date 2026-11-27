@@ -120,13 +120,18 @@ def google_credentials(db: Session, connection: models.OAuthConnection) -> Crede
 def delete_connection(db: Session, user_id: int, provider: str) -> bool:
     """Removes the connection and everything that depended on it, and commits.
 
-    Mailboxes using it are switched off (their stored mail stays), and the calendar and task
-    sources of the provider are deleted together with what they imported (also when they
-    predate connections and have no connection row). Returns whether anything existed.
+    Mailboxes using it are switched off and their monitors stopped (their stored mail stays),
+    and the calendar and task sources of the provider are deleted together with what they
+    imported (also when they predate connections and have no connection row). Returns whether
+    anything existed.
     """
+    from janus.workers.email import stop_mailbox_worker
+
     connection = get_connection(db, user_id, provider)
+    switched_off: list[tuple[int, str]] = []
     if connection is not None:
         for account in db.query(models.EmailAccount).filter(models.EmailAccount.connection_id == connection.id).all():
+            switched_off.append((account.id, account.email))
             account.is_active = False
             account.connection_id = None
             account.last_error = f"{provider.title()} was disconnected."
@@ -156,4 +161,6 @@ def delete_connection(db: Session, user_id: int, provider: str) -> bool:
     if connection is not None:
         db.delete(connection)
     db.commit()
+    for account_id, address in switched_off:
+        stop_mailbox_worker(account_id, address)
     return connection is not None or bool(planner_ids)

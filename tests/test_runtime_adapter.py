@@ -178,7 +178,7 @@ def test_rules_follow_the_mail_connection(db):
     connected = RuntimeAdapter(db, _make_connected_user(db)).prepare_step(task_id="chat-rules-2", **requested)
     assert [entry.id for entry in connected.selection.entries] == ["rules", "rules.write"]
     names = {tool.name for tool in connected.tools}
-    assert {"list_mail_rules", "list_pending_rule_suggestions", "create_mail_rule"} <= names
+    assert {"list_mail_rules", "create_mail_rule"} <= names
 
 
 def test_read_only_rules_do_not_need_confirmation_but_rule_writers_do(db):

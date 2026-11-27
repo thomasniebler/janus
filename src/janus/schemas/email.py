@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from janus.models import ClarificationStatus, ConfidenceLevel, Priority, TopicStatus
+from janus.models import ConfidenceLevel, Priority, TopicStatus
 
 
 class EmailAccountBase(BaseModel):
@@ -105,46 +105,6 @@ class Rule(RuleBase):
     """Schema for a prioritization rule."""
 
     id: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class EmailClarificationRequestBase(BaseModel):
-    """Shared fields for an email clarification request."""
-
-    previous_priority: Priority
-    requested_priority: Priority
-    suggested_rule_name: str
-    suggested_rule_pattern: str
-    suggested_rule_field: str
-    suggested_rule_priority: Priority
-    suggestion_confidence: ConfidenceLevel
-    suggestion_reason: str
-    status: ClarificationStatus
-
-
-class EmailClarificationEmail(BaseModel):
-    """Minimal email details included in the clarification queue."""
-
-    id: int
-    sender: str
-    subject: str
-    snippet: str
-    priority: Priority
-    classification_confidence: ConfidenceLevel | None = None
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class EmailClarificationRequest(EmailClarificationRequestBase):
-    """Schema for a reviewable clarification item."""
-
-    id: int
-    email_id: int
-    applied_rule_id: int | None = None
-    email: EmailClarificationEmail
-    created_at: datetime
-    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 

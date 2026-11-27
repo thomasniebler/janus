@@ -33,7 +33,7 @@ An operator sets it up once:
 3. Add `<base_url>/api/connections/google/callback` as its redirect URI. `<base_url>` is `JANUS_BASE_URL`.
 4. Set `JANUS_GOOGLE_CLIENT_ID` and `JANUS_GOOGLE_CLIENT_SECRET`.
 
-Then each user clicks **Connect** on the Google card in Settings → Connections. Janus asks for Calendar, Tasks and full Gmail access (IMAP over XOAUTH2 has no narrower scope). After connecting, add the Gmail mailbox under Settings → Email Accounts, then restart Janus: mailboxes are picked up at start.
+Then each user clicks **Connect** on the Google card in Settings → Connections. Janus asks for Calendar, Tasks and full Gmail access (IMAP over XOAUTH2 has no narrower scope). After connecting, add the Gmail mailbox under Settings → Email Accounts; Janus starts reading it right away.
 
 ## Microsoft
 
@@ -45,7 +45,7 @@ Gives Janus your Outlook calendars and your Outlook / Microsoft 365 mail. Calend
 
 1. In the app registration, add a **Mobile and desktop** (public client) redirect URI of `<base_url>/api/connections/microsoft/callback`.
 2. Grant the delegated permissions `Calendars.Read.Shared` and `Mail.Read`.
-3. Each user clicks **Connect** on the Microsoft card in Settings → Connections. Then add the Outlook mailbox under Settings → Email Accounts and restart Janus.
+3. Each user clicks **Connect** on the Microsoft card in Settings → Connections. Then add the Outlook mailbox under Settings → Email Accounts; Janus starts reading it right away.
 
 ### Microsoft 365 for the agent (instance-wide)
 

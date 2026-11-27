@@ -56,7 +56,6 @@ _PENDING_KEY = "janus_domain_changes"
 MEMORY = "memory"
 TOPICS = "topics"
 RULES = "rules"
-EMAIL_CLARIFICATIONS = "email_clarifications"
 EMAILS = "emails"
 PLANNER = "planner"
 SKILLS = "skills"
@@ -74,7 +73,6 @@ DOMAINS: tuple[str, ...] = (
     MEMORY,
     TOPICS,
     RULES,
-    EMAIL_CLARIFICATIONS,
     EMAILS,
     PLANNER,
     SKILLS,
@@ -186,9 +184,7 @@ TRACKED_MODELS: dict[type, _Tracked] = {
     models.AgentMemoryCompactionRun: _Tracked(MEMORY),
     models.TrackedTopic: _Tracked(TOPICS),
     models.TopicEvidence: _Tracked(TOPICS, owner_attr=None, via=_TOPIC_EVIDENCE_OWNER),
-    models.TopicSuggestion: _Tracked(TOPICS),
     models.Rule: _Tracked(RULES),
-    models.EmailClarificationRequest: _Tracked(EMAIL_CLARIFICATIONS),
     models.EmailRecord: _Tracked(EMAILS, owner_attr=None, via=_email_account_owner("account_id", models.EmailRecord)),
     models.PlannerTask: _Tracked(PLANNER),
     models.PlannerEvent: _Tracked(PLANNER),

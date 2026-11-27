@@ -16,13 +16,14 @@ from janus.cli_update import update
 from janus.config import _SETTINGS_TEMPLATE, _normalize_allowed_origin, get_config_file_path, settings
 from janus.desktop.tray import create_tray_icon, set_tray_dashboard_url
 from janus.processor import validate_regex
+from janus.request_origin import browser_origins
 from janus.services import auth_service, update_boot
 from janus.services.database_copy_service import DatabaseCopyError, copy_database
 from janus.services.topic_service import TopicService
 from janus.startup import ensure_runtime_initialized
 from janus.worker_manager import worker_manager
 from janus.workers import update as update_worker
-from janus.workers.email import initial_sync_worker
+from janus.workers.email import start_mailbox_worker
 from janus.workers.errors import error_compaction_loop
 from janus.workers.planner import planner_sync_loop
 from janus.workers.whatsapp import start_account_connector
@@ -162,7 +163,7 @@ def _serve(host: str, port: int, tray: bool, server_mode: bool) -> None:
     try:
         accounts = db.query(models.EmailAccount).filter(models.EmailAccount.is_active).all()
         for account in accounts:
-            worker_manager.start(f"imap:{account.email}", initial_sync_worker, args=(account,))
+            start_mailbox_worker(account)
 
         whatsapp_accounts = db.query(models.WhatsAppAccount).filter(models.WhatsAppAccount.is_enabled.is_(True)).all()
         for whatsapp_account in whatsapp_accounts:
@@ -288,7 +289,7 @@ def list_rules():
 @planner_app.command("add")
 def add_planner(
     name: str,
-    provider: models.Provider,
+    provider: models.ConnectedPlannerProvider,
     token: str = typer.Option(..., prompt=True, hide_input=True),
     api_url: str | None = None,
 ):
@@ -521,13 +522,6 @@ def config_doctor():  # noqa: C901
     except ValueError:
         normalized_public_origin = raw_public_origin
 
-    if normalized_public_origin not in active_settings.allowed_origins:
-        errors_found.append(
-            f"The public server origin ({normalized_public_origin}) derived from base_url is not in allowed_origins. "
-            "CORS and WebSocket connections from the built-in dashboard will be rejected. "
-            f'Add it: allowed_origins = ["{normalized_public_origin}"]'
-        )
-
     bind_origin_host = (
         "localhost" if active_settings.host in ("0.0.0.0", "127.0.0.1", "::", "::1") else active_settings.host
     )
@@ -543,9 +537,8 @@ def config_doctor():  # noqa: C901
     except ValueError:
         normalized_bind_origin = raw_bind_origin
 
-    if (
-        normalized_bind_origin != normalized_public_origin
-        and normalized_bind_origin not in active_settings.allowed_origins
+    if normalized_bind_origin != normalized_public_origin and normalized_bind_origin not in browser_origins(
+        active_settings
     ):
         warnings_found.append(
             f"The bind-address origin ({normalized_bind_origin}) is not in allowed_origins. "

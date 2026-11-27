@@ -1,9 +1,11 @@
 """Email ingestion callbacks and IMAP worker helpers."""
 
 import logging
+import threading
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from janus import database, event_logger, graph_mail_service, imap_service, models, notifications, processor
@@ -11,6 +13,7 @@ from janus.services import oauth_connection_service
 from janus.services.email_service import EmailService
 from janus.services.topic_service import TopicService
 from janus.services.topic_text import strip_candidate_topics
+from janus.worker_manager import worker_manager
 
 logger = logging.getLogger("janus")
 
@@ -158,23 +161,89 @@ def email_callback(email_data: dict, monitor: Any = None):
         db.close()
 
 
-def initial_sync_worker(account: models.EmailAccount):
+def initial_sync_worker(account: models.EmailAccount, stop_event: threading.Event | None = None):
     """Perform initial sync then hand off to the IDLE loop, logging as the account's owner (JAN-272)."""
     with event_logger.owned_by(account.user_id):
-        _sync_and_idle(account)
+        _sync_and_idle(account, stop_event or threading.Event())
 
 
-def _sync_and_idle(account: models.EmailAccount) -> None:
+def _sync_and_idle(account: models.EmailAccount, stop_event: threading.Event) -> None:
     if account.auth_type == oauth_connection_service.MICROSOFT:
         # Outlook mail is read over Graph (no IMAP permission); the first poll is the initial sync.
         logger.info(f"Starting Outlook polling for {account.email}...")
-        graph_mail_service.GraphMailMonitor(account).poll_loop(email_callback)
+        graph_mail_service.GraphMailMonitor(account, stop_event=stop_event).poll_loop(email_callback)
         return
-    monitor = imap_service.IMAPMonitor(account)
+    monitor = imap_service.IMAPMonitor(account, stop_event=stop_event)
     logger.info(f"Starting background initial sync for {account.email}...")
     new_emails = monitor.fetch_since_uid(account.last_uid or 0)
     for email_data in new_emails:
+        if monitor.stopped:
+            return
         email_callback(email_data, monitor)
         monitor.update_last_uid(email_data["uid"])
     logger.info(f"Initial sync completed for {account.email} ({len(new_emails)} new).")
     monitor.idle_loop(email_callback)
+
+
+_ACCOUNT_COLUMNS = sa_inspect(models.EmailAccount).column_attrs
+
+# One stop signal per mailbox id, shared by the monitor thread and whoever stops it.
+_stop_events: dict[int, threading.Event] = {}
+_stop_events_lock = threading.Lock()
+
+
+def mailbox_worker_label(email_address: str) -> str:
+    """The worker_manager label of a mailbox's monitor thread."""
+    return f"imap:{email_address}"
+
+
+def start_mailbox_worker(account: models.EmailAccount) -> None:
+    """Start, or restart, the monitor thread of an active mailbox; an inactive one is left alone.
+
+    Called at ``janus start`` for every active mailbox and whenever one is added or switched on.
+    """
+    if not account.is_active:
+        return
+    # The thread gets its own copy of the row's columns: the caller's object belongs to a request session.
+    own = models.EmailAccount(**{column.key: getattr(account, column.key) for column in _ACCOUNT_COLUMNS})
+    stop_event = threading.Event()
+    with _stop_events_lock:
+        previous = _stop_events.get(account.id)
+        _stop_events[account.id] = stop_event
+    if previous is not None:
+        previous.set()
+    try:
+        worker_manager.start(mailbox_worker_label(own.email), initial_sync_worker, args=(own, stop_event))
+    except RuntimeError as exc:
+        # The previous monitor is still finishing a message. It stops on its own; start this one once it has.
+        logger.warning("Monitor for %s still busy, retrying in the background: %s", account.email, exc)
+        threading.Thread(
+            target=_retry_start, args=(own, stop_event), daemon=True, name=f"mailbox-retry:{own.email}"
+        ).start()
+
+
+def _is_current(account_id: int, stop_event: threading.Event) -> bool:
+    with _stop_events_lock:
+        return _stop_events.get(account_id) is stop_event and not stop_event.is_set()
+
+
+def _retry_start(account: models.EmailAccount, stop_event: threading.Event, interval: float = 1.0) -> None:
+    """Keep trying to start a refused monitor until it starts, or the mailbox changes or goes away."""
+    while not stop_event.wait(interval):
+        if not _is_current(account.id, stop_event):
+            return
+        try:
+            worker_manager.start(mailbox_worker_label(account.email), initial_sync_worker, args=(account, stop_event))
+        except RuntimeError:
+            continue
+        logger.info("Started the monitor for %s after the previous one finished.", account.email)
+        return
+
+
+def stop_mailbox_worker(account_id: int, email_address: str) -> None:
+    """Stop a mailbox's monitor thread (deleted or switched off) without waiting for it to finish."""
+    with _stop_events_lock:
+        stop_event = _stop_events.pop(account_id, None)
+    if stop_event is not None:
+        stop_event.set()
+    worker_manager.stop(mailbox_worker_label(email_address), timeout=0)

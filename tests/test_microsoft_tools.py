@@ -6,7 +6,9 @@ import pytest
 
 from janus import models, security
 from janus.agent_tools import DEFAULT_TOOL_REGISTRY, build_authorized_tool_set, build_tool_set
+from janus.capability_profile import user_connected_capabilities
 from janus.connectors.microsoft_graph import GraphError
+from janus.runtime_adapter import TASK_MODE_ALLOWED_TOOL_IDS, RuntimeAdapter
 from janus.services import microsoft_auth_service
 from janus.tool_policy import default_unattended_allowed
 from janus.tool_registry import ToolSelectionRequest
@@ -165,6 +167,48 @@ def test_authorization_grants_an_admin_and_still_needs_the_capability(db, connec
 
     assert [entry.id for entry in selection.entries] == ["microsoft.mail"]
     assert {tool.name for tool in tools} == {"microsoft_list_mail", "microsoft_get_mail"}
+
+
+def _chat_step(db, user, *, confirmed=frozenset()):
+    return RuntimeAdapter(db, user).prepare_step(
+        task_id="t",
+        objective="check my Outlook",
+        requested_tool_ids=ALL_IDS,
+        task_mode="chat",
+        granted_capabilities=user_connected_capabilities(db, user),
+        confirmed_tool_ids=confirmed,
+    )
+
+
+def test_chat_allowlists_every_microsoft_entry_and_system_pipelines_do_not():
+    """Chat offers the Microsoft toolboxes; briefing, digest and ingestion never do."""
+    assert set(ALL_IDS) <= TASK_MODE_ALLOWED_TOOL_IDS["chat"]
+    for mode in ("briefing", "digest", "ingestion"):
+        assert not (set(ALL_IDS) & TASK_MODE_ALLOWED_TOOL_IDS[mode]), mode
+
+
+def test_chat_step_gives_an_admin_the_reads_and_asks_before_sending(db, connected):
+    """In chat an admin gets the read tools at once; the send tools wait for approval."""
+    admin = _user(db, "owner", admin=True)
+
+    prepared = _chat_step(db, admin)
+    assert {tool.name for tool in prepared.tools} == ALL_TOOL_NAMES - {
+        "microsoft_send_mail",
+        "microsoft_send_teams_message",
+    }
+    assert set(prepared.awaiting_confirmation_tool_ids) == set(SEND_IDS)
+
+    approved = _chat_step(db, admin, confirmed=frozenset(SEND_IDS))
+    assert {tool.name for tool in approved.tools} == ALL_TOOL_NAMES
+
+
+def test_chat_step_gives_a_non_admin_nothing(db, connected):
+    """A non-admin gets no Microsoft tool in chat, even approved."""
+    other = _user(db, "colleague", admin=False)
+
+    prepared = _chat_step(db, other, confirmed=frozenset(SEND_IDS))
+    assert not ({tool.name for tool in prepared.tools} & ALL_TOOL_NAMES)
+    assert prepared.awaiting_confirmation_tool_ids == ()
 
 
 # --- tiers ----------------------------------------------------------------------------

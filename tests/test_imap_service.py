@@ -315,33 +315,6 @@ def test_fetch_latest_emails_orders_by_received_at_descending():
     assert [item["uid"] for item in results] == [1, 2, 3]
 
 
-def test_fetch_new_emails_includes_received_at_from_message_date():
-    """New-message polling should persist the source message timestamp."""
-
-    class FakeClient:
-        def search(self, criteria):
-            assert criteria == ["UNSEEN"]
-            return [3]
-
-        def fetch(self, message_ids, parts):
-            assert parts == [b"BODY.PEEK[]", b"INTERNALDATE"]
-            return {
-                3: {
-                    b"BODY[]": _message_bytes(3, date_header="Sat, 06 Apr 2024 09:15:00 +0200"),
-                    b"INTERNALDATE": datetime(2024, 4, 6, 8, 0, tzinfo=UTC),
-                }
-            }
-
-    account = models.EmailAccount(id=1, email="test@example.com", password="encrypted")
-    monitor = IMAPMonitor(account)
-    monitor.client = FakeClient()
-
-    results = monitor.fetch_new_emails()
-
-    assert len(results) == 1
-    assert results[0]["received_at"] == datetime(2024, 4, 6, 7, 15, tzinfo=UTC)
-
-
 def test_fetch_latest_emails_includes_received_at_from_message_date():
     """Import-style latest fetch should preserve the source Date header timestamp."""
 
@@ -483,7 +456,7 @@ def test_idle_loop_updates_last_uid_once_after_recovery_batch(monkeypatch):
     monitor.update_last_uid = MagicMock()
     monitor._write_heartbeat = MagicMock()
     callback = MagicMock()
-    monkeypatch.setattr(imap_service.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(monitor, "_pause", lambda _seconds: False)
 
     with pytest.raises(StopIdleLoop):
         monitor.idle_loop(callback)

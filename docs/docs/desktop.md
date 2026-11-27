@@ -34,17 +34,64 @@ The icon needs:
 Without either, Janus logs why and runs on without the icon. Server mode
 ignores `--tray`.
 
-On Wayland (Hyprland included), Janus uses pystray's AppIndicator backend,
-which needs more than the `desktop` extra installs:
+### Tray icon on Wayland
 
-- PyGObject in Janus's own Python environment, for example
-  `uv tool install "janus-assistant[desktop]" --with PyGObject` (it builds
-  against your system's GObject introspection and Cairo development files);
-- the GTK 3 and AppIndicator (or Ayatana AppIndicator) introspection data from
-  your distribution;
-- a tray in your bar, such as Waybar's `tray` module.
+On Wayland (Hyprland included), Janus uses pystray's AppIndicator backend. It
+needs two things the `desktop` extra does not install, because they come from
+your distribution:
 
-If any of these is missing, Janus logs a warning and runs without the icon.
+- **PyGObject** (the `gi` module), importable from Janus's own Python
+  environment;
+- the **GTK 3** and **Ayatana AppIndicator** libraries with their
+  introspection data.
+
+You also need a tray in your bar, such as Waybar's `tray` module. If anything
+is missing, Janus logs `Skipping Janus tray icon ...` with what to install and
+runs on without the icon.
+
+Install the system packages:
+
+| Distribution | Packages |
+| --- | --- |
+| Arch | `python-gobject gtk3 libayatana-appindicator` |
+| Debian, Ubuntu | `python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1` |
+| Fedora | `python3-gobject gtk3 libayatana-appindicator-gtk3` |
+
+The system PyGObject lives in the system Python's `site-packages`, which
+Janus's environment does not see. Make it visible in one of two ways.
+
+**Build PyGObject into Janus's environment** (works with any Python version,
+survives updates). Install the build files first (Arch: `gobject-introspection
+cairo pkgconf`; Debian/Ubuntu: `libgirepository-2.0-dev libcairo2-dev
+pkg-config python3-dev`; Fedora: `gobject-introspection-devel
+cairo-gobject-devel pkgconf-pkg-config python3-devel`), then:
+
+```bash
+uv tool install --force "janus-assistant[desktop]" --with PyGObject   # tool install
+uv pip install PyGObject                                              # git checkout
+```
+
+Janus's auto-update keeps packages added with `--with`. In a checkout, a plain
+`uv sync` removes PyGObject again; `uv sync --inexact` keeps it.
+
+**Use the system PyGObject.** Its `gi` module is compiled for the system
+Python, so Janus's environment must run on that same Python and include the
+system `site-packages`:
+
+```bash
+uv tool install --force --python /usr/bin/python3 "janus-assistant[desktop]"
+sed -i 's/^include-system-site-packages = false/include-system-site-packages = true/' \
+  "$(uv tool dir)/janus-assistant/pyvenv.cfg"
+```
+
+An auto-update reinstalls the tool and resets that line, so repeat the `sed`
+after each update, or build PyGObject in as above. A git checkout pins Python
+3.12 (`.python-version`), so this way works there only when the system Python
+is 3.12: `uv venv --system-site-packages --python /usr/bin/python3`, then
+`uv sync --extra desktop`.
+
+Check the result with the environment's own Python, for example
+`"$(uv tool dir)/janus-assistant/bin/python" -c "import gi"`.
 
 ## Desktop notifications
 

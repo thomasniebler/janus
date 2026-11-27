@@ -5,7 +5,7 @@ import pytest
 from janus.character import CharacterAdaptationProposal, CharacterConstitution, CharacterRuntime, CharacterTrait
 
 
-def _constitution(*, exploration_rate: float = 0.0) -> CharacterConstitution:
+def _constitution() -> CharacterConstitution:
     """Build a small constitution for character tests."""
     return CharacterConstitution(
         constitution_id="janus-default",
@@ -18,7 +18,6 @@ def _constitution(*, exploration_rate: float = 0.0) -> CharacterConstitution:
             CharacterTrait("initiative", 0.5, max_delta=0.1, description="willingness to act"),
             CharacterTrait("playfulness", 0.3, max_delta=0.2, description="lightness of expression"),
         ),
-        exploration_rate=exploration_rate,
     )
 
 
@@ -55,30 +54,6 @@ def test_brain_adaptation_is_bounded_and_cannot_add_unknown_authority():
         ("permissions", "unknown_dimension"),
         ("playfulness", "invalid_value"),
     ]
-
-
-def test_exploration_is_unpredictable_but_bounded_and_injectable():
-    """Self-directed variation can occur without escaping the character envelope."""
-    runtime = CharacterRuntime(_constitution(exploration_rate=1.0))
-    state = runtime.initial_state()
-    values = iter((0.1, 0.0, 0.9))
-
-    decision = runtime.explore(state, lambda: next(values))
-
-    assert decision.accepted_dimensions == ("initiative",)
-    assert dict(decision.state.trait_values)["initiative"] == 0.6
-    assert decision.state.adaptation_version == 1
-
-
-def test_exploration_can_decline_without_mutating_state():
-    """The exploration envelope can preserve the current character on a roll."""
-    runtime = CharacterRuntime(_constitution(exploration_rate=0.2))
-    state = runtime.initial_state()
-
-    decision = runtime.explore(state, lambda: 0.9)
-
-    assert decision.state == state
-    assert decision.accepted_dimensions == ()
 
 
 def test_character_state_must_match_its_constitution():

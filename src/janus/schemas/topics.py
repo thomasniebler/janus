@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, field_validator
 
 from janus import models
 
@@ -122,20 +122,3 @@ class TopicUpdate(BaseModel):
     def includes(self, field_name: str) -> bool:
         """Return whether the client explicitly provided a field."""
         return field_name in self.model_fields_set
-
-
-class TopicSuggestionResponse(BaseModel):
-    """Serialized topic suggestion."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    user_id: int
-    topic_id: int | None = None
-    suggestion_type: models.TopicSuggestionType
-    status: models.TopicSuggestionStatus
-    payload_json: str | None = None
-    reason: str
-    confidence: models.ConfidenceLevel
-    created_at: datetime
-    updated_at: datetime

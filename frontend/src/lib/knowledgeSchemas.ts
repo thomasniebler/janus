@@ -9,7 +9,6 @@ import { topicSummarySchema } from './schemas';
  * (`Parsed<T>`), so `tsc` proves each schema's output fits it.
  */
 
-const confidenceSchema = z.enum(['high', 'medium', 'low']);
 
 // --- Topics -----------------------------------------------------------------
 
@@ -25,21 +24,6 @@ const topicEvidenceSchema = z.looseObject({
 export const topicDetailSchema = topicSummarySchema.extend({
   evidence: z.array(topicEvidenceSchema),
 });
-
-export const topicSuggestionSchema = z.looseObject({
-  id: z.number().int(),
-  user_id: z.number().int(),
-  topic_id: z.number().int().nullable().optional(),
-  suggestion_type: z.enum(['rename', 'merge', 'pin', 'ignore_pattern', 'promote_pattern']),
-  status: z.enum(['pending', 'approved', 'dismissed']),
-  payload_json: z.string().nullable().optional(),
-  reason: z.string(),
-  confidence: confidenceSchema,
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-
-export const topicSuggestionListSchema = z.array(topicSuggestionSchema);
 
 // --- Memory -----------------------------------------------------------------
 

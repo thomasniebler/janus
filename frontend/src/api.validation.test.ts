@@ -62,23 +62,6 @@ const emailAccount = {
   is_active: true,
 };
 const rule = { id: 5, name: 'Boss', pattern: 'boss@', field: 'sender', priority: 'important', is_active: true, order: 0 };
-const clarification = {
-  id: 9,
-  email_id: 11,
-  applied_rule_id: null,
-  previous_priority: 'digest',
-  requested_priority: 'important',
-  suggested_rule_name: 'Messages from boss@example.com',
-  suggested_rule_pattern: '^boss@example\\.com$',
-  suggested_rule_field: 'sender',
-  suggested_rule_priority: 'important',
-  suggestion_confidence: 'high',
-  suggestion_reason: 'You corrected it.',
-  status: 'pending',
-  created_at: '2026-10-01T09:00:00',
-  updated_at: '2026-10-01T09:00:00',
-  email: { id: 11, sender: 'boss@example.com', subject: 'Q4', snippet: 'Numbers', priority: 'important' },
-};
 const email = {
   id: 11,
   message_id: '<m@x>',
@@ -173,7 +156,7 @@ describe('auth/session responses', () => {
   });
 });
 
-describe('email account, rule and clarification responses', () => {
+describe('email account and rule responses', () => {
   it('parses accounts, a saved account and a connection test', async () => {
     nextBody = [emailAccount];
     await expect(apiModule.emailApi.getAccounts()).resolves.toMatchObject({ data: [emailAccount] });
@@ -220,24 +203,6 @@ describe('email account, rule and clarification responses', () => {
     nextBody = { ...rule, priority: 'urgent' };
     await expectInvalid(() => apiModule.emailApi.updateRule(5, { order: 1 }), 'PATCH', '/api/emails/rules/5', [
       'priority',
-    ]);
-  });
-
-  it('parses clarifications and their approve/dismiss answers', async () => {
-    nextBody = [clarification];
-    await expect(apiModule.emailApi.listClarifications()).resolves.toMatchObject({ data: [clarification] });
-    nextBody = { ...clarification, status: 'approved', applied_rule_id: 5 };
-    await expect(apiModule.emailApi.approveClarification(9)).resolves.toMatchObject({
-      data: { status: 'approved', applied_rule_id: 5 },
-    });
-    nextBody = { ...clarification, status: 'dismissed' };
-    await expect(apiModule.emailApi.dismissClarification(9)).resolves.toMatchObject({ data: { status: 'dismissed' } });
-  });
-
-  it('rejects a clarification whose email is missing its sender', async () => {
-    nextBody = [{ ...clarification, email: { ...clarification.email, sender: null } }];
-    await expectInvalid(() => apiModule.emailApi.listClarifications(), 'GET', '/api/emails/clarifications', [
-      '0.email.sender',
     ]);
   });
 
@@ -344,18 +309,6 @@ const topic = {
   updated_at: '2026-10-02T09:00:00',
   evidence_count: 1,
 };
-const topicSuggestion = {
-  id: 4,
-  user_id: 1,
-  topic_id: 7,
-  suggestion_type: 'rename',
-  status: 'pending',
-  payload_json: '{"title":"Kitchen"}',
-  reason: 'Shorter',
-  confidence: 'medium',
-  created_at: '2026-10-01T09:00:00',
-  updated_at: '2026-10-01T09:00:00',
-};
 const fact = {
   id: 2,
   summary: 'Prefers mornings',
@@ -455,15 +408,11 @@ const synthesis = {
 };
 
 describe('topic, memory and conversation responses', () => {
-  it('parses topics, a topic detail and suggestions', async () => {
+  it('parses topics and a topic detail', async () => {
     nextBody = [topic];
     await expect(apiModule.topicApi.list()).resolves.toMatchObject({ data: [topic] });
     nextBody = { ...topic, evidence: [{ id: 1, source_type: 'email', source_id: 3, evidence_role: 'trigger', created_at: topic.created_at }] };
     await expect(apiModule.topicApi.get(7)).resolves.toMatchObject({ data: { evidence: [{ source_type: 'email' }] } });
-    nextBody = [topicSuggestion];
-    await expect(apiModule.topicApi.listSuggestions()).resolves.toMatchObject({ data: [topicSuggestion] });
-    nextBody = { ...topicSuggestion, status: 'approved' };
-    await expect(apiModule.topicApi.approveSuggestion(4)).resolves.toMatchObject({ data: { status: 'approved' } });
   });
 
   it('rejects a topic with an unknown status and evidence without its role', async () => {
@@ -690,7 +639,6 @@ const characterProfile = {
   core_values: ['privacy'],
   non_negotiables: ['no secrets'],
   traits: [{ name: 'warmth', baseline: 0.5, max_delta: 0.1, description: '' }],
-  exploration_rate: 0,
   additional_instructions: null,
   memory_instructions: null,
   created_at: null,

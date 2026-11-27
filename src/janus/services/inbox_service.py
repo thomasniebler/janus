@@ -12,7 +12,6 @@ short plain-text form (:func:`clean_text`) and documented as untrusted for every
 
 from __future__ import annotations
 
-import json
 import unicodedata
 from datetime import UTC, datetime
 from typing import Any
@@ -20,9 +19,7 @@ from typing import Any
 from janus import models
 from janus.schemas.inbox import InboxItem
 from janus.services.base import BaseService
-from janus.services.email_service import EmailService
 from janus.services.local_planner_service import LocalPlannerService
-from janus.services.topic_service import TopicService
 
 #: Items taken from each source, and the list's overall cap.
 PER_SOURCE_LIMIT = 20
@@ -35,8 +32,6 @@ SUMMARY_CHARS = 300
 ACTIONS: dict[str, tuple[str, ...]] = {
     "conversation": ("mark_read",),
     "planner_suggestion": ("dismiss",),
-    "topic_suggestion": ("dismiss",),
-    "email_clarification": ("dismiss",),
     "trigger_proposal": (),
 }
 
@@ -84,8 +79,6 @@ class InboxService(BaseService):
         items = [
             *self._conversations(user),
             *self._planner_suggestions(user),
-            *self._topic_suggestions(user),
-            *self._email_clarifications(user),
             *self._trigger_proposals(user),
         ]
         items.sort(key=lambda entry: (entry.created_at, entry.id), reverse=True)
@@ -104,20 +97,6 @@ class InboxService(BaseService):
         elif kind == "planner_suggestion":
             self._require_pending(models.PlannerSuggestion, item_id, user.id, models.PlannerSuggestionStatus.PENDING)
             if LocalPlannerService(self.db).dismiss_suggestion(user.id, item_id) is None:
-                raise InboxError("not found")
-        elif kind == "topic_suggestion":
-            self._require_pending(models.TopicSuggestion, item_id, user.id, models.TopicSuggestionStatus.PENDING)
-            try:
-                TopicService(self.db).update_suggestion_status(
-                    user_id=user.id, suggestion_id=item_id, status=models.TopicSuggestionStatus.DISMISSED
-                )
-            except ValueError as error:
-                raise InboxError("not found") from error
-        elif kind == "email_clarification":
-            self._require_pending(
-                models.EmailClarificationRequest, item_id, user.id, models.ClarificationStatus.PENDING
-            )
-            if EmailService(self.db).dismiss_clarification_request(item_id, user) is None:
                 raise InboxError("not found")
 
     def _require_pending(self, model: Any, item_id: int, user_id: int, pending: Any) -> None:
@@ -182,52 +161,6 @@ class InboxService(BaseService):
             for entry in suggestions
         ]
 
-    def _topic_suggestions(self, user: models.User) -> list[InboxItem]:
-        rows = TopicService(self.db).list_suggestions(user.id, status=models.TopicSuggestionStatus.PENDING)
-        items = []
-        for suggestion in rows[:PER_SOURCE_LIMIT]:
-            try:
-                payload = json.loads(suggestion.payload_json or "{}")
-            except ValueError:
-                payload = {}
-            name = payload.get("title") or payload.get("name") if isinstance(payload, dict) else None
-            kind_label = str(getattr(suggestion.suggestion_type, "value", suggestion.suggestion_type)).replace("_", " ")
-            items.append(
-                _item(
-                    "topic_suggestion",
-                    suggestion.id,
-                    f"Topic: {name}" if name else f"Topic suggestion ({kind_label})",
-                    suggestion.reason,
-                    suggestion.created_at,
-                    "/memory?tab=topics",
-                )
-            )
-        return items
-
-    def _email_clarifications(self, user: models.User) -> list[InboxItem]:
-        # Pending only, newest first, in the database: a poll must not load the owner's whole clarification history.
-        rows = (
-            self.db.query(models.EmailClarificationRequest)
-            .filter(
-                models.EmailClarificationRequest.user_id == user.id,
-                models.EmailClarificationRequest.status == models.ClarificationStatus.PENDING,
-            )
-            .order_by(models.EmailClarificationRequest.created_at.desc())
-            .limit(PER_SOURCE_LIMIT)
-            .all()
-        )
-        return [
-            _item(
-                "email_clarification",
-                row.id,
-                f"Rule suggestion: {row.suggested_rule_name}",
-                row.suggestion_reason,
-                row.created_at,
-                "/memory?tab=rules",
-            )
-            for row in rows
-        ]
-
     def _trigger_proposals(self, user: models.User) -> list[InboxItem]:
         rows = (
             self.db.query(models.TriggerDefinition)
@@ -246,7 +179,7 @@ class InboxService(BaseService):
                 f"Automation proposed: {row.name}",
                 row.objective,
                 row.created_at,
-                "/settings?tab=triggers",
+                "/settings?tab=runtime",
             )
             for row in rows
         ]

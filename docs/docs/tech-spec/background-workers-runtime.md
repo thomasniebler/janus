@@ -200,7 +200,7 @@ A failed plan raises after its state is persisted, so the row's status follows t
 
 **Automations.** From chat, `triggers.propose` (`agent_toolboxes/automation_proposals.py`) drafts definitions with `origin="agent"`, `proposal_status="proposed"`, `enabled=false`. `trigger_proposal_service.py` enforces the limits (5 open, 3 per day, 1 per turn, 4,000-character objective, 60-minute interval floor, proposable tools only, fingerprint dedupe including 30 days of rejections). Drafts are inert: the scheduler, `emit_event`, edits, run-now and delete skip or refuse them, and the runtime fails a run of a definition that is not `NULL` or `approved`. Only `POST /api/runtime/definitions/{id}/approve` (user session) writes the approval: `approved_by_user_id`, `approved_at` and `approval_fingerprint` (`trigger_approval.py`). A replacement draft names `supersedes_id`; approving it supersedes and disables the old one. Statuses: `proposed`, `approved`, `rejected`, `withdrawn`, `superseded`. The draft records which untrusted sources the turn read and whether it saw a suspected injection; the review card shows both.
 
-**Other proposal flows**, all approved by the user in the app: wiki edits (`wiki.propose`), character state changes (`character.propose`), planner suggestions (`planner.suggest`, the mail tools and the secretary), rule clarifications, topic suggestions, skill suggestions (`services/skill_proposer.py`, from repeated tool sequences) and knowledge-graph merge suggestions. The action inbox (`services/inbox_service.py`) lists what waits.
+**Other proposal flows**, all approved by the user in the app: wiki edits (`wiki.propose`), character state changes (`character.propose`), planner suggestions (`planner.suggest`, the mail tools and the secretary), skill suggestions (`services/skill_proposer.py`, from repeated tool sequences) and knowledge-graph merge suggestions. The action inbox (`services/inbox_service.py`) lists what waits.
 
 ## Built-in triggers
 
@@ -261,7 +261,7 @@ Categories: IMPORTANT (kept unread, may notify), DIGEST (marked read on the serv
 
 ## Planner sync and events
 
-The `planner` worker runs `PlannerService.sync_all` every 30 minutes over Google Calendar, Google Tasks, Microsoft Calendar and Jira connectors (`connectors/`); Azure DevOps and O365 are enum placeholders with no connector. Synced datetimes are stored as naive UTC. Each synced task and event is compared with its stored row; new and changed items emit `planner.*` events after the sync commits. An account's first (baseline) sync emits nothing; deletions emit nothing. Sync errors land in `last_sync_error`. Local tasks and events (`services/local_planner_service.py`) are the writable planner.
+The `planner` worker runs `PlannerService.sync_all` every 30 minutes over Google Calendar, Google Tasks, Microsoft Calendar and Jira connectors (`connectors/`); `models.CONNECTED_PLANNER_PROVIDERS` names these four; the enum keeps `ado` and `o365` only so old rows load, and the planner API and `janus planner add` refuse them. `capability_profile` maps calendar providers to the `calendar` capability and Jira to `jira`. Synced datetimes are stored as naive UTC. Each synced task and event is compared with its stored row; new and changed items emit `planner.*` events after the sync commits. An account's first (baseline) sync emits nothing; deletions emit nothing. Sync errors land in `last_sync_error`. Local tasks and events (`services/local_planner_service.py`) are the writable planner.
 
 ## Messaging connectors
 

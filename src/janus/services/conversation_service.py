@@ -27,7 +27,7 @@ MAX_JANUS_CONVERSATION_MESSAGE_CHARS = 4000
 #: scheme, a protocol-relative or ``www.`` link, or a Markdown image. The chat
 #: renders the opening message as Markdown, so an image would be fetched the
 #: moment the user opens it, and a link could carry data a run read out of
-#: Janus. App paths such as ``/settings?tab=triggers`` stay allowed.
+#: Janus. App paths such as ``/settings?tab=runtime`` stay allowed.
 #:
 #: This pattern runs on the *canonical* text (:func:`_canonical_text`), so a
 #: backslash escape (``https\://``) or an entity (``https&#58;//``) cannot

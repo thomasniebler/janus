@@ -18,7 +18,6 @@ import { getErrorMessage, getSetupSessionRefetchInterval, isPairingInProgress } 
 
 type EditForm = {
   display_name: string;
-  initial_history_days: number;
 };
 
 type FallbackForm = {
@@ -26,9 +25,8 @@ type FallbackForm = {
   session_database_path: string;
 };
 
-const emptyDraft: Required<Pick<WhatsAppSetupSessionCreate, 'display_name' | 'initial_history_days'>> = {
+const emptyDraft: Required<Pick<WhatsAppSetupSessionCreate, 'display_name'>> = {
   display_name: '',
-  initial_history_days: 3,
 };
 
 const emptyFallback: FallbackForm = {
@@ -89,10 +87,7 @@ export const WhatsAppAccountManager: React.FC = () => {
 
   const openEditModal = (account: WhatsAppAccount) => {
     setEditingAccountId(account.id);
-    setEditForm({
-      display_name: account.display_name,
-      initial_history_days: account.initial_history_days,
-    });
+    setEditForm({ display_name: account.display_name });
   };
 
   const createSetupSessionMutation = useMutation({
@@ -212,7 +207,6 @@ export const WhatsAppAccountManager: React.FC = () => {
   const beginSetup = (account?: WhatsAppAccount | null) => {
     const payload: WhatsAppSetupSessionCreate = {
       display_name: draft.display_name.trim() || account?.display_name || 'WhatsApp',
-      initial_history_days: draft.initial_history_days,
       account_id: account?.id ?? reconnectAccount?.id ?? null,
     };
     createSetupSessionMutation.mutate(payload);
@@ -273,8 +267,8 @@ export const WhatsAppAccountManager: React.FC = () => {
             <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
               <h3 className="font-bold">{currentAccountContext ? `Reconnect ${currentAccountContext.display_name}` : 'Intro + prerequisites'}</h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Janus stores WhatsApp session material locally and encrypted at rest. The initial sync stays bounded to
-                a recent history window instead of importing the full archive.
+                Janus stores WhatsApp session material locally and encrypted at rest. After pairing, Janus imports the
+                message history WhatsApp sends once; how much that is depends on WhatsApp.
               </p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <Input
@@ -282,19 +276,6 @@ export const WhatsAppAccountManager: React.FC = () => {
                   value={draft.display_name}
                   onChange={(event) => setDraft((current) => ({ ...current, display_name: event.target.value }))}
                   placeholder={currentAccountContext?.display_name ?? 'Personal WhatsApp'}
-                />
-                <Input
-                  label="Initial History Days"
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={draft.initial_history_days}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      initial_history_days: Number.parseInt(event.target.value, 10) || 3,
-                    }))
-                  }
                 />
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
@@ -474,7 +455,7 @@ export const WhatsAppAccountManager: React.FC = () => {
                     <div>
                       <h3 className="font-bold">{account.display_name}</h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {account.provider} · {account.connection_status} · initial sync {account.initial_history_days} day(s)
+                        {account.provider} · {account.connection_status}
                       </p>
                       {account.last_synced_at ? (
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Last synced {formatServerDateTime(account.last_synced_at)}</p>
@@ -490,10 +471,7 @@ export const WhatsAppAccountManager: React.FC = () => {
                       size="sm"
                       onClick={() => {
                         setReconnectAccount(account);
-                        setDraft({
-                          display_name: account.display_name,
-                          initial_history_days: account.initial_history_days,
-                        });
+                        setDraft({ display_name: account.display_name });
                         setSetupSessionId(null);
                       }}
                     >
@@ -571,20 +549,6 @@ export const WhatsAppAccountManager: React.FC = () => {
             value={editForm.display_name}
             onChange={(event) => setEditForm((current) => ({ ...current, display_name: event.target.value }))}
             placeholder="Personal WhatsApp"
-          />
-          <Input
-            label="Initial History Days"
-            type="number"
-            required
-            min={1}
-            max={30}
-            value={editForm.initial_history_days}
-            onChange={(event) =>
-              setEditForm((current) => ({
-                ...current,
-                initial_history_days: Number.parseInt(event.target.value, 10) || 3,
-              }))
-            }
           />
           <div className="flex gap-3">
             <Button type="submit" className="flex-1" isLoading={updateMutation.isPending}>

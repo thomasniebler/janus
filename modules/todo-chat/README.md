@@ -2,8 +2,9 @@
 
 Todo Chat is an optional Tauri 2 + React desktop companion for a Janus server,
 local or remote. It is deliberately a Janus module: Janus remains the source
-of truth for tasks, conversations, authentication, and agent execution. The
-companion does not create a second task database.
+of truth for tasks, conversations, authentication, and chat. The companion
+does not create a second task database. User-facing docs live in
+`docs/docs/desktop.md` (Todo Chat companion).
 
 ## Prerequisites
 
@@ -55,15 +56,15 @@ in Janus's `allowed_origins` setting.
 2. Launch Todo Chat.
 3. Enter the Janus base URL, your Janus username, and password.
 4. Click **Connect**.
-5. Pick an agent by name from the **Chat** header when you are ready to chat.
-   Authentication never requires an agent. The companion remembers your
-   selected chat agent, and switching agents starts a new conversation.
+5. In the **Chat** pane, pick **New conversation** or an existing conversation
+   from the **Conversation** list. Chat always speaks as your Janus character;
+   there is no agent to choose.
 
-Enable `planner_task_read_access` on the selected agent for read-only local-task
-chat. Enable both `planner_task_read_access` and `planner_task_write_access` for
-chat-driven task creation, editing, completion, reparenting, and reordering.
-The sidebar's direct task list and task controls use the authenticated Janus
-user's local-task API and do not require a selected chat agent.
+In chat, Janus reads your local tasks through the `planner.local` toolbox and
+changes them through `planner.local.write`, which asks for your approval in
+chat (see *Read local planner* and *Change local planner* in
+`docs/docs/tools.md`). The sidebar's task list and task controls call the
+authenticated user's local-task API directly and do not depend on chat.
 
 ## Build and install the desktop binary
 
@@ -147,9 +148,8 @@ without stopping the process.
 - **GTK/WebKit build errors:** install the Ubuntu/Debian packages in
   [Prerequisites](#prerequisites), then rerun the build.
 - **Login succeeds but tasks are empty:** confirm the account has Janus-owned
-  local tasks and that Janus is serving the local task tree endpoint. The
-  selected agent's `planner_task_read_access` controls chat tools; it does not
-  control the sidebar task list.
+  local tasks and that Janus is serving the local task tree endpoint. Tasks
+  imported from Google or Jira are not shown.
 - **The window does not appear:** check `systemctl --user status todo-chat`
   and send `todo-chat --toggle` once more; the resident process intentionally
   starts hidden.

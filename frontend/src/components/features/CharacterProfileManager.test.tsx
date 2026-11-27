@@ -19,7 +19,6 @@ const profile = {
   core_values: ['Be useful'],
   non_negotiables: ['Be honest'],
   traits: [],
-  exploration_rate: 0,
 };
 
 const renderManager = () => {

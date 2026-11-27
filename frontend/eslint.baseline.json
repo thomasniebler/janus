@@ -43,9 +43,8 @@
     "max-lines-per-function": 208
   },
   "src/components/features/SkillManager.tsx": {
-    "complexity": 26,
-    "max-lines": 472,
-    "max-lines-per-function": 446
+    "complexity": 24,
+    "max-lines-per-function": 358
   },
   "src/components/features/TopicManager.tsx": {
     "complexity": 29,

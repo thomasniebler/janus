@@ -25,7 +25,6 @@ export const EmailPriorityActions: React.FC<EmailPriorityActionsProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails-list'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['email-clarifications'] });
     },
   });
 

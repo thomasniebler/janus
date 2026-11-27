@@ -23,7 +23,6 @@ import { useOpenProposalCount } from '../components/features/triggers/triggerPro
 import { SkillManager } from '../components/features/SkillManager';
 import { AdditionalModelSettings } from '../components/features/AdditionalModelSettings';
 import { ToolIntegrationSettings } from '../components/features/ToolIntegrationSettings';
-import { Card } from '../components/ui/Card';
 import { useTabbedPageContext } from '../hooks/pageContextSections';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { googleOAuthErrorMessage } from '../lib/googleOAuthErrors';
@@ -340,7 +339,7 @@ const Settings: React.FC = () => {
             {activeTab === 'skills' && (
               <div className="animate-in slide-in-from-right-4 duration-300">
                 <ErrorBoundary title="Skill management crashed">
-                  <SkillManager />
+                  <SkillManager isAdmin={isAdmin} />
                 </ErrorBoundary>
               </div>
             )}
@@ -376,19 +375,6 @@ const Settings: React.FC = () => {
                 <LLMConfig isAdmin={isAdmin} />
                 <AdditionalModelSettings />
 
-                <Card className="bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30 p-6">
-                  <h3 className="text-red-600 dark:text-red-400 font-bold flex items-center gap-2 mb-2">
-                    <Bot size={18} />
-                    Privacy & Security
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Janus runs locally on your machine. All email processing and AI inference happens without your data ever leaving your system (unless using OpenAI).
-                  </p>
-                  <div className="flex gap-4">
-                    <button className="text-xs font-bold text-red-600 dark:text-red-400 underline hover:no-underline">Reset All Data</button>
-                    <button className="text-xs font-bold text-red-600 dark:text-red-400 underline hover:no-underline">Export Local Database</button>
-                  </div>
-                </Card>
               </div>
             )}
           </section>

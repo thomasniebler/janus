@@ -1,5 +1,9 @@
 """API router for agent skills and agent-skill attachments.
 
+The skill library is instance-wide and rendered into every user's prompt, so
+reads are open to signed-in users while create, update, delete and import are
+admin-only.
+
 Legacy per-conversation agent model (compatibility path, JAN-169 cleanup
 pending); superseded by /api/character and /api/runtime/triggers for the
 plan-driven runtime (JAN-157).
@@ -86,7 +90,7 @@ def discover_skills(
 def import_skill(
     body: skill_schemas.SkillImportRequest,
     db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
+    user: models.User = Depends(security.admin_required),
 ):
     """Imports a skill from the GitHub-backed community catalog into local persisted skills."""
     del user
@@ -191,7 +195,7 @@ def get_skill(
 def create_skill(
     body: skill_schemas.SkillCreate,
     db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
+    user: models.User = Depends(security.admin_required),
 ):
     """Creates a new skill."""
     existing = db.query(models.AgentSkill).filter(models.AgentSkill.name == body.name).first()
@@ -218,7 +222,7 @@ def update_skill(
     skill_id: int,
     body: skill_schemas.SkillUpdate,
     db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
+    user: models.User = Depends(security.admin_required),
 ):
     """Updates a skill."""
     skill = db.get(models.AgentSkill, skill_id)
@@ -245,7 +249,7 @@ def update_skill(
 def delete_skill(
     skill_id: int,
     db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
+    user: models.User = Depends(security.admin_required),
 ):
     """Deletes a skill from the library."""
     skill = db.get(models.AgentSkill, skill_id)

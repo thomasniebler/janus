@@ -6,8 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from asgi_client import SyncASGIClient
-from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm.attributes import NO_VALUE
+from fastapi.routing import APIRoute, APIWebSocketRoute
 
 from janus import config, database, llm_service, models, security, status_service, time_utils
 from janus.api import dashboard as dashboard_api
@@ -16,7 +15,6 @@ from janus.api import linear as linear_api
 from janus.api import memory as memory_api
 from janus.app_factory import create_fastapi_app
 from janus.services import auth_service
-from janus.services.email_service import EmailService
 from janus.whatsapp_neonize import NeonizePairingCapability
 
 # db and client fixtures are provided by conftest.py
@@ -232,6 +230,38 @@ def test_openapi_docs_can_be_enabled_explicitly(client, monkeypatch):
     assert response.status_code == 200
     assert "swagger-ui" in response.text
     assert "/openapi.json" in response.text
+
+
+def test_cors_allows_the_base_url_origin_without_listing_it(client, monkeypatch):
+    """The dashboard served from base_url passes CORS even when allowed_origins only lists the dev server."""
+    monkeypatch.setattr(config.settings, "allowed_origins", ["http://localhost:5173"])
+    monkeypatch.setattr(config.settings, "base_url", "http://testserver:8080")
+    monkeypatch.setattr(config.settings, "allowed_hosts", ["testserver"])
+    preflight = {"access-control-request-method": "GET"}
+
+    with SyncASGIClient(create_fastapi_app()) as cors_client:
+        allowed = cors_client.request(
+            "OPTIONS", "/api/status", headers={**preflight, "origin": "http://testserver:8080"}
+        )
+        rejected = cors_client.request(
+            "OPTIONS", "/api/status", headers={**preflight, "origin": "http://testserver:9090"}
+        )
+
+    assert allowed.headers.get("access-control-allow-origin") == "http://testserver:8080"
+    assert "access-control-allow-origin" not in rejected.headers
+
+
+def test_no_route_is_registered_twice():
+    """Every path and method pair maps to exactly one route."""
+    seen: dict[tuple[str, str], int] = {}
+    for route in create_fastapi_app().routes:
+        if not isinstance(route, APIRoute | APIWebSocketRoute):
+            continue
+        for method in getattr(route, "methods", None) or {"WEBSOCKET"}:
+            key = (route.path, method)
+            seen[key] = seen.get(key, 0) + 1
+
+    assert {key: count for key, count in seen.items() if count > 1} == {}
 
 
 def test_unexpected_host_headers_are_rejected(client, monkeypatch):
@@ -775,6 +805,26 @@ def test_whatsapp_setup_session_lifecycle_endpoints(auth_client, db, monkeypatch
     assert accounts.status_code == 200
     assert len(accounts.json()) == 1
     assert accounts.json()[0]["session_configured"] is True
+
+
+def test_whatsapp_setup_session_without_history_days(auth_client, db, monkeypatch):
+    """The setup UI no longer sends ``initial_history_days``; the API must not require it (old clients may)."""
+    monkeypatch.setattr(
+        "janus.whatsapp_neonize.NeonizeAdapter.get_pairing_capability",
+        lambda self: NeonizePairingCapability(supported=False, message="Live pairing unavailable here."),
+    )
+
+    response = auth_client.post("/api/whatsapp/setup-sessions", json={"display_name": "Phone"})
+    assert response.status_code == 200
+    session = db.get(models.WhatsAppSetupSession, response.json()["id"])
+    assert session is not None
+    assert session.initial_history_days == 3
+
+    legacy = auth_client.post(
+        "/api/whatsapp/setup-sessions",
+        json={"display_name": "Phone", "initial_history_days": 9},
+    )
+    assert legacy.status_code == 200
 
 
 def test_whatsapp_setup_session_rejects_cross_user_access(auth_client, db):
@@ -1427,9 +1477,8 @@ def test_email_priority_update(auth_client, db, monkeypatch):
     assert rules_response.json()[0]["pattern"] == "^someone@else\\.com$"
     assert rules_response.json()[0]["priority"] == "important"
 
-    clarifications_response = auth_client.get("/api/emails/clarifications")
-    assert clarifications_response.status_code == 200
-    assert clarifications_response.json() == []
+    assert db.query(models.EmailClarificationRequest).count() == 0
+    assert auth_client.get("/api/emails/clarifications").status_code == 404
 
     # 3. Update to SPAM
     response = auth_client.patch(f"/api/emails/{email.id}/priority?priority=spam")
@@ -1545,68 +1594,6 @@ def test_email_priority_update_reuses_same_pattern_rule_on_recorrection(auth_cli
     assert len(matching_rules) == 1
     assert matching_rules[0].priority == models.Priority.IGNORE
     assert matching_rules[0].is_active is True
-
-
-def test_list_clarification_requests_eager_loads_email_relation(auth_client, db):
-    """Clarification queue queries should preload related emails for serialization."""
-    user = db.query(models.User).filter(models.User.username == "admin").one()
-    account = models.EmailAccount(name="Queue Test", email="queue@test.com", password="hash", user_id=user.id)
-    db.add(account)
-    db.flush()
-
-    first_email = models.EmailRecord(
-        account_id=account.id,
-        message_id="clarification-1",
-        subject="One",
-        sender="first@test.com",
-        snippet="First snippet",
-        priority=models.Priority.DIGEST,
-    )
-    second_email = models.EmailRecord(
-        account_id=account.id,
-        message_id="clarification-2",
-        subject="Two",
-        sender="second@test.com",
-        snippet="Second snippet",
-        priority=models.Priority.SPAM,
-    )
-    db.add_all([first_email, second_email])
-    db.flush()
-
-    db.add_all(
-        [
-            models.EmailClarificationRequest(
-                user_id=user.id,
-                email_id=first_email.id,
-                previous_priority=models.Priority.DIGEST,
-                requested_priority=models.Priority.IMPORTANT,
-                suggested_rule_name="Messages from first@test.com",
-                suggested_rule_pattern="^first@test\\.com$",
-                suggested_rule_field="sender",
-                suggested_rule_priority=models.Priority.IMPORTANT,
-                suggestion_confidence=models.ConfidenceLevel.HIGH,
-                suggestion_reason="High confidence sender match.",
-            ),
-            models.EmailClarificationRequest(
-                user_id=user.id,
-                email_id=second_email.id,
-                previous_priority=models.Priority.SPAM,
-                requested_priority=models.Priority.IGNORE,
-                suggested_rule_name="Messages from second@test.com",
-                suggested_rule_pattern="^second@test\\.com$",
-                suggested_rule_field="sender",
-                suggested_rule_priority=models.Priority.IGNORE,
-                suggestion_confidence=models.ConfidenceLevel.MEDIUM,
-                suggestion_reason="Medium confidence sender match.",
-            ),
-        ]
-    )
-    db.commit()
-
-    clarifications = EmailService(db).list_clarification_requests(user)
-
-    assert {clarification.email.subject for clarification in clarifications} == {"One", "Two"}
-    assert all(sa_inspect(clarification).attrs.email.loaded_value is not NO_VALUE for clarification in clarifications)
 
 
 # --- Planner Tests ---
@@ -2957,18 +2944,7 @@ def test_topic_api_list_detail_update_and_suggestions(auth_client, db):
             evidence_role=models.TopicEvidenceRole.TRIGGER,
         )
     )
-    suggestion = models.TopicSuggestion(
-        user_id=user.id,
-        topic_id=topic.id,
-        suggestion_type=models.TopicSuggestionType.PIN,
-        status=models.TopicSuggestionStatus.PENDING,
-        payload_json='{"pinned": true}',
-        reason="This topic keeps resurfacing in important emails.",
-        confidence=models.ConfidenceLevel.HIGH,
-    )
-    db.add(suggestion)
     db.commit()
-    db.refresh(suggestion)
 
     response = auth_client.get("/api/topics/")
     assert response.status_code == 200
@@ -2985,14 +2961,6 @@ def test_topic_api_list_detail_update_and_suggestions(auth_client, db):
     assert response.status_code == 200
     assert response.json()["pinned"] is True
     assert response.json()["status"] == "resolved"
-
-    response = auth_client.get("/api/topics/suggestions?status=pending")
-    assert response.status_code == 200
-    assert response.json()[0]["suggestion_type"] == "pin"
-
-    response = auth_client.post(f"/api/topics/suggestions/{suggestion.id}/approve")
-    assert response.status_code == 200
-    assert response.json()["status"] == "approved"
 
 
 def test_topic_delete_removes_topic_and_evidence(auth_client, db):

@@ -266,6 +266,23 @@ def test_show_includes_public_surface_hardening_settings(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+def test_settings_template_names_every_unprefixed_environment_variable(tmp_path, monkeypatch):
+    """The template header lists exactly the settings whose environment variable has no JANUS_ prefix."""
+    from janus.config import _SETTINGS_TEMPLATE
+
+    header = _SETTINGS_TEMPLATE.split("\n\n", 1)[0]
+    unprefixed = {name for name, field in Settings.model_fields.items() if field.validation_alias is None}
+
+    assert "Keys map to JANUS_* environment variables." not in header
+    assert unprefixed == {"database_url", "host", "port", "allowed_origins", "algorithm", "access_token_expire_minutes"}
+    for name in unprefixed:
+        assert name.upper() in header
+    monkeypatch.setenv("JANUS_SECRET_KEY", "env-secret")
+    monkeypatch.setenv("PORT", "9123")
+    with patch.object(Settings, "_toml_config_file", tmp_path / "missing.toml"):
+        assert Settings(_env_file=None).port == 9123
+
+
 def test_config_init_creates_file(tmp_path, monkeypatch):
     """``janus config init`` writes a template file when none exists."""
     from typer.testing import CliRunner
