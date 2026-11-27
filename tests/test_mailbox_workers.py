@@ -184,3 +184,55 @@ def test_start_survives_a_previous_monitor_that_has_not_finished(mailbox_workers
     monkeypatch.setattr(mailbox_workers, "start", refuse)
 
     email_worker.start_mailbox_worker(models.EmailAccount(id=5, email="busy@example.com", is_active=True))
+
+
+def test_refused_start_retries_with_the_new_settings(mailbox_workers, monkeypatch):
+    """Once the previous monitor exits, the replacement starts with the new snapshot and stop event."""
+    real_start = mailbox_workers.start
+    refusals = iter([True, True, False])
+    started = threading.Event()
+
+    def busy_then_free(label, target, args=(), restart_policy=True):
+        if next(refusals):
+            raise RuntimeError("did not stop")
+        real_start(label, target, args, restart_policy)
+        started.set()
+
+    monkeypatch.setattr(mailbox_workers, "start", busy_then_free)
+    monkeypatch.setattr(email_worker, "_retry_start", _fast_retry)
+
+    email_worker.start_mailbox_worker(models.EmailAccount(id=6, email="new@example.com", is_active=True))
+
+    assert started.wait(5)
+    (label, (account, stop_event)) = mailbox_workers.started[-1]
+    assert label == "imap:new@example.com"
+    assert account.email == "new@example.com"
+    assert email_worker._stop_events[6] is stop_event
+    assert not stop_event.is_set()
+
+
+def test_refused_start_gives_up_once_the_mailbox_is_stopped(mailbox_workers, monkeypatch):
+    """A retry never starts a monitor for a mailbox that was switched off or replaced meanwhile."""
+
+    def refuse(*args, **kwargs):
+        raise RuntimeError("did not stop")
+
+    monkeypatch.setattr(mailbox_workers, "start", refuse)
+    account = models.EmailAccount(id=7, email="gone@example.com", is_active=True)
+    stop_event = threading.Event()
+    email_worker._stop_events[7] = stop_event
+    email_worker.stop_mailbox_worker(7, "gone@example.com")
+
+    retry = threading.Thread(target=email_worker._retry_start, args=(account, stop_event, 0.01))
+    retry.start()
+    retry.join(timeout=2)
+
+    assert not retry.is_alive()
+    assert mailbox_workers.started == []
+
+
+_real_retry_start = email_worker._retry_start
+
+
+def _fast_retry(account, stop_event, interval=0.01):
+    _real_retry_start(account, stop_event, interval)

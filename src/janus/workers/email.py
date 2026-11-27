@@ -215,8 +215,29 @@ def start_mailbox_worker(account: models.EmailAccount) -> None:
     try:
         worker_manager.start(mailbox_worker_label(own.email), initial_sync_worker, args=(own, stop_event))
     except RuntimeError as exc:
-        # The previous monitor is still finishing a message; it stops on its own, but this one could not start.
-        logger.warning("Could not start the monitor for %s: %s", account.email, exc)
+        # The previous monitor is still finishing a message. It stops on its own; start this one once it has.
+        logger.warning("Monitor for %s still busy, retrying in the background: %s", account.email, exc)
+        threading.Thread(
+            target=_retry_start, args=(own, stop_event), daemon=True, name=f"mailbox-retry:{own.email}"
+        ).start()
+
+
+def _is_current(account_id: int, stop_event: threading.Event) -> bool:
+    with _stop_events_lock:
+        return _stop_events.get(account_id) is stop_event and not stop_event.is_set()
+
+
+def _retry_start(account: models.EmailAccount, stop_event: threading.Event, interval: float = 1.0) -> None:
+    """Keep trying to start a refused monitor until it starts, or the mailbox changes or goes away."""
+    while not stop_event.wait(interval):
+        if not _is_current(account.id, stop_event):
+            return
+        try:
+            worker_manager.start(mailbox_worker_label(account.email), initial_sync_worker, args=(account, stop_event))
+        except RuntimeError:
+            continue
+        logger.info("Started the monitor for %s after the previous one finished.", account.email)
+        return
 
 
 def stop_mailbox_worker(account_id: int, email_address: str) -> None:
