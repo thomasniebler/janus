@@ -1,9 +1,8 @@
-"""Classification-rule and relabel-learning tools for Janus agents.
+"""Classification-rule tools for Janus agents.
 
 These tools are deliberate thin wrappers over the same ``EmailService``
-methods the human-facing ``/api/emails/rules`` and
-``/api/emails/clarifications`` endpoints call, so an agent-authored rule and a
-UI-authored rule stay byte-for-byte equivalent. Pattern validation reuses
+methods the human-facing ``/api/emails/rules`` endpoints call, so an
+agent-authored rule and a UI-authored rule stay byte-for-byte equivalent. Pattern validation reuses
 ``processor.validate_regex`` for the same reason.
 """
 
@@ -14,7 +13,7 @@ from typing import Any
 from langchain_core.tools import BaseTool, tool
 
 from janus import models, processor
-from janus.agent_toolboxes.shared import ToolContext, iso, parse_priority, run_isolated_tool_mutation
+from janus.agent_toolboxes.shared import ToolContext, parse_priority, run_isolated_tool_mutation
 from janus.services.email_service import EmailService
 
 #: The email fields ``EmailProcessor._evaluate_rules`` can match a rule against.
@@ -52,31 +51,10 @@ def _serialize_rule(rule: models.Rule) -> dict[str, Any]:
     }
 
 
-def _serialize_clarification(clarification: models.EmailClarificationRequest) -> dict[str, Any]:
-    """Return a tool-friendly payload for a learned rule suggestion."""
-    return {
-        "id": clarification.id,
-        "status": clarification.status.value,
-        "email_id": clarification.email_id,
-        "previous_priority": clarification.previous_priority.value,
-        "requested_priority": clarification.requested_priority.value,
-        "suggested_rule_name": clarification.suggested_rule_name,
-        "suggested_rule_pattern": clarification.suggested_rule_pattern,
-        "suggested_rule_field": clarification.suggested_rule_field,
-        "suggested_rule_priority": clarification.suggested_rule_priority.value,
-        "suggestion_confidence": clarification.suggestion_confidence.value,
-        "suggestion_reason": clarification.suggestion_reason,
-        "applied_rule_id": clarification.applied_rule_id,
-        "created_at": iso(clarification.created_at),
-        "updated_at": iso(clarification.updated_at),
-    }
-
-
-def build_rule_tools(context: ToolContext) -> list[BaseTool]:  # noqa: C901
-    """Build rule CRUD plus relabel-learning suggestion review tools."""
+def build_rule_tools(context: ToolContext) -> list[BaseTool]:
+    """Build the rule CRUD tools."""
     service = EmailService(context.db)
-    user = context.user
-    user_id = user.id
+    user_id = context.user.id
 
     def _isolated_user(isolated: EmailService) -> models.User:
         """Re-resolve the authenticated user inside a mutation's own session."""
@@ -156,48 +134,9 @@ def build_rule_tools(context: ToolContext) -> list[BaseTool]:  # noqa: C901
 
         return run_isolated_tool_mutation(context, EmailService, apply)
 
-    @tool("list_pending_rule_suggestions")
-    def list_pending_rule_suggestions(include_resolved: bool = False, limit: int = 25) -> list[dict[str, Any]]:
-        """List rule suggestions learned from the user's manual relabels."""
-        if limit <= 0:
-            return []
-        requests = service.list_clarification_requests(user)
-        if not include_resolved:
-            requests = [request for request in requests if request.status == models.ClarificationStatus.PENDING]
-        return [_serialize_clarification(request) for request in requests[:limit]]
-
-    @tool("approve_rule_suggestion")
-    def approve_rule_suggestion(suggestion_id: int) -> dict[str, Any]:
-        """Approve a learned rule suggestion and create its classification rule."""
-
-        def apply(isolated: EmailService) -> dict[str, Any]:
-            """Delegate to the same service call the approve endpoint uses."""
-            clarification = isolated.approve_clarification_request(suggestion_id, _isolated_user(isolated))
-            if clarification is None:
-                raise ValueError(f"rule suggestion {suggestion_id} not found")
-            return _serialize_clarification(clarification)
-
-        return run_isolated_tool_mutation(context, EmailService, apply)
-
-    @tool("dismiss_rule_suggestion")
-    def dismiss_rule_suggestion(suggestion_id: int) -> dict[str, Any]:
-        """Dismiss a learned rule suggestion without creating a rule."""
-
-        def apply(isolated: EmailService) -> dict[str, Any]:
-            """Delegate to the same service call the dismiss endpoint uses."""
-            clarification = isolated.dismiss_clarification_request(suggestion_id, _isolated_user(isolated))
-            if clarification is None:
-                raise ValueError(f"rule suggestion {suggestion_id} not found")
-            return _serialize_clarification(clarification)
-
-        return run_isolated_tool_mutation(context, EmailService, apply)
-
     return [
         list_mail_rules,
         create_mail_rule,
         update_mail_rule,
         delete_mail_rule,
-        list_pending_rule_suggestions,
-        approve_rule_suggestion,
-        dismiss_rule_suggestion,
     ]

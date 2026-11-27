@@ -31,7 +31,6 @@ class CharacterProfilePayload(BaseModel):
     core_values: list[str] = Field(min_length=1, max_length=12)
     non_negotiables: list[str] = Field(min_length=1, max_length=12)
     traits: list[CharacterTrait] = Field(default_factory=list, max_length=20)
-    exploration_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     #: Free-text instructions appended to the rendered constitution (JAN-230).
     additional_instructions: str | None = Field(default=None, max_length=10000)
     #: Replaces the built-in rules for which chat facts get remembered (JAN-230).

@@ -288,7 +288,7 @@ def list_rules():
 @planner_app.command("add")
 def add_planner(
     name: str,
-    provider: models.Provider,
+    provider: models.ConnectedPlannerProvider,
     token: str = typer.Option(..., prompt=True, hide_input=True),
     api_url: str | None = None,
 ):

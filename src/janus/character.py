@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Literal
 
@@ -58,12 +57,11 @@ class CharacterConstitution:
     core_values: tuple[str, ...]
     non_negotiables: tuple[str, ...]
     traits: tuple[CharacterTrait, ...]
-    exploration_rate: float = 0.0
     #: Operator-written free text appended after the structured rules.
     additional_instructions: str = ""
 
     def __post_init__(self) -> None:
-        """Validate stable identity, trait uniqueness, and exploration bounds."""
+        """Validate stable identity and trait uniqueness."""
         if not self.constitution_id.strip():
             raise ValueError("constitution_id must not be blank")
         if self.version < 1:
@@ -76,8 +74,6 @@ class CharacterConstitution:
             raise ValueError("character values and non-negotiables must not be blank")
         if len({trait.name for trait in self.traits}) != len(self.traits):
             raise ValueError("character trait names must be unique")
-        if not 0.0 <= self.exploration_rate <= 1.0:
-            raise ValueError("exploration_rate must be between 0 and 1")
 
     def render_system_prompt(self, state: CharacterState | None = None) -> str:
         """Render stable character rules plus bounded adaptive tendencies."""
@@ -168,7 +164,7 @@ def _render_adaptive_state(state: CharacterState | None) -> str:
     return f"## Current adaptive state\n{body}\n\n"
 
 
-AdaptationSource = Literal["brain", "exploration"]
+AdaptationSource = Literal["brain"]
 
 
 @dataclass(frozen=True)
@@ -208,7 +204,7 @@ class CharacterAdaptationDecision:
 
 
 class CharacterRuntime:
-    """Apply bounded character adaptations and optional controlled exploration."""
+    """Apply bounded character adaptations."""
 
     def __init__(self, constitution: CharacterConstitution) -> None:
         """Create an adapter for one immutable constitution."""
@@ -253,42 +249,12 @@ class CharacterRuntime:
             )
         return CharacterAdaptationDecision(next_state, tuple(accepted), tuple(denials))
 
-    def explore(self, state: CharacterState, random_source: Callable[[], float]) -> CharacterAdaptationDecision:
-        """Optionally make one bounded, self-directed style change.
-
-        The injected source makes this behavior testable and auditable. The
-        constitution controls the exploration rate and every resulting change
-        still passes through the same bounded adaptation path.
-        """
-        self._require_state(state)
-        chance = self._random_value(random_source)
-        if chance >= self.constitution.exploration_rate or not self._traits:
-            return CharacterAdaptationDecision(state)
-        dimension_roll = self._random_value(random_source)
-        direction_roll = self._random_value(random_source)
-        trait_names = tuple(self._traits)
-        dimension = trait_names[min(int(dimension_roll * len(trait_names)), len(trait_names) - 1)]
-        current = dict(state.trait_values)[dimension]
-        trait = self._traits[dimension]
-        target = current + (trait.max_delta if direction_roll >= 0.5 else -trait.max_delta)
-        proposal = CharacterAdaptationProposal(
-            ((dimension, max(0.0, min(1.0, target))),), "bounded self-directed exploration", "exploration"
-        )
-        return self.apply(state, proposal)
-
     def _require_state(self, state: CharacterState) -> None:
         if (
             state.constitution_id != self.constitution.constitution_id
             or state.constitution_version != self.constitution.version
         ):
             raise ValueError("character state does not match constitution")
-
-    @staticmethod
-    def _random_value(random_source: Callable[[], float]) -> float:
-        value = random_source()
-        if not 0.0 <= value < 1.0:
-            raise ValueError("character exploration source must return values in [0, 1)")
-        return value
 
 
 __all__ = [

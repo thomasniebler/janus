@@ -33,6 +33,7 @@ class CharacterProfile(database.Base):
     core_values = Column(JSON, nullable=False, default=list)
     non_negotiables = Column(JSON, nullable=False, default=list)
     traits = Column(JSON, nullable=False, default=list)
+    # Kept for existing databases; nothing reads it (no character exploration).
     exploration_rate = Column(Float, nullable=False, default=0.0, server_default="0")
     #: Free-text instructions appended to the rendered constitution (JAN-230).
     additional_instructions = Column(Text, nullable=True)

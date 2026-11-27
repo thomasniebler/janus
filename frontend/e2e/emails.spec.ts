@@ -150,11 +150,9 @@ test.describe.serial('Emails page with seeded mail', () => {
     await page.reload();
     await expect(item(page, 'lunch').getByText('ignore', { exact: true })).toBeVisible();
 
-    // Since JAN-74 a manual correction becomes an active rule right away, shown under
-    // Memory -> Rules, and queues no clarification item of its own.
+    // A manual correction becomes an active rule right away, shown under Memory -> Rules.
     await page.goto('/memory?tab=rules');
     await expect(page.getByRole('heading', { name: 'Messages from colleague@e2e.example' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'E2E Lunch on Friday' })).toHaveCount(0);
   });
 
   test('re-classifies an email straight from the list; spam leaves the inbox', async ({ page }) => {
@@ -168,41 +166,6 @@ test.describe.serial('Emails page with seeded mail', () => {
     await expect(page).toHaveURL(/\/emails$/);
     await filterButton(page, 'spam').click();
     await expect(listedSubjects(page)).toHaveText(['E2E Weekly newsletter', 'E2E You won a prize']);
-  });
-
-  test('approves and dismisses clarification items', async ({ page }) => {
-    await page.goto('/memory?tab=rules');
-    await expect(page.getByRole('heading', { name: 'Clarify misunderstandings' })).toBeVisible();
-
-    const boardCard = cardOf(page.getByRole('heading', { name: 'E2E Board meeting moved to Monday' }));
-    const prizeCard = cardOf(page.getByRole('heading', { name: 'E2E You won a prize' }));
-    await expect(boardCard.getByText('Messages from ceo@e2e.example')).toBeVisible();
-    await expect(boardCard.getByText('high confidence')).toBeVisible();
-    await expect(prizeCard.getByText('Messages from prize@e2e-spam.example')).toBeVisible();
-    // Nothing is applied before the user decides.
-    await expect(page.getByRole('heading', { name: 'Messages from ceo@e2e.example' })).toHaveCount(0);
-
-    await boardCard.getByRole('button', { name: 'Approve rule' }).click();
-    await expect(page.getByRole('heading', { name: 'E2E Board meeting moved to Monday' })).toHaveCount(0);
-    const approvedRule = page.getByRole('heading', { name: 'Messages from ceo@e2e.example' });
-    await expect(approvedRule).toBeVisible();
-    await expect(cardOf(approvedRule).getByText('digest', { exact: true })).toBeVisible();
-
-    await prizeCard.getByRole('button', { name: 'Dismiss' }).click();
-    await expect(page.getByRole('heading', { name: 'E2E You won a prize' })).toHaveCount(0);
-    await expect(page.getByText(/No pending clarifications/)).toBeVisible();
-
-    await page.reload();
-    await expect(page.getByText(/No pending clarifications/)).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Messages from ceo@e2e.example' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Messages from prize@e2e-spam.example' })).toHaveCount(0);
-
-    const clarifications: { id: number; status: string }[] = await (
-      await page.request.get('/api/emails/clarifications')
-    ).json();
-    const statusById = Object.fromEntries(clarifications.map((c) => [c.id, c.status]));
-    expect(statusById[seeded.clarifications.board]).toBe('approved');
-    expect(statusById[seeded.clarifications.prize]).toBe('dismissed');
   });
 });
 

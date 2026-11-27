@@ -81,8 +81,7 @@ TASK_MODE_ALLOWED_TOOL_IDS: dict[str, frozenset[str]] = {
             "github",
             "linear",
             "web_search",
-            # One explicit web page (JAN-329); confirmation="required", so each call is approved.
-            "web_fetch",
+            "web_fetch",  # One explicit web page (JAN-329); confirmation="required", so each call is approved.
             "memory",
             "topics",
             "knowledge",
@@ -96,23 +95,23 @@ TASK_MODE_ALLOWED_TOOL_IDS: dict[str, frozenset[str]] = {
             "rules.write",
             "delegation",
             "skills",
-            # Read-only, first-party documentation (JAN-297).
-            "docs",
-            # Page actions (JAN-251): client-side only, chat only (also in LOCKED_UNATTENDED).
-            "ui_actions",
-            # Generative UI blocks (JAN-252): display only, chat only (also in LOCKED_UNATTENDED).
-            "ui_blocks",
-            # Cloud image generation (JAN-253): chat only (also in LOCKED_UNATTENDED).
-            "images",
-            # UI introspection (JAN-284): reads the user's open page, chat only (also in LOCKED_UNATTENDED).
-            "ui_introspection",
-            # Self-evolution loop (JAN-320): asks before each call in chat; unattended per its own switch.
-            "self_evolution",
+            "docs",  # Read-only, first-party documentation (JAN-297).
+            "ui_actions",  # Page actions (JAN-251): client-side only, chat only (also in LOCKED_UNATTENDED).
+            "ui_blocks",  # Generative UI blocks (JAN-252): display only, chat only (also in LOCKED_UNATTENDED).
+            "images",  # Cloud image generation (JAN-253): chat only (also in LOCKED_UNATTENDED).
+            "ui_introspection",  # Reads the user's open page (JAN-284), chat only (also in LOCKED_UNATTENDED).
+            "self_evolution",  # Self-evolution loop (JAN-320): asks per call in chat; unattended per its own switch.
             # Adaptive character state (JAN-301): read it; propose changes in chat only (LOCKED_UNATTENDED).
             "character",
             "character.propose",
             "shell",  # Shell commands (JAN-353): operator opt-in, admins only, each call approved in chat.
             "coding_agents",  # Local coding-agent CLIs (JAN-403): operator opt-in, admins only, approved per call.
+            "microsoft.mail",  # Microsoft 365 and Azure: admins only, once connected; sends ask in chat.
+            "microsoft.calendar",
+            "microsoft.teams",
+            "microsoft.mail.send",
+            "microsoft.teams.send",
+            "azure.resources",
         }
     ),
     "briefing": frozenset({"core", "calendar", "jira", "dashboard", "topics", "knowledge", "wiki"}),

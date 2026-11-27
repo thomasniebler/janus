@@ -378,7 +378,6 @@ export const characterProfileSchema = z.looseObject({
   traits: z.array(
     z.looseObject({ name: z.string(), baseline: z.number(), max_delta: z.number(), description: z.string() })
   ),
-  exploration_rate: z.number(),
   additional_instructions: z.string().nullable().optional(),
   memory_instructions: z.string().nullable().optional(),
   created_at: z.string().nullable().optional(),

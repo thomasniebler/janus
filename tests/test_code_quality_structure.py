@@ -37,14 +37,14 @@ SERVICE_MODULE_BUDGET_EXCEPTIONS = {
     # that replaced router-level ownership checks (JAN-137), then from 680 for
     # the owner-scoped email query/outgoing-account resolver (JAN-286) and the
     # per-owner correction-rule scope (JAN-287).
-    "src/janus/services/email_service.py": 701,
+    "src/janus/services/email_service.py": 580,
     "src/janus/services/local_planner_service.py": 981,
     # Raised from 638 for the bearer token hooks (JAN-342; see mcp_static_token.py and mcp_status.py),
     # then to 652 for storing discovered tool annotations (JAN-343; see mcp_metadata.py).
     "src/janus/services/mcp_service.py": 651,
     # JAN-232 record_email_topic for the mail.received tools, plus manual topic
     # deletion (delete_topic) from main.
-    "src/janus/services/topic_service.py": 995,
+    "src/janus/services/topic_service.py": 962,
     # Raised from 500 for install kinds, release wheels (named after the janus-assistant
     # distribution) and the update state directory of uv tool / pipx installs (JAN-398, JAN-400);
     # their install and rollback live in update_tool_install.py. 544 for downloads that land

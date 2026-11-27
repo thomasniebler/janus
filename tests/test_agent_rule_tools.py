@@ -48,46 +48,6 @@ def _rule_tools(db, user):
     return {tool.name: tool for tool in build_tool_set(db, user)}
 
 
-def _make_clarification(db, user, account, *, sender: str, message_id: str) -> models.EmailClarificationRequest:
-    """Persist a pending learned rule suggestion for the given sender."""
-    email = models.EmailRecord(
-        account_id=account.id,
-        message_id=message_id,
-        subject="Subject",
-        sender=sender,
-        snippet="Snippet",
-        priority=models.Priority.DIGEST,
-    )
-    db.add(email)
-    db.flush()
-    clarification = models.EmailClarificationRequest(
-        user_id=user.id,
-        email_id=email.id,
-        previous_priority=models.Priority.DIGEST,
-        requested_priority=models.Priority.IMPORTANT,
-        suggested_rule_name=f"Messages from {sender}",
-        suggested_rule_pattern=f"^{sender.replace('.', chr(92) + '.')}$",
-        suggested_rule_field="sender",
-        suggested_rule_priority=models.Priority.IMPORTANT,
-        suggestion_confidence=models.ConfidenceLevel.HIGH,
-        suggestion_reason="High confidence sender match.",
-    )
-    db.add(clarification)
-    db.commit()
-    db.refresh(clarification)
-    return clarification
-
-
-def _rule_shape(rule: models.Rule) -> dict:
-    """Return the identity-independent shape of a rule row."""
-    return {
-        "name": rule.name,
-        "field": rule.field,
-        "priority": rule.priority,
-        "is_active": rule.is_active,
-    }
-
-
 def test_rule_tools_require_a_connected_mailbox(db, user):
     """The rules toolbox is only built once the user has an active email account."""
     assert "create_mail_rule" not in {tool.name for tool in build_tool_set(db, user)}
@@ -186,89 +146,9 @@ def test_update_mail_rule_requires_a_changed_field(db, user):
         tools["update_mail_rule"].invoke({"rule_id": rule["id"]})
 
 
-def test_list_pending_rule_suggestions_returns_only_pending_by_default(db, user, auth_client):
-    """The suggestion queue read is scoped to items still awaiting review."""
-    account = _make_account(db, user)
-    pending = _make_clarification(db, user, account, sender="pending@test.com", message_id="pending-1")
-    dismissed = _make_clarification(db, user, account, sender="dismissed@test.com", message_id="dismissed-1")
-    assert auth_client.post(f"/api/emails/clarifications/{dismissed.id}/dismiss").status_code == 200
-    db.expire_all()  # The REST write committed in the API's own session.
+def test_rule_toolboxes_offer_no_suggestion_review_tools(db, user):
+    """Nothing produces rule suggestions any more, so no tool lists, approves or dismisses one."""
+    names = set(_rule_tools(db, user))
 
-    tools = _rule_tools(db, user)
-    listed = tools["list_pending_rule_suggestions"].invoke({})
-    assert [item["id"] for item in listed] == [pending.id]
-    assert listed[0]["suggestion_confidence"] == "high"
-    assert listed[0]["suggestion_reason"] == "High confidence sender match."
-
-    all_ids = {item["id"] for item in tools["list_pending_rule_suggestions"].invoke({"include_resolved": True})}
-    assert all_ids == {pending.id, dismissed.id}
-
-
-def test_approve_rule_suggestion_matches_the_rest_endpoint_side_effects(db, user, auth_client):
-    """Approving through the tool and through the API produce the same side effects."""
-    account = _make_account(db, user)
-    via_api = _make_clarification(db, user, account, sender="api@test.com", message_id="api-1")
-    via_tool = _make_clarification(db, user, account, sender="tool@test.com", message_id="tool-1")
-
-    assert auth_client.post(f"/api/emails/clarifications/{via_api.id}/approve").status_code == 200
-    approved = _rule_tools(db, user)["approve_rule_suggestion"].invoke({"suggestion_id": via_tool.id})
-
-    db.expire_all()
-    for clarification in (via_api, via_tool):
-        db.refresh(clarification)
-        assert clarification.status == models.ClarificationStatus.APPROVED
-        assert clarification.applied_rule_id is not None
-
-    assert approved["status"] == "approved"
-    assert approved["applied_rule_id"] == via_tool.applied_rule_id
-
-    api_rule = db.get(models.Rule, via_api.applied_rule_id)
-    tool_rule = db.get(models.Rule, via_tool.applied_rule_id)
-    assert _rule_shape(api_rule) == {
-        "name": "Messages from api@test.com",
-        "field": "sender",
-        "priority": models.Priority.IMPORTANT,
-        "is_active": True,
-    }
-    assert _rule_shape(tool_rule) == {**_rule_shape(api_rule), "name": "Messages from tool@test.com"}
-    assert tool_rule.pattern == via_tool.suggested_rule_pattern
-    assert tool_rule.user_id == user.id
-
-
-def test_dismiss_rule_suggestion_matches_the_rest_endpoint_side_effects(db, user, auth_client):
-    """Dismissing through the tool and through the API produce the same side effects."""
-    account = _make_account(db, user)
-    via_api = _make_clarification(db, user, account, sender="api@test.com", message_id="api-1")
-    via_tool = _make_clarification(db, user, account, sender="tool@test.com", message_id="tool-1")
-
-    assert auth_client.post(f"/api/emails/clarifications/{via_api.id}/dismiss").status_code == 200
-    dismissed = _rule_tools(db, user)["dismiss_rule_suggestion"].invoke({"suggestion_id": via_tool.id})
-
-    db.expire_all()
-    for clarification in (via_api, via_tool):
-        db.refresh(clarification)
-        assert clarification.status == models.ClarificationStatus.DISMISSED
-        assert clarification.applied_rule_id is None
-
-    assert dismissed["status"] == "dismissed"
-    assert db.query(models.Rule).count() == 0
-
-
-def test_suggestion_actions_are_scoped_to_the_owning_user(db, user, auth_client):
-    """Another user's suggestion is invisible and unactionable."""
-    account = _make_account(db, user)
-    other = models.User(username="other", hashed_password=security.security_service.get_password_hash("other"))
-    db.add(other)
-    db.commit()
-    foreign = _make_clarification(db, other, account, sender="foreign@test.com", message_id="foreign-1")
-
-    tools = _rule_tools(db, user)
-    assert tools["list_pending_rule_suggestions"].invoke({}) == []
-    with pytest.raises(ValueError, match="not found"):
-        tools["approve_rule_suggestion"].invoke({"suggestion_id": foreign.id})
-    with pytest.raises(ValueError, match="not found"):
-        tools["dismiss_rule_suggestion"].invoke({"suggestion_id": foreign.id})
-
-    db.refresh(foreign)
-    assert foreign.status == models.ClarificationStatus.PENDING
-    assert db.query(models.Rule).count() == 0
+    assert {"list_mail_rules", "create_mail_rule", "update_mail_rule", "delete_mail_rule"} <= names
+    assert not names & {"list_pending_rule_suggestions", "approve_rule_suggestion", "dismiss_rule_suggestion"}

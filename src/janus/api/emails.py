@@ -109,44 +109,6 @@ async def get_rules(db: Session = Depends(database.get_db), user: models.User = 
     return service.get_rules(user_id=user.id)
 
 
-@router.get("/clarifications", response_model=list[email_schemas.EmailClarificationRequest])
-async def list_clarifications(
-    db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
-):
-    """Returns pending and recent clarification items for manual email corrections."""
-    service = email_service.EmailService(db)
-    return service.list_clarification_requests(user)
-
-
-@router.post("/clarifications/{clarification_id}/approve", response_model=email_schemas.EmailClarificationRequest)
-async def approve_clarification(
-    clarification_id: int,
-    db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
-):
-    """Approves a clarification and creates the suggested rule."""
-    service = email_service.EmailService(db)
-    clarification = service.approve_clarification_request(clarification_id, user)
-    if clarification is None:
-        raise HTTPException(status_code=404, detail="Clarification request not found")
-    return clarification
-
-
-@router.post("/clarifications/{clarification_id}/dismiss", response_model=email_schemas.EmailClarificationRequest)
-async def dismiss_clarification(
-    clarification_id: int,
-    db: Session = Depends(database.get_db),
-    user: models.User = Depends(security.get_current_user),
-):
-    """Dismisses a clarification without creating a rule."""
-    service = email_service.EmailService(db)
-    clarification = service.dismiss_clarification_request(clarification_id, user)
-    if clarification is None:
-        raise HTTPException(status_code=404, detail="Clarification request not found")
-    return clarification
-
-
 @router.get("/notifications/preferences", response_model=email_schemas.NotificationPreference)
 async def get_notification_preferences(
     db: Session = Depends(database.get_db),

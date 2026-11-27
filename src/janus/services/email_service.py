@@ -7,7 +7,7 @@ from email.message import EmailMessage
 from typing import Any
 
 from sqlalchemy import false, inspect
-from sqlalchemy.orm import Query, selectinload
+from sqlalchemy.orm import Query
 
 from janus import event_logger, llm_service, models, planner_service, security
 from janus.services.base import BaseService
@@ -172,127 +172,6 @@ class EmailService(BaseService):
         self.db.add(new_rule)
         self.db.flush()
         return new_rule
-
-    def _queue_clarification_request(
-        self,
-        email: models.EmailRecord,
-        previous_priority: models.Priority,
-        requested_priority: models.Priority,
-        user: models.User,
-    ) -> None:
-        """Stores a pending clarification item for a manual email correction."""
-        suggestion = self._build_rule_suggestion(email, requested_priority)
-        if self._find_matching_rules(suggestion, user):
-            return
-
-        existing_request = (
-            self.db.query(models.EmailClarificationRequest)
-            .filter(
-                models.EmailClarificationRequest.user_id == user.id,
-                models.EmailClarificationRequest.email_id == email.id,
-                models.EmailClarificationRequest.requested_priority == requested_priority,
-                models.EmailClarificationRequest.status == models.ClarificationStatus.PENDING,
-            )
-            .first()
-        )
-        if existing_request is not None:
-            existing_request.previous_priority = previous_priority
-            existing_request.suggested_rule_name = suggestion["suggested_rule_name"]
-            existing_request.suggested_rule_pattern = suggestion["suggested_rule_pattern"]
-            existing_request.suggested_rule_field = suggestion["suggested_rule_field"]
-            existing_request.suggested_rule_priority = suggestion["suggested_rule_priority"]
-            existing_request.suggestion_confidence = suggestion["suggestion_confidence"]
-            existing_request.suggestion_reason = suggestion["suggestion_reason"]
-            return
-
-        self.db.add(
-            models.EmailClarificationRequest(
-                user_id=user.id,
-                email_id=email.id,
-                previous_priority=previous_priority,
-                requested_priority=requested_priority,
-                **suggestion,
-            )
-        )
-
-    def list_clarification_requests(self, user: models.User) -> list[models.EmailClarificationRequest]:
-        """Returns clarification items for the authenticated user."""
-        return (
-            self.db.query(models.EmailClarificationRequest)
-            .options(selectinload(models.EmailClarificationRequest.email))
-            .filter(models.EmailClarificationRequest.user_id == user.id)
-            .order_by(
-                models.EmailClarificationRequest.status.asc(),
-                models.EmailClarificationRequest.updated_at.desc(),
-            )
-            .all()
-        )
-
-    def approve_clarification_request(
-        self,
-        clarification_id: int,
-        user: models.User,
-    ) -> models.EmailClarificationRequest | None:
-        """Approves a clarification item and creates its suggested rule."""
-        clarification = (
-            self.db.query(models.EmailClarificationRequest)
-            .filter(
-                models.EmailClarificationRequest.id == clarification_id,
-                models.EmailClarificationRequest.user_id == user.id,
-            )
-            .first()
-        )
-        if clarification is None:
-            return None
-
-        suggestion = {
-            "suggested_rule_name": clarification.suggested_rule_name,
-            "suggested_rule_field": clarification.suggested_rule_field,
-            "suggested_rule_pattern": clarification.suggested_rule_pattern,
-            "suggested_rule_priority": clarification.suggested_rule_priority,
-        }
-        matching_rules = self._find_matching_rules(suggestion, user)
-        if matching_rules:
-            existing_rule = self._apply_suggestion_to_matching_rules(matching_rules, suggestion, user)
-        else:
-            existing_rule = models.Rule(
-                name=clarification.suggested_rule_name,
-                pattern=clarification.suggested_rule_pattern,
-                field=clarification.suggested_rule_field,
-                priority=clarification.suggested_rule_priority,
-                order=self._next_rule_order(user),
-                user_id=user.id,
-            )
-            self.db.add(existing_rule)
-            self.db.flush()
-
-        clarification.status = models.ClarificationStatus.APPROVED
-        clarification.applied_rule_id = existing_rule.id
-        self.db.commit()
-        self.db.refresh(clarification)
-        return clarification
-
-    def dismiss_clarification_request(
-        self,
-        clarification_id: int,
-        user: models.User,
-    ) -> models.EmailClarificationRequest | None:
-        """Dismisses a clarification item without creating a rule."""
-        clarification = (
-            self.db.query(models.EmailClarificationRequest)
-            .filter(
-                models.EmailClarificationRequest.id == clarification_id,
-                models.EmailClarificationRequest.user_id == user.id,
-            )
-            .first()
-        )
-        if clarification is None:
-            return None
-
-        clarification.status = models.ClarificationStatus.DISMISSED
-        self.db.commit()
-        self.db.refresh(clarification)
-        return clarification
 
     def get_accounts(self, user_id: int) -> list[models.EmailAccount]:
         """Returns the email accounts owned by ``user_id``."""

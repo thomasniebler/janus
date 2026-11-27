@@ -75,9 +75,7 @@ You can **pin** a topic to keep it visible. A pinned topic also gets a wiki page
 
 Each topic lists the evidence behind it: emails, reminders, calendar events, tasks and memory facts. Open a topic on the Topics tab to see why it exists.
 
-### Suggestions and preferences
-
-The Topics tab shows pending topic suggestions (rename, merge, pin, ignore pattern, promote pattern). You approve or dismiss them there or in the [action inbox](inbox.md). Janus does not generate these suggestions on its own yet.
+### Preferences
 
 Topic tracking follows per-user preferences. They have no settings page yet, so the defaults apply:
 
@@ -198,7 +196,6 @@ The character profile is Janus's constitution. It is rendered into every system 
 | Values and boundaries | Core values and non-negotiables, one per line |
 | Additional instructions | Free text appended to the constitution |
 | Memory instructions | Replaces the built-in rules for which chat facts get remembered |
-| Bounded exploration | A rate for exploring adaptive tendencies; it has no visible effect today |
 
 **Prompt preview** shows the rendered system prompt and the effective memory rules before you save.
 

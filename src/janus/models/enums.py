@@ -23,9 +23,24 @@ class Provider(enum.Enum):
     GOOGLE_CALENDAR = "google_calendar"
     GOOGLE_TASKS = "google_tasks"
     MICROSOFT_CALENDAR = "microsoft_calendar"
+    # O365 and ADO have no connector. They stay in the stored enum so existing rows still load,
+    # but Janus no longer offers them (see CONNECTED_PLANNER_PROVIDERS).
     O365 = "o365"
     JIRA = "jira"
     ADO = "ado"
+
+
+class ConnectedPlannerProvider(enum.Enum):
+    """Planner providers with a sync connector (``PlannerService.get_connector``), offered by ``planner add``."""
+
+    GOOGLE_CALENDAR = Provider.GOOGLE_CALENDAR.value
+    GOOGLE_TASKS = Provider.GOOGLE_TASKS.value
+    MICROSOFT_CALENDAR = Provider.MICROSOFT_CALENDAR.value
+    JIRA = Provider.JIRA.value
+
+
+#: The same set as stored ``Provider`` values: the only ones a new planner account may use.
+CONNECTED_PLANNER_PROVIDERS = frozenset(Provider(provider.value) for provider in ConnectedPlannerProvider)
 
 
 class LLMProvider(enum.Enum):

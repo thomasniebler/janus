@@ -31,10 +31,12 @@ from janus.services.self_evolution_service import is_enabled as self_evolution_e
 from janus.services.web_search_service import is_web_search_configured
 
 #: Planner-account providers that back the "calendar" tool capability.
-CALENDAR_PROVIDERS = frozenset({models.Provider.GOOGLE_CALENDAR, models.Provider.GOOGLE_TASKS, models.Provider.O365})
+CALENDAR_PROVIDERS = frozenset(
+    {models.Provider.GOOGLE_CALENDAR, models.Provider.GOOGLE_TASKS, models.Provider.MICROSOFT_CALENDAR}
+)
 
 #: Planner-account providers that back the "jira" (task-tracker) tool capability.
-TASK_PROVIDERS = frozenset({models.Provider.JIRA, models.Provider.ADO})
+TASK_PROVIDERS = frozenset({models.Provider.JIRA})
 
 #: Capabilities every user has regardless of connection state: either
 #: Janus-owned local data/tools with no third-party integration to be

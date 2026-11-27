@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { topicApi } from '../../api';
 import { neverResolving, withApiOverride, withQueryData } from '../../test/storybookQueryClient';
 import { TopicManager } from './TopicManager';
-import type { TopicDetail, TopicSuggestion, TopicSummary } from '../../types';
+import type { TopicDetail, TopicSummary } from '../../types';
 
 const hiringPipeline: TopicSummary = {
   id: 1,
@@ -58,20 +58,6 @@ const watchingTopic: TopicSummary = {
 
 const topics: TopicSummary[] = [hiringPipeline, homeBlog];
 
-const suggestions: TopicSuggestion[] = [
-  {
-    id: 1,
-    user_id: 1,
-    topic_id: 2,
-    suggestion_type: 'rename',
-    status: 'pending',
-    reason: 'Recent mail suggests "Home blog" should be renamed to "Personal site redesign".',
-    confidence: 'medium',
-    created_at: '2026-09-24T00:00:00Z',
-    updated_at: '2026-09-24T00:00:00Z',
-  },
-];
-
 const hiringDetail: TopicDetail = {
   ...hiringPipeline,
   evidence: [
@@ -97,12 +83,10 @@ const manualDetail: TopicDetail = { ...homeBlog, evidence: [] };
 const seed =
   (options: {
     topics?: TopicSummary[];
-    suggestions?: TopicSuggestion[];
     selected?: { id: number; detail: TopicDetail };
   }) =>
   (queryClient: QueryClient) => {
     queryClient.setQueryData(['topics', '', 'active'], options.topics ?? topics);
-    queryClient.setQueryData(['topic-suggestions', 'pending'], options.suggestions ?? []);
     if (options.selected) {
       queryClient.setQueryData(['topic-detail', options.selected.id], options.selected.detail);
     }
@@ -126,10 +110,6 @@ type Story = StoryObj<typeof meta>;
 
 export const ActiveTopics: Story = {
   decorators: [withQueryData(seed({}))],
-};
-
-export const WithPendingSuggestions: Story = {
-  decorators: [withQueryData(seed({ suggestions }))],
 };
 
 export const NoTopicsYet: Story = {
