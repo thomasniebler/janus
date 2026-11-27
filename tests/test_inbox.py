@@ -218,6 +218,16 @@ def test_the_inbox_lists_every_source_with_its_actions_and_risk(db):
     assert all(item.open_url.startswith("/") and "://" not in item.open_url for item in items.values())
 
 
+def test_a_proposed_automation_opens_the_triggers_settings_tab(db):
+    """The Triggers tab in Settings has the id ``runtime``; ``tab=triggers`` would open the default tab."""
+    user = _user(db)
+    _trigger_proposal(db, user)
+
+    (item,) = [i for i in inbox_service.InboxService(db).list_items(user) if i.kind == "trigger_proposal"]
+
+    assert item.open_url == "/settings?tab=runtime"
+
+
 def test_the_inbox_is_owner_scoped_and_hides_what_is_done(db):
     """Another owner's items, read conversations, user-started chats, and handled suggestions never show."""
     owner, other = _user(db), _user(db, "other")

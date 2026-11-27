@@ -246,7 +246,7 @@ class InboxService(BaseService):
                 f"Automation proposed: {row.name}",
                 row.objective,
                 row.created_at,
-                "/settings?tab=triggers",
+                "/settings?tab=runtime",
             )
             for row in rows
         ]
