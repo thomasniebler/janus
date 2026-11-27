@@ -29,10 +29,11 @@ What a connected integration lets Janus *do* is governed by its toolboxes and th
 An operator sets it up once:
 
 1. In Google Cloud, create an OAuth client of type **Web application**.
-2. Add `<base_url>/api/connections/google/callback` as its redirect URI. `<base_url>` is `JANUS_BASE_URL`.
-3. Set `JANUS_GOOGLE_CLIENT_ID` and `JANUS_GOOGLE_CLIENT_SECRET`.
+2. In the same project, enable the **Google Calendar API** and the **Google Tasks API** (APIs & Services → Library). Gmail is read over IMAP, so the Gmail API is not needed.
+3. Add `<base_url>/api/connections/google/callback` as its redirect URI. `<base_url>` is `JANUS_BASE_URL`.
+4. Set `JANUS_GOOGLE_CLIENT_ID` and `JANUS_GOOGLE_CLIENT_SECRET`.
 
-Then each user clicks **Connect** on the Google card in Settings → Connections. Janus asks for Calendar, Tasks and full Gmail access (IMAP over XOAUTH2 has no narrower scope). After connecting, add the Gmail mailbox under Settings → Email Accounts.
+Then each user clicks **Connect** on the Google card in Settings → Connections. Janus asks for Calendar, Tasks and full Gmail access (IMAP over XOAUTH2 has no narrower scope). After connecting, add the Gmail mailbox under Settings → Email Accounts, then restart Janus: mailboxes are picked up at start.
 
 ## Microsoft
 
@@ -44,7 +45,7 @@ Gives Janus your Outlook calendars and your Outlook / Microsoft 365 mail. Calend
 
 1. In the app registration, add a **Mobile and desktop** (public client) redirect URI of `<base_url>/api/connections/microsoft/callback`.
 2. Grant the delegated permissions `Calendars.Read.Shared` and `Mail.Read`.
-3. Each user clicks **Connect** on the Microsoft card in Settings → Connections.
+3. Each user clicks **Connect** on the Microsoft card in Settings → Connections. Then add the Outlook mailbox under Settings → Email Accounts and restart Janus.
 
 ### Microsoft 365 for the agent (instance-wide)
 
@@ -68,7 +69,7 @@ The token cache is stored in `microsoft_token_cache.enc` in the data directory (
 
 The `github` toolbox lets Janus inspect and manage pull requests and issues. An admin sets it up in Settings → GitHub:
 
-1. Create a **fine-grained token** with **Issues: Read and write** on the target repository (or a classic token with the `repo` scope).
+1. Create a **fine-grained token** on the target repository with **Pull requests: Read and write** and **Contents: Read and write** (needed to merge), plus **Issues: Read and write** to file issues from chat. The self-evolution loop also needs **Checks: Read** and **Commit statuses: Read**. A classic token with the `repo` scope covers all of these.
 2. Paste it as **Personal Access Token**.
 3. Optionally set a **Default Repository** (`owner/name`).
 
@@ -112,9 +113,11 @@ uv tool install 'janus-assistant[whatsapp]'   # tool install
 
 In Settings → WhatsApp, open **WhatsApp Setup**:
 
-1. Enter a **Display Name** and how many **Initial History Days** to keep.
+1. Enter a **Display Name**.
 2. Choose **Pair in Janus** and scan the QR code with WhatsApp on your phone (**Linked devices**).
 3. Click **Finish**.
+
+Past messages arrive once, shortly after pairing, as many as WhatsApp chooses to send. After that Janus sees only messages that arrive while it is connected; restarting the account does not fetch missed ones.
 
 If you already have a Neonize session database, **Fallback import** takes its path instead.
 
@@ -206,6 +209,8 @@ In Settings → Tools & Connections, click **Add MCP server**:
     - **Bearer token:** paste a fixed token. Saving a token replaces the server's OAuth connection.
 3. Click **Discover** to list the server's tools. You can switch each tool off on its own.
 
+If a server shows **Token rejected**, save a new token and click **Discover** again. Changing the endpoint drops the saved token unless you enter a new one at the same time.
+
 Each discovered tool becomes a toolbox named `mcp.<server>.<tool>`. Remote tools are offered **in chat only**. A tool the server marks read-only runs without asking; every other tool asks for approval of its exact arguments. Trigger runs get remote tools only when you set unattended runs to **Allow everything**.
 
 ## A2A remote agents
@@ -214,7 +219,7 @@ Janus can hand a question to another agent that speaks the Agent2Agent (A2A) pro
 
 In Settings → Tools & Connections, under remote agents, click **Add remote agent**:
 
-1. Enter a **Name** and the **Agent URL**, plus an optional **Bearer token**.
+1. Enter a **Name** and the **Agent URL** (the base address that serves `/.well-known/agent-card.json`), plus an optional **Bearer token**.
 2. Click **Add and fetch card**. Janus fetches the agent card and shows the skills the agent advertises.
 3. Click **Switch on**. New agents start switched off.
 
@@ -238,7 +243,7 @@ Only the query Janus writes leaves the machine, never your mail or chat. Results
 The `azure.resources` toolbox lists Azure subscriptions, resource groups and resources. It is read-only and offered to admins only.
 
 1. Set `JANUS_AZURE_ENABLED=true`.
-2. Give the host an Azure identity: an environment service principal, a managed identity, or an `az login` session.
+2. Give the host an Azure identity: a service principal in `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_CLIENT_SECRET`, a managed identity, or an `az login` session.
 
 Janus uses the standard Azure credential chain and stores nothing itself.
 
@@ -291,7 +296,7 @@ The self-evolution loop lets Janus work on its own code without a human approvin
 3. It merges the resulting pull request, then the release PR.
 4. It runs a production self-check after the release, and opens a revert PR if the check fails.
 
-It is opt-in and admin-only. It needs the GitHub and Linear integrations above. In Settings → Tools & Connections, the admin sets:
+It is opt-in and admin-only. It needs the GitHub integration and the Linear integration with a **Default Team**. Write the Routine's prompt so it carries out the fire payload Janus sends (for example "Implement the Linear issue described in the routine fire payload, following its rules"), and keep the payload's instruction to name the session and issue in the PR description: Janus merges only PRs that name a session it started. In Settings → Tools & Connections, the admin sets:
 
 - **Claude Code Routine trigger id** and **Routine API token**;
 - **GitHub repository** (empty uses the GitHub default);

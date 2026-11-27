@@ -132,7 +132,7 @@ Open **Settings → AI & System**. In the **AI Configuration** card, pick a prov
 | Ollama | A running Ollama (default `http://localhost:11434`) and a pulled model, for example `ollama pull llama3`. Everything stays on your machine. |
 | OpenAI, OpenRouter, Gemini, Anthropic | An API key. |
 | GitHub Models | A GitHub token with the `models:read` permission. |
-| Azure OpenAI | An endpoint and deployment, and either `az login` on this machine or an API key. |
+| Azure OpenAI | The resource endpoint (root only, such as `https://my-resource.openai.azure.com`) and a deployment, plus an API key or Entra ID. Entra ID uses `az login` or a managed identity with the **Cognitive Services OpenAI User** role, and works only on Azure OpenAI hosts. |
 
 Click **Test Selected Backend**, then **Save Backend Settings**. Only an admin can change the model, because it is shared by the whole instance. See [Configuration](configuration.md#settings-in-the-app) for per-surface models, embeddings and image generation.
 
@@ -154,7 +154,7 @@ Common IMAP servers:
 | iCloud | `imap.mail.me.com` | 993 |
 | Outlook / Hotmail | `imap-mail.outlook.com` | 993 |
 
-Janus syncs recent mail, then waits for new mail with IMAP IDLE. Your rules and the model sort each message; see [Inbox](inbox.md).
+Restart Janus after adding a mailbox (`systemctl --user restart janus` when it runs as a service): mailboxes are picked up at start. Janus then syncs recent mail and waits for new mail with IMAP IDLE. Your rules and the model sort each message; see [Inbox](inbox.md).
 
 ## 7. Look around
 
@@ -188,7 +188,7 @@ In a git checkout, a plain `uv sync` removes extras that you do not name. Repeat
 
 Other optional pieces:
 
-- **Ollama** for local chat models and local embeddings. Install it from [ollama.com](https://ollama.com), pull a model, and select it in **Settings → AI & System**.
+- **Ollama** for local chat models and local embeddings. Install it from [ollama.com](https://ollama.com), pull a model, and select it in **Settings → AI & System**. For local embeddings also run `ollama pull nomic-embed-text`.
 - **Google and Microsoft** sign-in, mail and calendars need OAuth client ids in `settings.toml`. See [Integrations](integrations.md).
 - **The tray icon on Wayland** needs AppIndicator libraries. See [Desktop](desktop.md).
 - **Shell and coding-agent tools** are off unless the operator turns them on. See [Configuration](configuration.md#all-settings).
