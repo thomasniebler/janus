@@ -16,7 +16,6 @@ Gaps verified in the code, without a spec yet:
 - **iOS client:** no tool approval cards, push notifications, memory, tasks or planner; it covers login, a read-only dashboard and chat.
 - **LLM cost tracking:** Janus counts calls and tokens per day, surface and model, but shows no money, balances or budgets.
 - **Topic preferences:** per-user topic tracking preferences exist with defaults, but have no settings page or API.
-- **Bounded exploration:** the character profile's exploration rate is stored, but nothing uses it.
 - **Chatting over Telegram:** Telegram messages only start triggers; you cannot talk to Janus there.
 - **Remote tools in trigger runs:** remote MCP and A2A tools reach unattended runs only under **Allow everything**, not through a per-tool switch (JAN-344).
 - **Skill refinement:** skill suggestions draft new skills; refining existing skills against past runs is not built.

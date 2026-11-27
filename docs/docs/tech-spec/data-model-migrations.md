@@ -27,7 +27,7 @@ Janus keeps all durable state in one SQL database through SQLAlchemy 2.0: SQLite
 | Self-evolution | `self_evolution_settings`, `self_evolution_actions` |
 | Observability | `events`, `error_groups`, `llm_usage_days` |
 
-`email_clarification_requests` and `topic_suggestions` are kept so existing databases upgrade without data loss; nothing creates or reviews their rows (deleting a topic only unlinks its old suggestions).
+`email_clarification_requests` and `topic_suggestions` are kept so existing databases upgrade without data loss; nothing creates or reviews their rows (deleting a topic only unlinks its old suggestions). The `character_profiles.exploration_rate` column stays for the same reason; nothing reads or writes it.
 
 Not ORM tables: the `knowledge_fts_*` FTS5 tables (created and backfilled at startup when SQLite has FTS5) and the sqlite-vec virtual table behind `services/vector_index.py`. Both are excluded from Alembic's autogenerate comparison.
 

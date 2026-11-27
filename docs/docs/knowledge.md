@@ -196,7 +196,6 @@ The character profile is Janus's constitution. It is rendered into every system 
 | Values and boundaries | Core values and non-negotiables, one per line |
 | Additional instructions | Free text appended to the constitution |
 | Memory instructions | Replaces the built-in rules for which chat facts get remembered |
-| Bounded exploration | A rate for exploring adaptive tendencies; it has no visible effect today |
 
 **Prompt preview** shows the rendered system prompt and the effective memory rules before you save.
 

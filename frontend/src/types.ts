@@ -627,7 +627,6 @@ export interface CharacterProfile {
   core_values: string[];
   non_negotiables: string[];
   traits: CharacterTrait[];
-  exploration_rate: number;
   /** Free text appended to the rendered constitution. */
   additional_instructions?: string | null;
   /** Replaces the built-in rules for which chat facts Janus remembers. */

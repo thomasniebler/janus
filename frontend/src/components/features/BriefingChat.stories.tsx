@@ -22,7 +22,6 @@ const character: CharacterProfile = {
   core_values: ['Be accurate', 'Protect privacy'],
   non_negotiables: ['Never send mail without confirmation'],
   traits: [],
-  exploration_rate: 0.2,
   additional_instructions: null,
   memory_instructions: null,
 };

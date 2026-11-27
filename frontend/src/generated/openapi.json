@@ -22085,13 +22085,6 @@
             "maxItems": 20,
             "title": "Traits"
           },
-          "exploration_rate": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Exploration Rate",
-            "default": 0.0
-          },
           "additional_instructions": {
             "anyOf": [
               {
@@ -22166,13 +22159,6 @@
             "type": "array",
             "maxItems": 20,
             "title": "Traits"
-          },
-          "exploration_rate": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Exploration Rate",
-            "default": 0.0
           },
           "additional_instructions": {
             "anyOf": [

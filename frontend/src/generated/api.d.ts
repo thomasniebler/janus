@@ -4052,11 +4052,6 @@ export interface components {
             non_negotiables: string[];
             /** Traits */
             traits?: components["schemas"]["CharacterTrait"][];
-            /**
-             * Exploration Rate
-             * @default 0
-             */
-            exploration_rate: number;
             /** Additional Instructions */
             additional_instructions?: string | null;
             /** Memory Instructions */
@@ -4077,11 +4072,6 @@ export interface components {
             non_negotiables: string[];
             /** Traits */
             traits?: components["schemas"]["CharacterTrait"][];
-            /**
-             * Exploration Rate
-             * @default 0
-             */
-            exploration_rate: number;
             /** Additional Instructions */
             additional_instructions?: string | null;
             /** Memory Instructions */

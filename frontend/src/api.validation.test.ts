@@ -639,7 +639,6 @@ const characterProfile = {
   core_values: ['privacy'],
   non_negotiables: ['no secrets'],
   traits: [{ name: 'warmth', baseline: 0.5, max_delta: 0.1, description: '' }],
-  exploration_rate: 0,
   additional_instructions: null,
   memory_instructions: null,
   created_at: null,
