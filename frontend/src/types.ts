@@ -196,24 +196,6 @@ export interface Rule {
   order: number;
 }
 
-export interface EmailClarificationRequest {
-  id: number;
-  email_id: number;
-  applied_rule_id?: number | null;
-  previous_priority: 'important' | 'digest' | 'ignore' | 'spam';
-  requested_priority: 'important' | 'digest' | 'ignore' | 'spam';
-  suggested_rule_name: string;
-  suggested_rule_pattern: string;
-  suggested_rule_field: string;
-  suggested_rule_priority: 'important' | 'digest' | 'ignore' | 'spam';
-  suggestion_confidence: ConfidenceLevel;
-  suggestion_reason: string;
-  status: ClarificationStatus;
-  created_at: string;
-  updated_at: string;
-  email: Pick<Email, 'id' | 'sender' | 'subject' | 'snippet' | 'priority' | 'classification_confidence'>;
-}
-
 export interface MailIngestionSettings {
   initial_sync_email_limit: number;
 }

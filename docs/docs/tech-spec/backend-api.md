@@ -48,7 +48,7 @@ Semgrep rule `janus-unscoped-owned-row-lookup` flags `db.get(models.X, id)` on o
 | `/api/conversations` | `conversations.py` | chat history, messages with tool calls and UI blocks, delegations of a conversation |
 | `/api/dashboard` | `dashboard.py` | dashboard data (emails, WhatsApp, events, task tree, topics), widget preferences |
 | `/api/desktop` | `desktop.py` | `summary` JSON for desktop widgets |
-| `/api/emails` | `emails.py` | mail accounts, rules, clarifications, notification preferences, mail settings, email list and relabel |
+| `/api/emails` | `emails.py` | mail accounts, rules, notification preferences, mail settings, email list and relabel |
 | `/api/errors` | `errors.py` | error groups (admin) |
 | `/api/events` | `events.py` | event log, owner-scoped (admins see all), paginated, filterable |
 | `/api/inbox` | `inbox.py` | action inbox and device tokens |
@@ -118,7 +118,7 @@ Tells a tab which data domains changed so it can refetch (`websocket/changes.py`
 
 ## Action inbox
 
-`services/inbox_service.py` aggregates what waits for the user: unread Janus-started conversations, pending planner suggestions, topic suggestions, mail clarifications and proposed trigger definitions. `GET /api/inbox` returns at most 50 items (20 per source), newest first, with an `ETag` for cheap polling. Titles and summaries are untrusted text, cut and stripped of control and bidi characters. `POST /api/inbox/{kind}/{id}/{action}` runs `mark_read` (conversations) or `dismiss` (planner, topic, clarification); anything else is `404`. Trigger proposals are listed but can only be approved in the web app. Device tokens are covered in [auth and security](auth-security.md#device-tokens).
+`services/inbox_service.py` aggregates what waits for the user: unread Janus-started conversations, pending planner suggestions, topic suggestions and proposed trigger definitions. `GET /api/inbox` returns at most 50 items (20 per source), newest first, with an `ETag` for cheap polling. Titles and summaries are untrusted text, cut and stripped of control and bidi characters. `POST /api/inbox/{kind}/{id}/{action}` runs `mark_read` (conversations) or `dismiss` (planner, topic); anything else is `404`. Trigger proposals are listed but can only be approved in the web app. Device tokens are covered in [auth and security](auth-security.md#device-tokens).
 
 ## Status and events
 

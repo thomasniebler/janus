@@ -6,8 +6,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from asgi_client import SyncASGIClient
-from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm.attributes import NO_VALUE
 
 from janus import config, database, llm_service, models, security, status_service, time_utils
 from janus.api import dashboard as dashboard_api
@@ -16,7 +14,6 @@ from janus.api import linear as linear_api
 from janus.api import memory as memory_api
 from janus.app_factory import create_fastapi_app
 from janus.services import auth_service
-from janus.services.email_service import EmailService
 from janus.whatsapp_neonize import NeonizePairingCapability
 
 # db and client fixtures are provided by conftest.py
@@ -1427,9 +1424,8 @@ def test_email_priority_update(auth_client, db, monkeypatch):
     assert rules_response.json()[0]["pattern"] == "^someone@else\\.com$"
     assert rules_response.json()[0]["priority"] == "important"
 
-    clarifications_response = auth_client.get("/api/emails/clarifications")
-    assert clarifications_response.status_code == 200
-    assert clarifications_response.json() == []
+    assert db.query(models.EmailClarificationRequest).count() == 0
+    assert auth_client.get("/api/emails/clarifications").status_code == 404
 
     # 3. Update to SPAM
     response = auth_client.patch(f"/api/emails/{email.id}/priority?priority=spam")
@@ -1545,68 +1541,6 @@ def test_email_priority_update_reuses_same_pattern_rule_on_recorrection(auth_cli
     assert len(matching_rules) == 1
     assert matching_rules[0].priority == models.Priority.IGNORE
     assert matching_rules[0].is_active is True
-
-
-def test_list_clarification_requests_eager_loads_email_relation(auth_client, db):
-    """Clarification queue queries should preload related emails for serialization."""
-    user = db.query(models.User).filter(models.User.username == "admin").one()
-    account = models.EmailAccount(name="Queue Test", email="queue@test.com", password="hash", user_id=user.id)
-    db.add(account)
-    db.flush()
-
-    first_email = models.EmailRecord(
-        account_id=account.id,
-        message_id="clarification-1",
-        subject="One",
-        sender="first@test.com",
-        snippet="First snippet",
-        priority=models.Priority.DIGEST,
-    )
-    second_email = models.EmailRecord(
-        account_id=account.id,
-        message_id="clarification-2",
-        subject="Two",
-        sender="second@test.com",
-        snippet="Second snippet",
-        priority=models.Priority.SPAM,
-    )
-    db.add_all([first_email, second_email])
-    db.flush()
-
-    db.add_all(
-        [
-            models.EmailClarificationRequest(
-                user_id=user.id,
-                email_id=first_email.id,
-                previous_priority=models.Priority.DIGEST,
-                requested_priority=models.Priority.IMPORTANT,
-                suggested_rule_name="Messages from first@test.com",
-                suggested_rule_pattern="^first@test\\.com$",
-                suggested_rule_field="sender",
-                suggested_rule_priority=models.Priority.IMPORTANT,
-                suggestion_confidence=models.ConfidenceLevel.HIGH,
-                suggestion_reason="High confidence sender match.",
-            ),
-            models.EmailClarificationRequest(
-                user_id=user.id,
-                email_id=second_email.id,
-                previous_priority=models.Priority.SPAM,
-                requested_priority=models.Priority.IGNORE,
-                suggested_rule_name="Messages from second@test.com",
-                suggested_rule_pattern="^second@test\\.com$",
-                suggested_rule_field="sender",
-                suggested_rule_priority=models.Priority.IGNORE,
-                suggestion_confidence=models.ConfidenceLevel.MEDIUM,
-                suggestion_reason="Medium confidence sender match.",
-            ),
-        ]
-    )
-    db.commit()
-
-    clarifications = EmailService(db).list_clarification_requests(user)
-
-    assert {clarification.email.subject for clarification in clarifications} == {"One", "Two"}
-    assert all(sa_inspect(clarification).attrs.email.loaded_value is not NO_VALUE for clarification in clarifications)
 
 
 # --- Planner Tests ---

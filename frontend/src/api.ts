@@ -26,7 +26,6 @@ import type {
   DashboardWidgetPreferenceUpdate,
   DocNavItem,
   Email,
-  EmailClarificationRequest,
   EmailAccount,
   EmailAccountCreate,
   ErrorCompactionResult,
@@ -169,12 +168,6 @@ export const emailApi = {
   testAccount: (id: number): Parsed<{ status: string; message: string }> =>
     parseResponse(schemas.connectionTestResultSchema)(api.post(`/api/emails/accounts/${id}/test`)),
   getRules: (): Parsed<Rule[]> => parseResponse(schemas.ruleListSchema)(api.get('/api/emails/rules')),
-  listClarifications: (): Parsed<EmailClarificationRequest[]> =>
-    parseResponse(schemas.emailClarificationListSchema)(api.get('/api/emails/clarifications')),
-  approveClarification: (id: number): Parsed<EmailClarificationRequest> =>
-    parseResponse(schemas.emailClarificationSchema)(api.post(`/api/emails/clarifications/${id}/approve`)),
-  dismissClarification: (id: number): Parsed<EmailClarificationRequest> =>
-    parseResponse(schemas.emailClarificationSchema)(api.post(`/api/emails/clarifications/${id}/dismiss`)),
   addRule: (data: RuleCreate): Parsed<Rule> => parseResponse(schemas.ruleSchema)(api.post('/api/emails/rules', data)),
   updateRule: (id: number, data: { order?: number; is_active?: boolean }): Parsed<Rule> =>
     parseResponse(schemas.ruleSchema)(api.patch(`/api/emails/rules/${id}`, data)),

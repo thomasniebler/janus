@@ -62,23 +62,6 @@ const emailAccount = {
   is_active: true,
 };
 const rule = { id: 5, name: 'Boss', pattern: 'boss@', field: 'sender', priority: 'important', is_active: true, order: 0 };
-const clarification = {
-  id: 9,
-  email_id: 11,
-  applied_rule_id: null,
-  previous_priority: 'digest',
-  requested_priority: 'important',
-  suggested_rule_name: 'Messages from boss@example.com',
-  suggested_rule_pattern: '^boss@example\\.com$',
-  suggested_rule_field: 'sender',
-  suggested_rule_priority: 'important',
-  suggestion_confidence: 'high',
-  suggestion_reason: 'You corrected it.',
-  status: 'pending',
-  created_at: '2026-10-01T09:00:00',
-  updated_at: '2026-10-01T09:00:00',
-  email: { id: 11, sender: 'boss@example.com', subject: 'Q4', snippet: 'Numbers', priority: 'important' },
-};
 const email = {
   id: 11,
   message_id: '<m@x>',
@@ -173,7 +156,7 @@ describe('auth/session responses', () => {
   });
 });
 
-describe('email account, rule and clarification responses', () => {
+describe('email account and rule responses', () => {
   it('parses accounts, a saved account and a connection test', async () => {
     nextBody = [emailAccount];
     await expect(apiModule.emailApi.getAccounts()).resolves.toMatchObject({ data: [emailAccount] });
@@ -220,24 +203,6 @@ describe('email account, rule and clarification responses', () => {
     nextBody = { ...rule, priority: 'urgent' };
     await expectInvalid(() => apiModule.emailApi.updateRule(5, { order: 1 }), 'PATCH', '/api/emails/rules/5', [
       'priority',
-    ]);
-  });
-
-  it('parses clarifications and their approve/dismiss answers', async () => {
-    nextBody = [clarification];
-    await expect(apiModule.emailApi.listClarifications()).resolves.toMatchObject({ data: [clarification] });
-    nextBody = { ...clarification, status: 'approved', applied_rule_id: 5 };
-    await expect(apiModule.emailApi.approveClarification(9)).resolves.toMatchObject({
-      data: { status: 'approved', applied_rule_id: 5 },
-    });
-    nextBody = { ...clarification, status: 'dismissed' };
-    await expect(apiModule.emailApi.dismissClarification(9)).resolves.toMatchObject({ data: { status: 'dismissed' } });
-  });
-
-  it('rejects a clarification whose email is missing its sender', async () => {
-    nextBody = [{ ...clarification, email: { ...clarification.email, sender: null } }];
-    await expectInvalid(() => apiModule.emailApi.listClarifications(), 'GET', '/api/emails/clarifications', [
-      '0.email.sender',
     ]);
   });
 

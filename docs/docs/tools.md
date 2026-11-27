@@ -354,13 +354,13 @@ Character. Chat only (locked).
 
 ## Read mail rules
 
-`rules` · never. List mail classification rules and pending rule suggestions.
-Needs a connected mail account.
+`rules` · never. List mail classification rules. Needs a connected mail
+account.
 
 ## Manage mail rules
 
-`rules.write` · required, Unattended Off. Create, update and delete rules;
-approve or dismiss rule suggestions. Needs a connected mail account.
+`rules.write` · required, Unattended Off. Create, update and delete rules.
+Needs a connected mail account.
 
 ## Task delegation tools
 

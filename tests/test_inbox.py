@@ -116,7 +116,6 @@ def _seed_everything(db, user):
         "conversation": _conversation(db, user),
         "planner_suggestion": _planner_suggestion(db, user),
         "topic_suggestion": _topic_suggestion(db, user),
-        "email_clarification": _clarification(db, user),
         "trigger_proposal": _trigger_proposal(db, user),
     }
 
@@ -211,7 +210,7 @@ def test_the_inbox_lists_every_source_with_its_actions_and_risk(db):
     assert items["conversation"].actions == ["mark_read"] and items["conversation"].open_url.startswith("/chat?")
     assert all(
         items[kind].actions == ["dismiss"] and items[kind].risk == "low"
-        for kind in ("planner_suggestion", "topic_suggestion", "email_clarification")
+        for kind in ("planner_suggestion", "topic_suggestion")
     )
     assert items["trigger_proposal"].actions == [] and items["trigger_proposal"].risk == "needs_web"
     assert items["topic_suggestion"].title == "Topic: Tax return"
@@ -340,7 +339,6 @@ def test_the_inbox_api_returns_items_and_supports_etag_polling(client, db):
         ("conversation", "mark_read"),
         ("planner_suggestion", "dismiss"),
         ("topic_suggestion", "dismiss"),
-        ("email_clarification", "dismiss"),
     ],
 )
 def test_a_device_token_can_take_each_low_risk_action_without_csrf(client, db, kind, action):
@@ -366,7 +364,6 @@ def test_a_device_token_can_take_each_low_risk_action_without_csrf(client, db, k
         ("trigger_proposal", "dismiss"),
         ("planner_suggestion", "approve"),
         ("topic_suggestion", "approve"),
-        ("email_clarification", "approve"),
         ("conversation", "dismiss"),
         ("character_proposal", "approve"),
         ("planner_suggestion", "mark_read"),
@@ -396,7 +393,6 @@ def test_another_owners_item_looks_missing(client, db):
         ("conversation", "mark_read"),
         ("planner_suggestion", "dismiss"),
         ("topic_suggestion", "dismiss"),
-        ("email_clarification", "dismiss"),
     ):
         assert client.post(f"/api/inbox/{kind}/{theirs[kind].id}/{action}", headers=_bearer(raw)).status_code == 404
 
@@ -473,7 +469,6 @@ def test_a_password_change_and_revoke_sessions_revoke_device_tokens(db):
     [
         ("planner_suggestion", models.PlannerSuggestion, models.PlannerSuggestionStatus.APPLIED),
         ("topic_suggestion", models.TopicSuggestion, models.TopicSuggestionStatus.APPROVED),
-        ("email_clarification", models.EmailClarificationRequest, models.ClarificationStatus.APPROVED),
     ],
 )
 def test_dismiss_refuses_an_item_that_is_no_longer_open(client, db, kind, model, closed):
@@ -523,31 +518,15 @@ def test_suggestions_link_to_the_tabs_that_show_their_review_ui(db):
     items = {item.kind: item for item in inbox_service.InboxService(db).list_items(user)}
 
     assert items["topic_suggestion"].open_url == "/memory?tab=topics"
-    assert items["email_clarification"].open_url == "/memory?tab=rules"
 
 
-def test_clarifications_are_filtered_and_limited_in_the_database(db):
-    """Only pending clarifications, newest first, at most the per-source limit, whatever the history holds."""
+def test_a_stored_rule_suggestion_is_not_an_inbox_item(client, db):
+    """Rule suggestions are no longer produced or reviewed; a row left from an older version stays out of the inbox."""
     user = _user(db)
-    first = _clarification(db, user)
-    first.status = models.ClarificationStatus.APPROVED
-    for number in range(inbox_service.PER_SOURCE_LIMIT + 5):
-        row = models.EmailClarificationRequest(
-            user_id=user.id,
-            email_id=first.email_id,
-            previous_priority=models.Priority.DIGEST,
-            requested_priority=models.Priority.IMPORTANT,
-            suggested_rule_name=f"Rule {number}",
-            suggested_rule_pattern="x",
-            suggested_rule_field="subject",
-            suggested_rule_priority=models.Priority.IMPORTANT,
-            suggestion_confidence=models.ConfidenceLevel.HIGH,
-            suggestion_reason="r",
-        )
-        db.add(row)
-    db.commit()
+    _, raw = DeviceTokenService(db).create_token(user.id, "popup")
+    row = _clarification(db, user)
 
-    items = [i for i in inbox_service.InboxService(db).list_items(user) if i.kind == "email_clarification"]
-
-    assert len(items) == inbox_service.PER_SOURCE_LIMIT
-    assert all(item.id != first.id for item in items)
+    assert all(item.kind != "email_clarification" for item in inbox_service.InboxService(db).list_items(user))
+    assert client.post(f"/api/inbox/email_clarification/{row.id}/dismiss", headers=_bearer(raw)).status_code == 404
+    db.expire_all()
+    assert db.get(models.EmailClarificationRequest, row.id).status == models.ClarificationStatus.PENDING

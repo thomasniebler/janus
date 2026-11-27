@@ -20,7 +20,6 @@ from typing import Any
 from janus import models
 from janus.schemas.inbox import InboxItem
 from janus.services.base import BaseService
-from janus.services.email_service import EmailService
 from janus.services.local_planner_service import LocalPlannerService
 from janus.services.topic_service import TopicService
 
@@ -36,7 +35,6 @@ ACTIONS: dict[str, tuple[str, ...]] = {
     "conversation": ("mark_read",),
     "planner_suggestion": ("dismiss",),
     "topic_suggestion": ("dismiss",),
-    "email_clarification": ("dismiss",),
     "trigger_proposal": (),
 }
 
@@ -85,7 +83,6 @@ class InboxService(BaseService):
             *self._conversations(user),
             *self._planner_suggestions(user),
             *self._topic_suggestions(user),
-            *self._email_clarifications(user),
             *self._trigger_proposals(user),
         ]
         items.sort(key=lambda entry: (entry.created_at, entry.id), reverse=True)
@@ -113,12 +110,6 @@ class InboxService(BaseService):
                 )
             except ValueError as error:
                 raise InboxError("not found") from error
-        elif kind == "email_clarification":
-            self._require_pending(
-                models.EmailClarificationRequest, item_id, user.id, models.ClarificationStatus.PENDING
-            )
-            if EmailService(self.db).dismiss_clarification_request(item_id, user) is None:
-                raise InboxError("not found")
 
     def _require_pending(self, model: Any, item_id: int, user_id: int, pending: Any) -> None:
         """Refuse an action on an item that is not the owner's or no longer open: the inbox lists only open items."""
@@ -203,30 +194,6 @@ class InboxService(BaseService):
                 )
             )
         return items
-
-    def _email_clarifications(self, user: models.User) -> list[InboxItem]:
-        # Pending only, newest first, in the database: a poll must not load the owner's whole clarification history.
-        rows = (
-            self.db.query(models.EmailClarificationRequest)
-            .filter(
-                models.EmailClarificationRequest.user_id == user.id,
-                models.EmailClarificationRequest.status == models.ClarificationStatus.PENDING,
-            )
-            .order_by(models.EmailClarificationRequest.created_at.desc())
-            .limit(PER_SOURCE_LIMIT)
-            .all()
-        )
-        return [
-            _item(
-                "email_clarification",
-                row.id,
-                f"Rule suggestion: {row.suggested_rule_name}",
-                row.suggestion_reason,
-                row.created_at,
-                "/memory?tab=rules",
-            )
-            for row in rows
-        ]
 
     def _trigger_proposals(self, user: models.User) -> list[InboxItem]:
         rows = (

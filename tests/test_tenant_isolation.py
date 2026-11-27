@@ -743,57 +743,6 @@ def test_relabel_tool_by_b_never_touches_a_rules(db):
     assert db.query(models.Rule).filter(models.Rule.user_id == bob.id).count() == 1
 
 
-def _add_clarification(db, user: models.User, email: models.EmailRecord) -> models.EmailClarificationRequest:
-    clarification = models.EmailClarificationRequest(
-        user_id=user.id,
-        email_id=email.id,
-        previous_priority=models.Priority.DIGEST,
-        requested_priority=models.Priority.IGNORE,
-        suggested_rule_name="Messages from news@shared.example",
-        suggested_rule_pattern=_SHARED_SENDER_PATTERN,
-        suggested_rule_field="sender",
-        suggested_rule_priority=models.Priority.IGNORE,
-        suggestion_confidence=models.ConfidenceLevel.HIGH,
-        suggestion_reason="test",
-    )
-    db.add(clarification)
-    db.commit()
-    return clarification
-
-
-def test_approving_bs_clarification_never_touches_a_rules(client, db):
-    """Approving B's suggestion creates B's own rule even when A has the same one."""
-    alice = _create_and_login(client, db, "alice")
-    first_a = _add_sender_rule(db, alice.id, name="Alice news", order=7)
-    duplicate_a = _add_sender_rule(db, alice.id, name="Alice news again", order=3)
-    before = {rule.id: _rule_state(db, rule.id) for rule in (first_a, duplicate_a)}
-    bob = _create_and_login(client, db, "bob")
-    mail_b = _add_recent_email(db, _add_email_account(db, bob), "Newsletter", priority=models.Priority.DIGEST)
-    clarification = _add_clarification(db, bob, mail_b)
-
-    response = client.post(f"/api/emails/clarifications/{clarification.id}/approve")
-
-    assert response.status_code == 200, response.text
-    assert {rule_id: _rule_state(db, rule_id) for rule_id in before} == before
-    applied = db.get(models.Rule, response.json()["applied_rule_id"])
-    assert (applied.user_id, applied.priority, applied.order) == (bob.id, models.Priority.IGNORE, 0)
-
-
-def test_a_rule_does_not_suppress_bs_clarification(db):
-    """A's matching rule no longer swallows B's pending rule suggestion."""
-    from janus.services.email_service import EmailService
-
-    alice, bob = _make_user(db, "alice"), _make_user(db, "bob")
-    _add_sender_rule(db, alice.id, name="Alice news", order=7)
-    mail_b = _add_recent_email(db, _add_email_account(db, bob), "Newsletter", priority=models.Priority.DIGEST)
-
-    EmailService(db)._queue_clarification_request(mail_b, models.Priority.DIGEST, models.Priority.IGNORE, bob)
-    db.commit()
-
-    pending = db.query(models.EmailClarificationRequest).filter_by(user_id=bob.id).all()
-    assert [(row.email_id, row.suggested_rule_pattern) for row in pending] == [(mail_b.id, _SHARED_SENDER_PATTERN)]
-
-
 @pytest.mark.parametrize("model", [models.Rule, models.EmailAccount, models.PlannerAccount])
 def test_rules_and_accounts_cannot_be_stored_without_an_owner(db, model):
     """``user_id`` is ``NOT NULL`` in the models and the migrations alike, so no row is ownerless (JAN-338)."""

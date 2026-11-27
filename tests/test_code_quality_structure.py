@@ -37,7 +37,7 @@ SERVICE_MODULE_BUDGET_EXCEPTIONS = {
     # that replaced router-level ownership checks (JAN-137), then from 680 for
     # the owner-scoped email query/outgoing-account resolver (JAN-286) and the
     # per-owner correction-rule scope (JAN-287).
-    "src/janus/services/email_service.py": 701,
+    "src/janus/services/email_service.py": 580,
     "src/janus/services/local_planner_service.py": 981,
     # Raised from 638 for the bearer token hooks (JAN-342; see mcp_static_token.py and mcp_status.py),
     # then to 652 for storing discovered tool annotations (JAN-343; see mcp_metadata.py).

@@ -852,66 +852,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/emails/clarifications": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Clarifications
-         * @description Returns pending and recent clarification items for manual email corrections.
-         */
-        get: operations["list_clarifications_api_emails_clarifications_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/emails/clarifications/{clarification_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Approve Clarification
-         * @description Approves a clarification and creates the suggested rule.
-         */
-        post: operations["approve_clarification_api_emails_clarifications__clarification_id__approve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/emails/clarifications/{clarification_id}/dismiss": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Dismiss Clarification
-         * @description Dismisses a clarification without creating a rule.
-         */
-        post: operations["dismiss_clarification_api_emails_clarifications__clarification_id__dismiss_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/emails/notifications/preferences": {
         parameters: {
             query?: never;
@@ -4414,12 +4354,6 @@ export interface components {
             description: string;
         };
         /**
-         * ClarificationStatus
-         * @description Lifecycle for user-review clarification items.
-         * @enum {string}
-         */
-        ClarificationStatus: "pending" | "approved" | "dismissed";
-        /**
          * CompactionResult
          * @description Response schema for compaction operation.
          */
@@ -4824,58 +4758,6 @@ export interface components {
             is_active?: boolean | null;
         };
         /**
-         * EmailClarificationEmail
-         * @description Minimal email details included in the clarification queue.
-         */
-        EmailClarificationEmail: {
-            /** Id */
-            id: number;
-            /** Sender */
-            sender: string;
-            /** Subject */
-            subject: string;
-            /** Snippet */
-            snippet: string;
-            priority: components["schemas"]["Priority"];
-            classification_confidence?: components["schemas"]["ConfidenceLevel"] | null;
-        };
-        /**
-         * EmailClarificationRequest
-         * @description Schema for a reviewable clarification item.
-         */
-        EmailClarificationRequest: {
-            previous_priority: components["schemas"]["Priority"];
-            requested_priority: components["schemas"]["Priority"];
-            /** Suggested Rule Name */
-            suggested_rule_name: string;
-            /** Suggested Rule Pattern */
-            suggested_rule_pattern: string;
-            /** Suggested Rule Field */
-            suggested_rule_field: string;
-            suggested_rule_priority: components["schemas"]["Priority"];
-            suggestion_confidence: components["schemas"]["ConfidenceLevel"];
-            /** Suggestion Reason */
-            suggestion_reason: string;
-            status: components["schemas"]["ClarificationStatus"];
-            /** Id */
-            id: number;
-            /** Email Id */
-            email_id: number;
-            /** Applied Rule Id */
-            applied_rule_id?: number | null;
-            email: components["schemas"]["EmailClarificationEmail"];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
          * EmailRecord
          * @description Schema for an email record.
          */
@@ -5049,7 +4931,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "conversation" | "planner_suggestion" | "topic_suggestion" | "email_clarification" | "trigger_proposal";
+            kind: "conversation" | "planner_suggestion" | "topic_suggestion" | "trigger_proposal";
             /** Id */
             id: number;
             /** Title */
@@ -11119,112 +11001,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Rule"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_clarifications_api_emails_clarifications_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string | null;
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                access_token?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailClarificationRequest"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    approve_clarification_api_emails_clarifications__clarification_id__approve_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string | null;
-                authorization?: string | null;
-            };
-            path: {
-                clarification_id: number;
-            };
-            cookie?: {
-                access_token?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailClarificationRequest"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    dismiss_clarification_api_emails_clarifications__clarification_id__dismiss_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string | null;
-                authorization?: string | null;
-            };
-            path: {
-                clarification_id: number;
-            };
-            cookie?: {
-                access_token?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmailClarificationRequest"];
                 };
             };
             /** @description Validation Error */

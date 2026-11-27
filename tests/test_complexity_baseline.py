@@ -21,7 +21,6 @@ ROOT = Path(__file__).resolve().parents[1]
 COMPLEXITY_BASELINE = {
     "src/janus/agent_toolboxes/local_tasks.py:build_local_task_tools": 17,
     "src/janus/agent_toolboxes/mail.py:build_mail_tools": 20,
-    "src/janus/agent_toolboxes/rules.py:build_rule_tools": 24,
     "src/janus/agent_toolboxes/skills.py:build_skill_tools": 24,
     "src/janus/agent_toolboxes/triggers.py:build_trigger_tools": 21,
     "src/janus/api/planner.py:update_settings": 18,

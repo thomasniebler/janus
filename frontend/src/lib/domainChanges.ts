@@ -15,7 +15,6 @@ export const DOMAIN_QUERY_KEYS = {
   memory: [['memory-facts'], ['memory-compaction-latest']],
   topics: [['topics'], ['topic-detail'], ['topic-suggestions'], ['dashboard', 'topics']],
   rules: [['email-rules']],
-  email_clarifications: [['email-clarifications']],
   emails: [['emails-list'], ['dashboard', 'important-emails']],
   planner: [['dashboard', 'tasks'], ['dashboard', 'schedule'], ['planner']],
   skills: [['skills']],

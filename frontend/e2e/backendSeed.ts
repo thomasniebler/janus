@@ -63,14 +63,11 @@ export interface SeededMail {
   user: E2EUser;
   accountId: number;
   emails: Record<'board' | 'newsletter' | 'prize' | 'lunch', number>;
-  clarifications: Record<'board' | 'prize', number>;
 }
 
 /**
  * Creates a throwaway user (through `admin`) and seeds, owned by them, an inactive mail
- * account, four classified emails (important, two digest, spam) and two pending
- * clarification items carrying the rule suggestion `EmailService` derives from a correction
- * (JAN-219). Nothing lands on the shared e2e admin, so no other spec ever sees this mail,
+ * account and four classified emails (important, two digest, spam). Nothing lands on the shared e2e admin, so no other spec ever sees this mail,
  * and it needs no cleanup.
  */
 export const seedMail = async (admin: Session): Promise<SeededMail> => {
@@ -79,10 +76,6 @@ export const seedMail = async (admin: Session): Promise<SeededMail> => {
     `
 import json
 from datetime import timedelta
-# Importing email_service on its own hits a circular import; processor loads it cleanly.
-from janus import processor  # noqa: F401
-from janus.services.email_service import EmailService
-
 # Inactive, so no IMAP monitor ever tries to reach this made-up server.
 account = models.EmailAccount(
     user_id=user.id, name="E2E seeded inbox", email="me@e2e.example", imap_server="imap.e2e.invalid",
@@ -112,23 +105,10 @@ for key, (sender, subject, priority, confidence, reasoning, hours_ago) in rows.i
     db.add(record)
     db.flush()
     emails[key] = record
-# No live code path queues a clarification any more (a correction becomes an active
-# rule right away, JAN-74), so the pending items are written directly, with the
-# suggestion EmailService itself would derive from the correction.
-service = EmailService(db)
-clarification_rows = {}
-for key, previous, requested in (("board", P.IMPORTANT, P.DIGEST), ("prize", P.SPAM, P.IGNORE)):
-    clarification = models.EmailClarificationRequest(
-        user_id=user.id, email_id=emails[key].id, previous_priority=previous, requested_priority=requested,
-        **service._build_rule_suggestion(emails[key], requested),
-    )
-    db.add(clarification)
-    clarification_rows[key] = clarification
 db.commit()
 print(json.dumps({
     "accountId": account.id,
     "emails": {key: record.id for key, record in emails.items()},
-    "clarifications": {key: row.id for key, row in clarification_rows.items()},
 }))
 `,
     [],
