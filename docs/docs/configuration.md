@@ -16,7 +16,7 @@ Janus reads each instance setting from the first source that has it, highest pri
 | 3 | `~/.config/janus/settings.toml` | Lowercase keys such as `secret_key`. Created by `janus config init`. |
 | 4 | Built-in defaults | See [All settings](#all-settings). |
 
-Each setting is named once in each form: the TOML key (`server_mode`) and the environment variable (`JANUS_SERVER_MODE`). Six settings have no `JANUS_` prefix in the environment: `DATABASE_URL`, `HOST`, `PORT`, `ALLOWED_ORIGINS`, `ALGORITHM` and `ACCESS_TOKEN_EXPIRE_MINUTES`. The comment at the top of the generated `settings.toml` says every key maps to `JANUS_*`; for these six it does not. `base_url` accepts both `JANUS_BASE_URL` and `BASE_URL`.
+Each setting is named once in each form: the TOML key (`server_mode`) and the environment variable (`JANUS_SERVER_MODE`). Six settings have no `JANUS_` prefix in the environment: `DATABASE_URL`, `HOST`, `PORT`, `ALLOWED_ORIGINS`, `ALGORITHM` and `ACCESS_TOKEN_EXPIRE_MINUTES`. `base_url` accepts both `JANUS_BASE_URL` and `BASE_URL`.
 
 In the environment, `ALLOWED_ORIGINS` and `JANUS_ALLOWED_HOSTS` are comma-separated lists. The coding-agent list and table settings are JSON, for example `JANUS_CODING_AGENTS_ENV_PASSTHROUGH='["OPENAI_API_KEY"]'`.
 
