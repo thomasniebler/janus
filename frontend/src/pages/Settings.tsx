@@ -340,7 +340,7 @@ const Settings: React.FC = () => {
             {activeTab === 'skills' && (
               <div className="animate-in slide-in-from-right-4 duration-300">
                 <ErrorBoundary title="Skill management crashed">
-                  <SkillManager />
+                  <SkillManager isAdmin={isAdmin} />
                 </ErrorBoundary>
               </div>
             )}
