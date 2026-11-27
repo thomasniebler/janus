@@ -9,7 +9,8 @@ import pytest
 from janus import database, models, planner_service
 from janus import trigger_definition_service as definitions
 from janus.trigger_events import TriggerEvent
-from janus.whatsapp_neonize import NeonizeConnector, _translate_live_message
+from janus.whatsapp_neonize import NeonizeConnector
+from janus.whatsapp_translate import translate_live_message
 from janus.whatsapp_trigger_events import referenced_users
 
 # Uses real Neonize protobuf objects (or segno), which are the optional `whatsapp` extra.
@@ -86,7 +87,7 @@ def wa(db, monkeypatch, testing_session_local):
 
 
 def _deliver(connector, event, *, live=True):
-    connector._ingest(*_translate_live_message(event), live=live)
+    connector._ingest(*translate_live_message(event), live=live)
 
 
 @requires_whatsapp_extra

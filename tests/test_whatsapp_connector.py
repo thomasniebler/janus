@@ -11,13 +11,8 @@ import pytest
 
 from janus import database, models, time_utils, whatsapp_neonize
 from janus import worker_manager as worker_manager_module
-from janus.whatsapp_neonize import (
-    NeonizeConnector,
-    _describe_message,
-    _qr_bytes_to_data_uri,
-    _translate_history_sync,
-    _translate_live_message,
-)
+from janus.whatsapp_neonize import NeonizeConnector, _qr_bytes_to_data_uri
+from janus.whatsapp_translate import describe_message, translate_history_sync, translate_live_message
 from janus.workers import whatsapp as whatsapp_worker
 
 # Uses real Neonize protobuf objects (or segno), which are the optional `whatsapp` extra.
@@ -79,7 +74,7 @@ class _FakeClient:
 @requires_whatsapp_extra
 def test_describe_message_detects_text():
     """A plain-text message should surface its full text as body/snippet."""
-    body, snippet, message_type, attachment_summary = _describe_message(_wa_message(conversation="Hello there"))
+    body, snippet, message_type, attachment_summary = describe_message(_wa_message(conversation="Hello there"))
     assert body == "Hello there"
     assert snippet == "Hello there"
     assert message_type == "text"
@@ -92,7 +87,7 @@ def test_describe_message_detects_voice_note():
     from neonize.proto.waE2E.WAWebProtobufsE2E_pb2 import AudioMessage
 
     audio = AudioMessage(PTT=True, seconds=7, mimetype="audio/ogg; codecs=opus")
-    body, snippet, message_type, attachment_summary = _describe_message(_wa_message(audioMessage=audio))
+    body, snippet, message_type, attachment_summary = describe_message(_wa_message(audioMessage=audio))
     assert body is None
     assert message_type == "voice_note"
     assert "🎤" in snippet
@@ -105,7 +100,7 @@ def test_describe_message_detects_regular_audio_when_not_ptt():
     from neonize.proto.waE2E.WAWebProtobufsE2E_pb2 import AudioMessage
 
     audio = AudioMessage(PTT=False, seconds=30, mimetype="audio/mp4")
-    _, _, message_type, _ = _describe_message(_wa_message(audioMessage=audio))
+    _, _, message_type, _ = describe_message(_wa_message(audioMessage=audio))
     assert message_type == "audio"
 
 
@@ -114,7 +109,7 @@ def test_translate_live_message_builds_conversation_and_message_payloads():
     """A live MessageEv should translate into matching conversation/message payloads."""
     event = _live_event(text="Hi from Alice", is_from_me=False)
 
-    conversation_payload, message_payload = _translate_live_message(event)
+    conversation_payload, message_payload = translate_live_message(event)
 
     assert conversation_payload.provider_chat_id == "49123@s.whatsapp.net"
     assert conversation_payload.conversation_type == models.WhatsAppConversationType.DIRECT
@@ -129,7 +124,7 @@ def test_translate_live_message_marks_group_chats_and_outgoing_direction():
     """Group JIDs and self-authored messages should be classified accordingly."""
     event = _live_event(text="Hi group", is_from_me=True, is_group=True, chat_user="120363")
 
-    conversation_payload, message_payload = _translate_live_message(event)
+    conversation_payload, message_payload = translate_live_message(event)
 
     assert conversation_payload.conversation_type == models.WhatsAppConversationType.GROUP
     assert message_payload.direction == models.WhatsAppMessageDirection.OUTGOING
@@ -140,7 +135,7 @@ def test_translate_live_message_group_title_uses_chat_id_not_sender_pushname():
     """A group chat's title should not flip to whichever participant sent the last message."""
     event = _live_event(text="Hi group", is_group=True, chat_user="120363", pushname="Alice")
 
-    conversation_payload, _ = _translate_live_message(event)
+    conversation_payload, _ = translate_live_message(event)
 
     assert conversation_payload.title == "120363"
 
@@ -150,7 +145,7 @@ def test_translate_live_message_outgoing_direct_title_uses_chat_id_not_local_pus
     """An outgoing direct message's title should not become the local user's own name."""
     event = _live_event(text="On my way", is_from_me=True, pushname="Me")
 
-    conversation_payload, _ = _translate_live_message(event)
+    conversation_payload, _ = translate_live_message(event)
 
     assert conversation_payload.title == "49123"
 
@@ -179,7 +174,7 @@ def test_translate_history_sync_yields_payloads_and_skips_malformed_entries():
     class _Event:
         Data = history_sync
 
-    results = list(_translate_history_sync(_Event()))
+    results = list(translate_history_sync(_Event()))
 
     assert len(results) == 1
     conversation_payload, message_payload = results[0]
@@ -246,7 +241,7 @@ def test_ingest_persists_conversation_and_message(db, monkeypatch, testing_sessi
     db.refresh(account)
 
     connector = NeonizeConnector(session_database_path="/tmp/a.db", client_uuid="account-1", account_id=account.id)
-    conversation_payload, message_payload = _translate_live_message(_live_event(text="hello"))
+    conversation_payload, message_payload = translate_live_message(_live_event(text="hello"))
 
     connector._ingest(conversation_payload, message_payload)
 
@@ -278,7 +273,7 @@ def test_ingest_rolls_back_unrelated_pending_changes_on_error(db, monkeypatch, t
     db.refresh(account)
 
     connector = NeonizeConnector(session_database_path="/tmp/a.db", client_uuid="account-1", account_id=account.id)
-    conversation_payload, message_payload = _translate_live_message(_live_event(text="hello"))
+    conversation_payload, message_payload = translate_live_message(_live_event(text="hello"))
 
     # Should not raise: ingestion failures are logged and swallowed per event.
     connector._ingest(conversation_payload, message_payload)
@@ -781,5 +776,5 @@ def test_translate_live_message_accepts_millisecond_timestamps():
 
     event = _live_event(text="late message")
     event.Info.Timestamp = 1_794_168_950_000
-    _, message_payload = _translate_live_message(event)
+    _, message_payload = translate_live_message(event)
     assert message_payload.provider_timestamp == datetime(2026, 11, 8, 20, 15, 50, tzinfo=UTC)

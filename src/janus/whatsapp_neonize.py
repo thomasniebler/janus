@@ -7,14 +7,20 @@ import io
 import logging
 import secrets
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 from janus import config, database, models, time_utils, whatsapp_trigger_events
 from janus.security import security_service
+from janus.whatsapp_translate import (
+    NeonizeConversationPayload,
+    NeonizeMessagePayload,
+    translate_history_sync,
+    translate_live_message,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,39 +58,6 @@ def _require_neonize() -> None:
     """Raise `NeonizeUnavailableError` instead of re-attempting a failed native load."""
     if (import_error := neonize_import_error()) is not None:
         raise NeonizeUnavailableError(import_error)
-
-
-@dataclass(frozen=True)
-class NeonizeConversationPayload:
-    """Normalized conversation payload derived from a Neonize event."""
-
-    provider_chat_id: str
-    title: str
-    conversation_type: models.WhatsAppConversationType
-    participant_summary: str | None = None
-    unread_count: int = 0
-
-
-@dataclass(frozen=True)
-class NeonizeMessagePayload:
-    """Normalized message payload derived from a Neonize event."""
-
-    provider_message_id: str
-    provider_chat_id: str
-    provider_timestamp: datetime
-    direction: models.WhatsAppMessageDirection
-    sender_identifier: str | None
-    sender_display_name: str | None
-    body: str | None
-    snippet: str
-    message_type: str | None = None
-    attachment_summary: str | None = None
-    reply_to_message_id: str | None = None
-    # User parts of the JIDs this message @-mentions or quotes (replies to), for
-    # the ``whatsapp.group_mention`` trigger event (JAN-361). Live messages only.
-    referenced_users: tuple[str, ...] = ()
-    # False for reactions, edits, deletions and other content-less messages, which never fire events.
-    has_content: bool = True
 
 
 @dataclass(frozen=True)
@@ -129,20 +102,6 @@ def _session_dir() -> Path:
     return path
 
 
-def _new_pairing_session_path(setup_session_id: int) -> str:
-    """Return a session-store path that no earlier pairing attempt has used.
-
-    Neonize resumes the first device stored in an existing file instead of offering a
-    QR code, so a reused path (left over from an older Janus database whose setup-session
-    ids collide, or from an earlier attempt) logs in as a stale, possibly unlinked device.
-    """
-    session_dir = _session_dir()
-    while True:
-        path = session_dir / f"setup-{setup_session_id}-{secrets.token_hex(8)}.db"
-        if not path.exists():
-            return str(path)
-
-
 def _default_client_factory(session_database_path: str, client_uuid: str) -> Any:
     """Instantiate a real Neonize client bound to one sqlite session store."""
     _require_neonize()
@@ -159,137 +118,6 @@ def _qr_bytes_to_data_uri(qr_bytes: bytes) -> str:
     segno.make_qr(qr_bytes).save(buffer, kind="png", scale=6, border=2)
     encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded}"
-
-
-def _describe_message(message_proto: Any) -> tuple[str | None, str, str | None, str | None]:
-    """Return (body, snippet, message_type, attachment_summary) for one WhatsApp message."""
-    from neonize.utils.message import extract_text
-
-    audio = message_proto.audioMessage
-    if audio.ListFields():
-        seconds = getattr(audio, "seconds", 0) or 0
-        mimetype = getattr(audio, "mimetype", "") or "audio"
-        if getattr(audio, "PTT", False):
-            return (None, "🎤 Voice message", "voice_note", f"Voice message ({seconds}s, {mimetype})")
-        return (None, "🎵 Audio message", "audio", f"Audio message ({seconds}s, {mimetype})")
-
-    text = extract_text(message_proto).strip()
-    if text:
-        return text, text[:100], "text", None
-
-    try:
-        from neonize.utils.enum import MediaTypeToMMS
-
-        media_kind = MediaTypeToMMS.from_message(message_proto).value
-        return None, f"[{media_kind}]", media_kind, f"Unsupported {media_kind} attachment"
-    except Exception:
-        return None, "(unsupported message)", None, None
-
-
-def _translate_live_message(event: Any) -> tuple[NeonizeConversationPayload, NeonizeMessagePayload] | None:
-    """Translate a live MessageEv into normalized conversation/message payloads."""
-    from neonize.utils.jid import Jid2String
-
-    info = event.Info
-    source = info.MessageSource
-    if not (source.Chat.User or source.Chat.Server):
-        return None
-
-    provider_chat_id = Jid2String(source.Chat)
-    is_group = bool(source.IsGroup) or provider_chat_id.endswith("@g.us")
-    sender_identifier = Jid2String(source.Sender) if (source.Sender.User or source.Sender.Server) else provider_chat_id
-    sender_display_name = info.Pushname or None
-    body, snippet, message_type, attachment_summary = _describe_message(event.Message)
-    provider_timestamp = time_utils.epoch_to_utc(getattr(info, "Timestamp", None))
-
-    conversation_type = models.WhatsAppConversationType.GROUP if is_group else models.WhatsAppConversationType.DIRECT
-    direction = (
-        models.WhatsAppMessageDirection.OUTGOING if source.IsFromMe else models.WhatsAppMessageDirection.INCOMING
-    )
-    # Pushname identifies the message sender, not the chat. For a 1:1 incoming
-    # message that's a reasonable chat title, but for a group (where it's just
-    # one participant) or an outgoing message (where it's the local user) it
-    # would mislabel the conversation, so fall back to the stable chat id instead.
-    is_representative_of_chat = not is_group and not source.IsFromMe
-    conversation_title = (
-        sender_display_name if (is_representative_of_chat and sender_display_name) else None
-    ) or provider_chat_id.split("@", 1)[0]
-    conversation_payload = NeonizeConversationPayload(
-        provider_chat_id=provider_chat_id,
-        title=conversation_title,
-        conversation_type=conversation_type,
-    )
-    message_payload = NeonizeMessagePayload(
-        provider_message_id=info.ID,
-        provider_chat_id=provider_chat_id,
-        provider_timestamp=provider_timestamp,
-        direction=direction,
-        sender_identifier=sender_identifier,
-        sender_display_name=sender_display_name,
-        body=body,
-        snippet=snippet,
-        message_type=message_type,
-        attachment_summary=attachment_summary,
-        referenced_users=whatsapp_trigger_events.referenced_users(event.Message),
-        has_content=whatsapp_trigger_events.has_content(event.Message),
-    )
-    return conversation_payload, message_payload
-
-
-def _translate_history_sync(event: Any) -> Iterator[tuple[NeonizeConversationPayload, NeonizeMessagePayload]]:
-    """Translate a one-time HistorySyncEv payload into normalized conversation/message payloads.
-
-    WhatsApp decides how much backlog to push here; there is no way to request a specific
-    date range from Neonize, so this is a best-effort seed for the "last 3 days" experience.
-    """
-    for conversation in event.Data.conversations:
-        try:
-            provider_chat_id = conversation.ID
-            if not provider_chat_id:
-                continue
-            is_group = provider_chat_id.endswith("@g.us")
-            title = conversation.name or conversation.displayName or provider_chat_id.split("@", 1)[0]
-            conversation_type = (
-                models.WhatsAppConversationType.GROUP if is_group else models.WhatsAppConversationType.DIRECT
-            )
-            conversation_payload = NeonizeConversationPayload(
-                provider_chat_id=provider_chat_id,
-                title=title,
-                conversation_type=conversation_type,
-                unread_count=conversation.unreadCount or 0,
-            )
-        except Exception:
-            logger.warning("Skipping malformed WhatsApp history-sync conversation entry.")
-            continue
-
-        for history_message in conversation.messages:
-            try:
-                web_message = history_message.message
-                key = web_message.key
-                if not key.ID:
-                    continue
-                body, snippet, message_type, attachment_summary = _describe_message(web_message.message)
-                provider_timestamp = time_utils.epoch_to_utc(web_message.messageTimestamp)
-                message_payload = NeonizeMessagePayload(
-                    provider_message_id=key.ID,
-                    provider_chat_id=provider_chat_id,
-                    provider_timestamp=provider_timestamp,
-                    direction=(
-                        models.WhatsAppMessageDirection.OUTGOING
-                        if key.fromMe
-                        else models.WhatsAppMessageDirection.INCOMING
-                    ),
-                    sender_identifier=key.participant or provider_chat_id,
-                    sender_display_name=web_message.pushName or None,
-                    body=body,
-                    snippet=snippet,
-                    message_type=message_type,
-                    attachment_summary=attachment_summary,
-                )
-            except Exception:
-                logger.warning("Skipping malformed WhatsApp history-sync message entry.")
-                continue
-            yield conversation_payload, message_payload
 
 
 def _update_account_status(
@@ -383,11 +211,7 @@ class NeonizeConnector:
             raise
 
     def stop(self) -> None:
-        """Best-effort disconnect, safe to call from another thread.
-
-        A pairing connector is stopped outright: Neonize's ``disconnect()`` alone leaves
-        the blocking ``connect()`` call (and so the pairing thread) running.
-        """
+        """Best-effort disconnect from any thread; pairing uses ``stop()``, as ``disconnect()`` leaves it blocking."""
         if self.client is not None:
             stop_client = getattr(self.client, "stop", None) if self.setup_session_id is not None else None
             try:  # noqa: SIM105
@@ -400,30 +224,21 @@ class NeonizeConnector:
         if self.setup_session_id is None:
             return
         _update_setup_session_pairing(self.setup_session_id, state=models.WhatsAppPairingState.FAILED, message=message)
-        # Neonize callbacks run on its own dispatch thread; tear down from another one.
         threading.Thread(target=self.stop, daemon=True).start()
 
     def _register_handlers(self, client: Any) -> None:
-        from neonize.events import (
-            ConnectedEv,
-            ConnectFailureEv,
-            DisconnectedEv,
-            HistorySyncEv,
-            LoggedOutEv,
-            MessageEv,
-            PairStatusEv,
-        )
+        from neonize import events as ev
 
-        client.event(ConnectedEv)(self._on_connected)
-        client.event(DisconnectedEv)(self._on_disconnected)
-        client.event(LoggedOutEv)(self._on_logged_out)
-        client.event(ConnectFailureEv)(self._on_connect_failure)
+        client.event(ev.ConnectedEv)(self._on_connected)
+        client.event(ev.DisconnectedEv)(self._on_disconnected)
+        client.event(ev.LoggedOutEv)(self._on_logged_out)
+        client.event(ev.ConnectFailureEv)(self._on_connect_failure)
         if self.account_id is not None:
-            client.event(MessageEv)(self._on_message)
-            client.event(HistorySyncEv)(self._on_history_sync)
+            client.event(ev.MessageEv)(self._on_message)
+            client.event(ev.HistorySyncEv)(self._on_history_sync)
         if self.setup_session_id is not None:
             client.qr(self._on_qr)
-            client.event(PairStatusEv)(self._on_pair_status)
+            client.event(ev.PairStatusEv)(self._on_pair_status)
 
     def _on_connected(self, client: Any, event: Any) -> None:
         del event
@@ -458,11 +273,8 @@ class NeonizeConnector:
                 models.WhatsAppConnectionStatus.DISCONNECTED,
                 error="Logged out of WhatsApp on the linked device.",
             )
-        # During pairing this means the session store held an already-unlinked device:
-        # WhatsApp rejects it and never offers a QR code, so say so instead of waiting.
-        self._fail_pairing(
-            "WhatsApp rejected the stored session as logged out, so no QR code was offered. Start pairing again."
-        )
+        # During pairing: the store held an unlinked device, so WhatsApp will never offer a QR code.
+        self._fail_pairing("WhatsApp rejected the stored session as logged out; no QR code was offered.")
 
     def _on_connect_failure(self, client: Any, event: Any) -> None:
         del client
@@ -510,7 +322,7 @@ class NeonizeConnector:
 
     def _on_message(self, client: Any, event: Any) -> None:
         try:
-            translated = _translate_live_message(event)
+            translated = translate_live_message(event)
         except Exception as exc:
             logger.warning("Failed to translate WhatsApp message event: %s", exc)
             return
@@ -523,7 +335,7 @@ class NeonizeConnector:
     def _on_history_sync(self, client: Any, event: Any) -> None:
         del client
         try:
-            for conversation_payload, message_payload in _translate_history_sync(event):
+            for conversation_payload, message_payload in translate_history_sync(event):
                 self._ingest(conversation_payload, message_payload)
         except Exception as exc:
             logger.warning("Failed to process WhatsApp history-sync event: %s", exc)
@@ -665,7 +477,9 @@ class NeonizeAdapter:
                 show_fallback_import=True,
             )
 
-        session_database_path = _new_pairing_session_path(setup_session.id)
+        # Always a new file: Neonize resumes the first device stored in an existing one instead of
+        # offering a QR code, e.g. a stale device left by an older database with colliding ids.
+        session_database_path = str(_session_dir() / f"setup-{setup_session.id}-{secrets.token_hex(8)}.db")
         try:
             _pairing_registry.start(setup_session.id, session_database_path)
         except Exception as exc:

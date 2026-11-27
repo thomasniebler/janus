@@ -36,7 +36,7 @@ The foundation track's `fetch_recent_history(since)` design assumed a pull/fetch
 
 ## Connector architecture
 
-`NeonizeConnector` (`src/janus/whatsapp_neonize.py`) owns one Neonize client and runs in one of two modes:
+`NeonizeConnector` (`src/janus/whatsapp_neonize.py`) owns one Neonize client and runs in one of two modes. It turns Neonize events into `NeonizeConversationPayload`/`NeonizeMessagePayload` with the functions in `src/janus/whatsapp_translate.py`.
 
 - **Account mode** (`account_id` set): a durable, supervised connection registered as `whatsapp:{account.id}` via `worker_manager`. Registers `ConnectedEv`/`DisconnectedEv`/`LoggedOutEv`/`ConnectFailureEv` (connection-status bookkeeping) plus `MessageEv`/`HistorySyncEv` (message ingestion). One thread per enabled account, started at process boot (`cli.py`) and whenever an account is created, re-enabled, or has its session material refreshed.
 - **Setup mode** (`setup_session_id` set): a short-lived, unsupervised connection used only during the pairing wizard. Registers `ConnectedEv`/`DisconnectedEv`/`LoggedOutEv`/`ConnectFailureEv` plus the QR callback and `PairStatusEv`. On a successful connection it marks the setup session `PAIRED`, persists the sqlite session path, and immediately stops — the durable per-account connection is started separately once `complete_setup_session` finalizes the account, reopening the same sqlite session file (Neonize resumes a paired session by reusing the same path and client UUID). A setup-mode connector ends with the client's `stop()`, since Neonize's `disconnect()` leaves the blocking `connect()` running.
@@ -61,7 +61,7 @@ This track detects push-to-talk voice notes (`audioMessage.PTT`) and persists th
 
 ## Test implications
 
-- Event-translation and ingestion logic (`_describe_message`, `_translate_live_message`, `_translate_history_sync`, `NeonizeConnector._ingest`) is covered with real `neonize` protobuf objects, not a live connection — see `tests/test_whatsapp_connector.py`.
+- Event-translation and ingestion logic (`describe_message`, `translate_live_message`, `translate_history_sync`, `NeonizeConnector._ingest`) is covered with real `neonize` protobuf objects, not a live connection — see `tests/test_whatsapp_connector.py`.
 - Pairing state transitions (QR received, pair success, pair failure) are covered against a fake client injected into `NeonizeConnector`.
 - The whole flow through the UI is covered by `frontend/e2e/whatsapp.spec.ts` (JAN-223): the e2e backend imports a scripted fake of the `neonize` package (`frontend/e2e/fake-neonize/`) in place of the real library, so the spec plays QR, pair success/failure, connected, disconnected, history-sync and live-message events while the connector, setup service, API and UI run unchanged. It covers QR pairing through to the durable connector taking over, a rejected pairing and cancel, the dashboard message list, a restart after a dropped connection (no history redelivered), a disabled account refusing a restart, and deleting an account.
 - **Not automatable:** actually scanning a QR code with a phone, WhatsApp's server-side decision about how much `HistorySyncEv` backlog to push, and end-to-end latency of a live incoming message reaching the dashboard. These require manual verification against a real WhatsApp account after each significant connector change.

@@ -16,7 +16,7 @@ Import boundaries (import-linter, contracts in `pyproject.toml`): [architecture-
 | Delegation | `delegation_*.py` |
 | Mail | `processor.py` (rules, classification), `imap_service.py`, `graph_mail_service.py` (Outlook) |
 | Planner | `planner_service.py`, `reminder_service.py` |
-| WhatsApp | `whatsapp_neonize.py` |
+| WhatsApp | `whatsapp_neonize.py`, `whatsapp_translate.py` |
 | LLM | `llm_service.py`, `llm_usage.py` |
 | Persistence | `database.py`, `models_*.py` (re-exported by `models/`), `schemas/` (Pydantic) |
 | Workers | `workers/`, `worker_manager.py`, `background_tasks.py` |
