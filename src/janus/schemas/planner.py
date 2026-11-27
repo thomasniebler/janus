@@ -6,6 +6,7 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from janus.models import (
+    CONNECTED_PLANNER_PROVIDERS,
     BriefingEmailWindow,
     ConfidenceLevel,
     DashboardWidgetKey,
@@ -45,6 +46,15 @@ class PlannerAccountCreate(PlannerAccountBase):
     """Schema for creating a planner account."""
 
     token: str
+
+    @field_validator("provider")
+    @classmethod
+    def _provider_has_connector(cls, value: Provider) -> Provider:
+        """Refuse a provider no connector syncs (``o365``, ``ado``): the account would never sync."""
+        if value not in CONNECTED_PLANNER_PROVIDERS:
+            allowed = ", ".join(sorted(provider.value for provider in CONNECTED_PLANNER_PROVIDERS))
+            raise ValueError(f"provider {value.value!r} has no connector; use one of: {allowed}")
+        return value
 
 
 class PlannerAccount(PlannerAccountBase):

@@ -12,8 +12,7 @@ Each spec starts with a `Status` / `Linear` / `Depends on` block; see [Delivery 
 
 Gaps verified in the code, without a spec yet:
 
-- **Azure DevOps connector:** the `ado` planner provider exists, but no connector is behind it, so an ADO source never syncs.
-- **O365 planner provider:** the `o365` provider exists without a connector; Outlook calendars come from the `microsoft_calendar` connection instead.
+- **Azure DevOps connector:** no planner connector for Azure DevOps work items. The stored provider enum keeps an `ado` value for old rows, but Janus refuses it for new sources.
 - **iOS client:** no tool approval cards, push notifications, memory, tasks or planner; it covers login, a read-only dashboard and chat.
 - **LLM cost tracking:** Janus counts calls and tokens per day, surface and model, but shows no money, balances or budgets.
 - **Topic preferences:** per-user topic tracking preferences exist with defaults, but have no settings page or API.

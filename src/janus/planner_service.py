@@ -42,7 +42,7 @@ class PlannerService:
             return self._microsoft_calendar_connector(account)
         elif account.provider == models.Provider.JIRA:
             return jira.JiraConnector(account)
-        # Placeholder for ADO
+        # O365 and ADO: kept in the stored enum, but no connector (models.CONNECTED_PLANNER_PROVIDERS).
         return None
 
     def _microsoft_calendar_connector(self, account: models.PlannerAccount):

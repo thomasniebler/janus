@@ -38,6 +38,7 @@ from janus.models.email import (
     Rule,
 )
 from janus.models.enums import (
+    CONNECTED_PLANNER_PROVIDERS,
     AgentMemoryCompactionStatus,
     AgentMemorySource,
     AgentMemoryStatus,
@@ -45,6 +46,7 @@ from janus.models.enums import (
     CalendarEventSource,
     ClarificationStatus,
     ConfidenceLevel,
+    ConnectedPlannerProvider,
     DashboardWidgetKey,
     LLMProvider,
     MCPDiscoveryStatus,
@@ -190,6 +192,7 @@ __all__ = [
     "CharacterStateRecord",
     "ClarificationStatus",
     "ConfidenceLevel",
+    "ConnectedPlannerProvider",
     "Conversation",
     "ConversationMessage",
     "ConversationOrigin",
@@ -245,6 +248,7 @@ __all__ = [
     "PlannerSuggestionType",
     "PlannerTask",
     "Priority",
+    "CONNECTED_PLANNER_PROVIDERS",
     "Provider",
     "ReminderKind",
     "ReminderMemory",

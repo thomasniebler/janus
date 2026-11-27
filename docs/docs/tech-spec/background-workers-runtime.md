@@ -261,7 +261,7 @@ Categories: IMPORTANT (kept unread, may notify), DIGEST (marked read on the serv
 
 ## Planner sync and events
 
-The `planner` worker runs `PlannerService.sync_all` every 30 minutes over Google Calendar, Google Tasks, Microsoft Calendar and Jira connectors (`connectors/`); Azure DevOps and O365 are enum placeholders with no connector. Synced datetimes are stored as naive UTC. Each synced task and event is compared with its stored row; new and changed items emit `planner.*` events after the sync commits. An account's first (baseline) sync emits nothing; deletions emit nothing. Sync errors land in `last_sync_error`. Local tasks and events (`services/local_planner_service.py`) are the writable planner.
+The `planner` worker runs `PlannerService.sync_all` every 30 minutes over Google Calendar, Google Tasks, Microsoft Calendar and Jira connectors (`connectors/`); `models.CONNECTED_PLANNER_PROVIDERS` names these four; the enum keeps `ado` and `o365` only so old rows load, and the planner API and `janus planner add` refuse them. `capability_profile` maps calendar providers to the `calendar` capability and Jira to `jira`. Synced datetimes are stored as naive UTC. Each synced task and event is compared with its stored row; new and changed items emit `planner.*` events after the sync commits. An account's first (baseline) sync emits nothing; deletions emit nothing. Sync errors land in `last_sync_error`. Local tasks and events (`services/local_planner_service.py`) are the writable planner.
 
 ## Messaging connectors
 

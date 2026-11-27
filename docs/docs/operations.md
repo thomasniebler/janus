@@ -204,7 +204,7 @@ These call a running Janus at `--url`. Log in first; the token is cached in `~/.
 | `janus account list` | List your mail accounts. |
 | `janus rule add NAME PATTERN [--field F] [--priority P]` | Add a mail rule (default field `sender`, priority `IMPORTANT`). |
 | `janus rule list` | List your mail rules. |
-| `janus planner add NAME PROVIDER [--api-url URL]` | Add a planner connection with a token, for example Jira. Prompts for the token. |
+| `janus planner add NAME PROVIDER [--api-url URL]` | Add a planner connection with a token, for example Jira. `PROVIDER` is `jira`, `google_calendar`, `google_tasks` or `microsoft_calendar`; anything else is refused. Prompts for the token. |
 | `janus planner list` | List planner connections. |
 | `janus user create USERNAME` | Create a user (admin only). Prompts for the password. |
 | `janus user list` | List users (admin only). |
