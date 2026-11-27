@@ -35222,7 +35222,9 @@
             "maximum": 30.0,
             "minimum": 1.0,
             "title": "Initial History Days",
-            "default": 3
+            "description": "Ignored. Accepted for compatibility; WhatsApp sends history once after pairing.",
+            "default": 3,
+            "deprecated": true
           },
           "session_data": {
             "anyOf": [
@@ -35289,7 +35291,9 @@
                 "type": "null"
               }
             ],
-            "title": "Initial History Days"
+            "title": "Initial History Days",
+            "description": "Ignored. Accepted for compatibility; WhatsApp sends history once after pairing.",
+            "deprecated": true
           },
           "session_data": {
             "anyOf": [
@@ -35731,7 +35735,9 @@
             "maximum": 30.0,
             "minimum": 1.0,
             "title": "Initial History Days",
-            "default": 3
+            "description": "Ignored. Accepted for compatibility; WhatsApp sends history once after pairing.",
+            "default": 3,
+            "deprecated": true
           },
           "account_id": {
             "anyOf": [

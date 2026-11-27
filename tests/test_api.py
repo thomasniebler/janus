@@ -777,6 +777,26 @@ def test_whatsapp_setup_session_lifecycle_endpoints(auth_client, db, monkeypatch
     assert accounts.json()[0]["session_configured"] is True
 
 
+def test_whatsapp_setup_session_without_history_days(auth_client, db, monkeypatch):
+    """The setup UI no longer sends ``initial_history_days``; the API must not require it (old clients may)."""
+    monkeypatch.setattr(
+        "janus.whatsapp_neonize.NeonizeAdapter.get_pairing_capability",
+        lambda self: NeonizePairingCapability(supported=False, message="Live pairing unavailable here."),
+    )
+
+    response = auth_client.post("/api/whatsapp/setup-sessions", json={"display_name": "Phone"})
+    assert response.status_code == 200
+    session = db.get(models.WhatsAppSetupSession, response.json()["id"])
+    assert session is not None
+    assert session.initial_history_days == 3
+
+    legacy = auth_client.post(
+        "/api/whatsapp/setup-sessions",
+        json={"display_name": "Phone", "initial_history_days": 9},
+    )
+    assert legacy.status_code == 200
+
+
 def test_whatsapp_setup_session_rejects_cross_user_access(auth_client, db):
     """Setup sessions should stay scoped to the authenticated user."""
     current_user = db.query(models.User).filter(models.User.username == "admin").one()

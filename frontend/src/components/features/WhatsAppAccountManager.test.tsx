@@ -138,7 +138,7 @@ describe('WhatsAppAccountManager', () => {
     expect(getSetupSessionRefetchInterval(unsupportedSession)).toBe(false);
   });
 
-  it('applies backend history-day bounds to setup and edit forms', async () => {
+  it('asks for no history window: WhatsApp decides how much history it sends once after pairing', async () => {
     vi.mocked(whatsappApi.getAccounts).mockResolvedValue({
       data: [
         {
@@ -155,22 +155,23 @@ describe('WhatsAppAccountManager', () => {
         },
       ],
     } as never);
+    vi.mocked(whatsappApi.createSetupSession).mockResolvedValue({ data: pairingSession } as never);
 
     renderComponent();
     const user = userEvent.setup();
 
     expect(await screen.findByText('Team Phone')).toBeInTheDocument();
-
-    const setupInput = (await screen.findAllByRole('spinbutton'))[0];
-    expect(setupInput).toHaveAttribute('min', '1');
-    expect(setupInput).toHaveAttribute('max', '30');
+    expect(screen.queryByText(/initial sync/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /edit/i }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    const editInputs = await screen.findAllByRole('spinbutton');
-    const modalInput = editInputs.at(-1);
-    expect(modalInput).toHaveAttribute('min', '1');
-    expect(modalInput).toHaveAttribute('max', '30');
+    await user.click(screen.getByRole('button', { name: /start setup/i }));
+    await waitFor(() => expect(whatsappApi.createSetupSession).toHaveBeenCalled());
+    expect(vi.mocked(whatsappApi.createSetupSession).mock.calls[0][0]).not.toHaveProperty('initial_history_days');
   });
 
   it('deletes an account only after the confirmation (JAN-223)', async () => {

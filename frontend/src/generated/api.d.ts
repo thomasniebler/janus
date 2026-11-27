@@ -8931,6 +8931,8 @@ export interface components {
             is_enabled: boolean;
             /**
              * Initial History Days
+             * @deprecated
+             * @description Ignored. Accepted for compatibility; WhatsApp sends history once after pairing.
              * @default 3
              */
             initial_history_days: number;
@@ -8948,7 +8950,11 @@ export interface components {
             display_name?: string | null;
             /** Is Enabled */
             is_enabled?: boolean | null;
-            /** Initial History Days */
+            /**
+             * Initial History Days
+             * @deprecated
+             * @description Ignored. Accepted for compatibility; WhatsApp sends history once after pairing.
+             */
             initial_history_days?: number | null;
             /** Session Data */
             session_data?: string | null;
@@ -9104,6 +9110,8 @@ export interface components {
             display_name: string;
             /**
              * Initial History Days
+             * @deprecated
+             * @description Ignored. Accepted for compatibility; WhatsApp sends history once after pairing.
              * @default 3
              */
             initial_history_days: number;

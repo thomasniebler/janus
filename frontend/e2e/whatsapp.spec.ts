@@ -92,7 +92,7 @@ test.describe('WhatsApp connector', () => {
     expect(connects[1].session).toBe(connects[0].session);
 
     const card = accountCard(page, displayName);
-    await expect(card.getByText('whatsapp_neonize · connected · initial sync 3 day(s)')).toBeVisible();
+    await expect(card.getByText('whatsapp_neonize · connected')).toBeVisible();
     await expect(page.getByText('No WhatsApp accounts configured yet.')).toHaveCount(0);
 
     await card.getByRole('button', { name: 'Test' }).click();
@@ -212,11 +212,11 @@ test.describe('WhatsApp connector', () => {
 
     await openWhatsAppSettings(page);
     const card = accountCard(page, displayName);
-    await expect(card.getByText('whatsapp_neonize · connected · initial sync 3 day(s)')).toBeVisible();
+    await expect(card.getByText('whatsapp_neonize · connected')).toBeVisible();
 
     // The connection drops: the account turns degraded while the page is open.
     await sendToFakeNeonize(uuid, { type: 'disconnected' });
-    await expect(card.getByText('whatsapp_neonize · degraded · initial sync 3 day(s)')).toBeVisible();
+    await expect(card.getByText('whatsapp_neonize · degraded')).toBeVisible();
     await expect(card.getByText('Disconnected from WhatsApp.')).toBeVisible();
 
     await card.getByRole('button', { name: 'Restart connector' }).click();
@@ -228,7 +228,7 @@ test.describe('WhatsApp connector', () => {
     // The old connection is closed and a new one reopens the same session.
     await waitForEvents(uuid, 'connected', 2);
     expect(countEvents(uuid, 'disconnect')).toBeGreaterThanOrEqual(2);
-    await expect(card.getByText('whatsapp_neonize · connected · initial sync 3 day(s)')).toBeVisible();
+    await expect(card.getByText('whatsapp_neonize · connected')).toBeVisible();
     await expect(card.getByText('Disconnected from WhatsApp.')).toHaveCount(0);
 
     // Nothing was redelivered, and the new connection ingests live messages again.

@@ -48,7 +48,7 @@ class WhatsAppSetupService(BaseService):
             user_id=user.id,
             account_id=account.id if account is not None else None,
             display_name=data["display_name"].strip(),
-            initial_history_days=data["initial_history_days"],
+            initial_history_days=data.get("initial_history_days", 3),
             expires_at=self._next_expiry(),
         )
         self._apply_pairing_capability(session, capability)
