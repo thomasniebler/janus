@@ -1,16 +1,16 @@
 # Technical Spec Index
 
-The repository-root [`TECH_SPEC.md`](../../../TECH_SPEC.md) is the canonical landing page for Janus technical specifications. This in-app index mirrors the child spec map so the dashboard documentation can expose the same technical requirements without turning the root file into a general documentation browser.
+The technical spec explains how Janus works: modules, data, flows and invariants. The canonical index and the repository-wide rules are in the root [`TECH_SPEC.md`](../../../TECH_SPEC.md). For a one-page picture first, read [Architecture](../architecture.md).
 
-| Spec | Scope |
+| Spec | Read it for |
 | --- | --- |
-| [Architecture Overview](architecture-overview.md) | Product shape, technology stack, core service responsibilities, local planner ownership, build automation, and cross-cutting architecture rules. |
-| [Backend and API](backend-api.md) | FastAPI service boundaries, runtime-trigger and trigger-definition APIs, tool-policy and character (preview, adaptive state with proposals, history, rollback) endpoints, planner CRUD/review surfaces, the `/ws/changes` domain-change WebSocket, documentation API behavior, status APIs, removed endpoints, and backend ownership rules. |
-| [Authentication and Security](auth-security.md) | Authentication, setup, sessions, proxy trust, CSRF, host/origin checks, cookies, tenant isolation, secrets, prompt-injection guardrails, the dependency vulnerability audit, and the Semgrep security scan. |
-| [Background Workers and Runtime](background-workers-runtime.md) | Threaded runtime model, IMAP IDLE ingestion and the `mail.received` event path, planner sync, the durable trigger boundary and worker scheduler, saved trigger definitions and the built-in briefing/digest/mail-processing triggers, the plan-driven runtime adapter and tool authorization (task modes, tool policy, documented refusals), delegation, reminders, topic tracking, and a record of the removed legacy agent-definition model. |
-| [Frontend](frontend.md) | React/Vite dashboard architecture, the interchangeable UIv1/UIv2/UIv3 app shells, live domain-change sync over `/ws/changes`, local planner/suggestion UX, settings (Triggers, Tools & Connections policy, Character) and docs UI, runtime validation, error boundaries, and resilience requirements. |
-| [Mobile iOS](mobile-ios.md) | SwiftUI iOS client scope, runtime API configuration, cookie-backed REST sessions, JWT-backed chat WebSocket auth and origin allow-listing, and supported dashboard/chat data access. |
-| [Deployment and Operations](deployment-operations.md) | Production topology, managed runtime, persistent paths, proxy-aware origins, single-instance constraint, headless mode, and release deploys. |
-| [LLM and Agent Safety](llm-agent-safety.md) | LLM provider configuration, rule-first and event-driven mail classification, planner suggestion extraction, agent memory, unattended tool policy and refusals, prompt-injection guardrails, trigger/automation/delegation fences, skill-library tools, external integration gates, and tool safety. |
-| [Data Model and Migrations](data-model-migrations.md) | Durable SQLite state, Alembic expectations, local planner persistence, ownership rules, persisted feature models (trigger definitions, tool policies, character instructions and adaptive state with its audit trail), destructive-migration notes, and migration-oriented development constraints. |
-| [Delivery Artifacts](delivery-artifacts.md) | Treats planned-feature docs, feature specs, and user-facing pages as delivery artifacts; defines the Status/Linear/Depends-on convention that ties planned-feature docs to their Linear issue and to other systems they depend on. |
+| [Architecture Overview](architecture-overview.md) | Process model, workers, module map, flows, CI. |
+| [Backend and API](backend-api.md) | Routers, WebSockets, OpenAPI. |
+| [Authentication and Security](auth-security.md) | Sessions, CSRF, tenant isolation, scans. |
+| [Background Workers and Runtime](background-workers-runtime.md) | Runtime, tools, triggers, delegation. |
+| [LLM and Agent Safety](llm-agent-safety.md) | Providers, prompt injection, unattended fences. |
+| [Data Model and Migrations](data-model-migrations.md) | Tables, Alembic, SQLite and PostgreSQL. |
+| [Frontend](frontend.md) | React app, shells, chat session, tests. |
+| [Mobile iOS](mobile-ios.md) | The SwiftUI prototype. |
+| [Deployment and Operations](deployment-operations.md) | Packaging, deploy, release, update. |
+| [Delivery Artifacts](delivery-artifacts.md) | Which docs ship with a change. |

@@ -14,8 +14,8 @@ owner-scoped here rather than by callers, so no caller can read or finalize
 another user's delegation.
 
 Interrupted rows are re-run exactly once (:func:`expire_stale_delegations`,
-JAN-207). Two caps bound what a model can create (see "Safety fences" in
-``docs/docs/feature-specs/plan-driven-janus-runtime.md``):
+JAN-207). Two caps bound what a model can create (see "Delegation" in
+``docs/docs/tech-spec/background-workers-runtime.md``):
 
 * :data:`MAX_DELEGATION_DEPTH` -- a child task cannot spawn a further child.
   A child only ever gets read-only tools, and the ``delegation`` toolbox is

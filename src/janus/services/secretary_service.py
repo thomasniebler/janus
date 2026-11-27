@@ -12,7 +12,7 @@ testable without a model:
 * :func:`whatsapp_alerts_since` / :func:`whatsapp_alerts_of_run` -- the counts
   behind the ``notify_me_on_whatsapp`` caps.
 
-See ``docs/docs/feature-specs/proactive-secretary.md``.
+See ``docs/docs/tech-spec/background-workers-runtime.md#proactive-secretary``.
 """
 
 from __future__ import annotations
