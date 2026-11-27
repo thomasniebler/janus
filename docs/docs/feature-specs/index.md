@@ -16,7 +16,6 @@ Gaps verified in the code, without a spec yet:
 - **O365 planner provider:** the `o365` provider exists without a connector; Outlook calendars come from the `microsoft_calendar` connection instead.
 - **iOS client:** no tool approval cards, push notifications, memory, tasks or planner; it covers login, a read-only dashboard and chat.
 - **LLM cost tracking:** Janus counts calls and tokens per day, surface and model, but shows no money, balances or budgets.
-- **Topic suggestions:** the Topics tab and the action inbox can review topic suggestions, but nothing generates them yet.
 - **Topic preferences:** per-user topic tracking preferences exist with defaults, but have no settings page or API.
 - **Bounded exploration:** the character profile's exploration rate is stored, but nothing uses it.
 - **Chatting over Telegram:** Telegram messages only start triggers; you cannot talk to Janus there.

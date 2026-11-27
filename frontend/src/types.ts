@@ -14,7 +14,6 @@ export type { LLMModelListRequest, LLMProviderId, Task, UIVersion };
 type ApiSchemas = components['schemas'];
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
-export type ClarificationStatus = 'pending' | 'approved' | 'dismissed';
 export type TopicStatus = 'candidate' | 'active' | 'snoozed' | 'resolved' | 'ignored';
 export type PlannerItemSource = 'manual' | 'email_agent' | 'digest_agent' | 'janus_agent' | 'imported';
 export type PlannerSuggestionStatus = 'pending' | 'approved' | 'dismissed' | 'applied';
@@ -461,19 +460,6 @@ export interface TopicSummary {
 
 export interface TopicDetail extends TopicSummary {
   evidence: TopicEvidence[];
-}
-
-export interface TopicSuggestion {
-  id: number;
-  user_id: number;
-  topic_id?: number | null;
-  suggestion_type: 'rename' | 'merge' | 'pin' | 'ignore_pattern' | 'promote_pattern';
-  status: ClarificationStatus;
-  payload_json?: string | null;
-  reason: string;
-  confidence: ConfidenceLevel;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface TopicUpdate {

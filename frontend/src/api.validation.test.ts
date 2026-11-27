@@ -309,18 +309,6 @@ const topic = {
   updated_at: '2026-10-02T09:00:00',
   evidence_count: 1,
 };
-const topicSuggestion = {
-  id: 4,
-  user_id: 1,
-  topic_id: 7,
-  suggestion_type: 'rename',
-  status: 'pending',
-  payload_json: '{"title":"Kitchen"}',
-  reason: 'Shorter',
-  confidence: 'medium',
-  created_at: '2026-10-01T09:00:00',
-  updated_at: '2026-10-01T09:00:00',
-};
 const fact = {
   id: 2,
   summary: 'Prefers mornings',
@@ -420,15 +408,11 @@ const synthesis = {
 };
 
 describe('topic, memory and conversation responses', () => {
-  it('parses topics, a topic detail and suggestions', async () => {
+  it('parses topics and a topic detail', async () => {
     nextBody = [topic];
     await expect(apiModule.topicApi.list()).resolves.toMatchObject({ data: [topic] });
     nextBody = { ...topic, evidence: [{ id: 1, source_type: 'email', source_id: 3, evidence_role: 'trigger', created_at: topic.created_at }] };
     await expect(apiModule.topicApi.get(7)).resolves.toMatchObject({ data: { evidence: [{ source_type: 'email' }] } });
-    nextBody = [topicSuggestion];
-    await expect(apiModule.topicApi.listSuggestions()).resolves.toMatchObject({ data: [topicSuggestion] });
-    nextBody = { ...topicSuggestion, status: 'approved' };
-    await expect(apiModule.topicApi.approveSuggestion(4)).resolves.toMatchObject({ data: { status: 'approved' } });
   });
 
   it('rejects a topic with an unknown status and evidence without its role', async () => {

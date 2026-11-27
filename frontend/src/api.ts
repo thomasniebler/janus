@@ -88,7 +88,6 @@ import type {
   Task,
   TopicDetail,
   TopicCreate,
-  TopicSuggestion,
   TopicSummary,
   TopicUpdate,
   UIVersion,
@@ -507,12 +506,6 @@ export const topicApi = {
   get: (id: number): Parsed<TopicDetail> => parseResponse(ks.topicDetailSchema)(api.get(`/api/topics/${id}`)),
   update: (id: number, data: TopicUpdate): Parsed<TopicSummary> =>
     parseResponse(schemas.topicSummarySchema)(api.patch(`/api/topics/${id}`, data)),
-  listSuggestions: (status?: string): Parsed<TopicSuggestion[]> =>
-    parseResponse(ks.topicSuggestionListSchema)(api.get('/api/topics/suggestions', { params: { status: status || undefined } })),
-  approveSuggestion: (id: number): Parsed<TopicSuggestion> =>
-    parseResponse(ks.topicSuggestionSchema)(api.post(`/api/topics/suggestions/${id}/approve`)),
-  dismissSuggestion: (id: number): Parsed<TopicSuggestion> =>
-    parseResponse(ks.topicSuggestionSchema)(api.post(`/api/topics/suggestions/${id}/dismiss`)),
   delete: (id: number) => api.delete<void>(`/api/topics/${id}`),
 };
 

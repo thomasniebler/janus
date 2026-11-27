@@ -12,7 +12,6 @@ short plain-text form (:func:`clean_text`) and documented as untrusted for every
 
 from __future__ import annotations
 
-import json
 import unicodedata
 from datetime import UTC, datetime
 from typing import Any
@@ -21,7 +20,6 @@ from janus import models
 from janus.schemas.inbox import InboxItem
 from janus.services.base import BaseService
 from janus.services.local_planner_service import LocalPlannerService
-from janus.services.topic_service import TopicService
 
 #: Items taken from each source, and the list's overall cap.
 PER_SOURCE_LIMIT = 20
@@ -34,7 +32,6 @@ SUMMARY_CHARS = 300
 ACTIONS: dict[str, tuple[str, ...]] = {
     "conversation": ("mark_read",),
     "planner_suggestion": ("dismiss",),
-    "topic_suggestion": ("dismiss",),
     "trigger_proposal": (),
 }
 
@@ -82,7 +79,6 @@ class InboxService(BaseService):
         items = [
             *self._conversations(user),
             *self._planner_suggestions(user),
-            *self._topic_suggestions(user),
             *self._trigger_proposals(user),
         ]
         items.sort(key=lambda entry: (entry.created_at, entry.id), reverse=True)
@@ -102,14 +98,6 @@ class InboxService(BaseService):
             self._require_pending(models.PlannerSuggestion, item_id, user.id, models.PlannerSuggestionStatus.PENDING)
             if LocalPlannerService(self.db).dismiss_suggestion(user.id, item_id) is None:
                 raise InboxError("not found")
-        elif kind == "topic_suggestion":
-            self._require_pending(models.TopicSuggestion, item_id, user.id, models.TopicSuggestionStatus.PENDING)
-            try:
-                TopicService(self.db).update_suggestion_status(
-                    user_id=user.id, suggestion_id=item_id, status=models.TopicSuggestionStatus.DISMISSED
-                )
-            except ValueError as error:
-                raise InboxError("not found") from error
 
     def _require_pending(self, model: Any, item_id: int, user_id: int, pending: Any) -> None:
         """Refuse an action on an item that is not the owner's or no longer open: the inbox lists only open items."""
@@ -172,28 +160,6 @@ class InboxService(BaseService):
             )
             for entry in suggestions
         ]
-
-    def _topic_suggestions(self, user: models.User) -> list[InboxItem]:
-        rows = TopicService(self.db).list_suggestions(user.id, status=models.TopicSuggestionStatus.PENDING)
-        items = []
-        for suggestion in rows[:PER_SOURCE_LIMIT]:
-            try:
-                payload = json.loads(suggestion.payload_json or "{}")
-            except ValueError:
-                payload = {}
-            name = payload.get("title") or payload.get("name") if isinstance(payload, dict) else None
-            kind_label = str(getattr(suggestion.suggestion_type, "value", suggestion.suggestion_type)).replace("_", " ")
-            items.append(
-                _item(
-                    "topic_suggestion",
-                    suggestion.id,
-                    f"Topic: {name}" if name else f"Topic suggestion ({kind_label})",
-                    suggestion.reason,
-                    suggestion.created_at,
-                    "/memory?tab=topics",
-                )
-            )
-        return items
 
     def _trigger_proposals(self, user: models.User) -> list[InboxItem]:
         rows = (

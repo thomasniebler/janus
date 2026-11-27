@@ -75,9 +75,7 @@ You can **pin** a topic to keep it visible. A pinned topic also gets a wiki page
 
 Each topic lists the evidence behind it: emails, reminders, calendar events, tasks and memory facts. Open a topic on the Topics tab to see why it exists.
 
-### Suggestions and preferences
-
-The Topics tab shows pending topic suggestions (rename, merge, pin, ignore pattern, promote pattern). You approve or dismiss them there or in the [action inbox](inbox.md). Janus does not generate these suggestions on its own yet.
+### Preferences
 
 Topic tracking follows per-user preferences. They have no settings page yet, so the defaults apply:
 

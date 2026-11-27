@@ -609,39 +609,6 @@ class TopicService:
         self.db.commit()
         return True
 
-    def list_suggestions(
-        self,
-        user_id: int,
-        *,
-        status: models.TopicSuggestionStatus | None = None,
-    ) -> list[models.TopicSuggestion]:
-        """Return topic suggestions for one user."""
-        stmt = self.db.query(models.TopicSuggestion).filter(models.TopicSuggestion.user_id == user_id)
-        if status is not None:
-            stmt = stmt.filter(models.TopicSuggestion.status == status)
-        return stmt.order_by(models.TopicSuggestion.created_at.desc(), models.TopicSuggestion.id.desc()).all()
-
-    def update_suggestion_status(
-        self,
-        *,
-        user_id: int,
-        suggestion_id: int,
-        status: models.TopicSuggestionStatus,
-    ) -> models.TopicSuggestion:
-        """Approve or dismiss a topic suggestion."""
-        suggestion = (
-            self.db.query(models.TopicSuggestion)
-            .filter(models.TopicSuggestion.id == suggestion_id, models.TopicSuggestion.user_id == user_id)
-            .first()
-        )
-        if suggestion is None:
-            raise ValueError("topic suggestion not found")
-        suggestion.status = status
-        suggestion.updated_at = time_utils.utcnow()
-        self.db.commit()
-        self.db.refresh(suggestion)
-        return suggestion
-
     def _marker_keywords_match_email(self, topic: models.TrackedTopic, email_record: models.EmailRecord) -> bool:
         """Return whether a manual topic's marker keywords match one processed email."""
         marker_keywords = topic_text.load_marker_keywords(topic.marker_keywords)

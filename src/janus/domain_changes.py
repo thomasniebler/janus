@@ -184,7 +184,6 @@ TRACKED_MODELS: dict[type, _Tracked] = {
     models.AgentMemoryCompactionRun: _Tracked(MEMORY),
     models.TrackedTopic: _Tracked(TOPICS),
     models.TopicEvidence: _Tracked(TOPICS, owner_attr=None, via=_TOPIC_EVIDENCE_OWNER),
-    models.TopicSuggestion: _Tracked(TOPICS),
     models.Rule: _Tracked(RULES),
     models.EmailRecord: _Tracked(EMAILS, owner_attr=None, via=_email_account_owner("account_id", models.EmailRecord)),
     models.PlannerTask: _Tracked(PLANNER),

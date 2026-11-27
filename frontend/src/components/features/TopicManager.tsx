@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { ArrowRight, Pin, Plus, RefreshCw, Save, Search, Tags, Trash2, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { topicApi } from '../../api';
-import type { TopicDetail, TopicStatus, TopicSuggestion, TopicSummary, TopicUpdate } from '../../types';
+import type { TopicDetail, TopicStatus, TopicSummary, TopicUpdate } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
@@ -146,11 +146,6 @@ export const TopicManager: React.FC = () => {
       ).data,
   });
 
-  const { data: suggestions = [] } = useQuery<TopicSuggestion[]>({
-    queryKey: ['topic-suggestions', 'pending'],
-    queryFn: async () => (await topicApi.listSuggestions('pending')).data,
-  });
-
   const {
     data: selectedTopic,
     isLoading: isSelectedTopicLoading,
@@ -237,9 +232,6 @@ export const TopicManager: React.FC = () => {
             Structured recurring threads Janus is tracking across incoming mail.
           </p>
         </div>
-        <Badge variant={suggestions.length > 0 ? 'warning' : 'gray'}>
-          {suggestions.length} Pending Suggestion{suggestions.length === 1 ? '' : 's'}
-        </Badge>
       </div>
 
       <Card className="p-6 space-y-4">
@@ -543,27 +535,6 @@ export const TopicManager: React.FC = () => {
         )}
       </Card>
 
-      <Card className="p-6 space-y-3">
-        <div className="flex items-center gap-2">
-          <Tags size={18} className="text-primary" />
-          <h3 className="text-lg font-bold">Topic suggestions</h3>
-        </div>
-        {suggestions.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No pending topic suggestions right now.</p>
-        ) : (
-          <div className="space-y-3">
-            {suggestions.map((suggestion) => (
-              <div key={suggestion.id} className="rounded-2xl border border-gray-100 dark:border-gray-800 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="warning">{suggestion.suggestion_type}</Badge>
-                  <Badge variant="secondary">{suggestion.confidence}</Badge>
-                </div>
-                <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">{suggestion.reason}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
       {dialog}
     </div>
   );

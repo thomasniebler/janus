@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-InboxKind = Literal["conversation", "planner_suggestion", "topic_suggestion", "trigger_proposal"]
+InboxKind = Literal["conversation", "planner_suggestion", "trigger_proposal"]
 InboxAction = Literal["mark_read", "dismiss"]
 
 

@@ -2816,66 +2816,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/topics/suggestions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Topic Suggestions
-         * @description List topic suggestions for the authenticated user.
-         */
-        get: operations["list_topic_suggestions_api_topics_suggestions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/topics/suggestions/{suggestion_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Approve Topic Suggestion
-         * @description Approve one topic suggestion.
-         */
-        post: operations["approve_topic_suggestion_api_topics_suggestions__suggestion_id__approve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/topics/suggestions/{suggestion_id}/dismiss": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Dismiss Topic Suggestion
-         * @description Dismiss one topic suggestion.
-         */
-        post: operations["dismiss_topic_suggestion_api_topics_suggestions__suggestion_id__dismiss_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/topics/{topic_id}": {
         parameters: {
             query?: never;
@@ -4931,7 +4871,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "conversation" | "planner_suggestion" | "topic_suggestion" | "trigger_proposal";
+            kind: "conversation" | "planner_suggestion" | "trigger_proposal";
             /** Id */
             id: number;
             /** Title */
@@ -7965,47 +7905,6 @@ export interface components {
          * @enum {string}
          */
         TopicStatus: "candidate" | "active" | "snoozed" | "resolved" | "ignored";
-        /**
-         * TopicSuggestionResponse
-         * @description Serialized topic suggestion.
-         */
-        TopicSuggestionResponse: {
-            /** Id */
-            id: number;
-            /** User Id */
-            user_id: number;
-            /** Topic Id */
-            topic_id?: number | null;
-            suggestion_type: components["schemas"]["TopicSuggestionType"];
-            status: components["schemas"]["TopicSuggestionStatus"];
-            /** Payload Json */
-            payload_json?: string | null;
-            /** Reason */
-            reason: string;
-            confidence: components["schemas"]["ConfidenceLevel"];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * TopicSuggestionStatus
-         * @description Lifecycle for a topic suggestion.
-         * @enum {string}
-         */
-        TopicSuggestionStatus: "pending" | "approved" | "dismissed";
-        /**
-         * TopicSuggestionType
-         * @description Reviewable suggestion kinds for topic curation.
-         * @enum {string}
-         */
-        TopicSuggestionType: "rename" | "merge" | "pin" | "ignore_pattern" | "promote_pattern";
         /**
          * TopicSummary
          * @description Compact tracked-topic payload used in lists and summaries.
@@ -15410,114 +15309,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TopicSummary"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_topic_suggestions_api_topics_suggestions_get: {
-        parameters: {
-            query?: {
-                status?: string | null;
-            };
-            header?: {
-                "X-CSRF-Token"?: string | null;
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                access_token?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TopicSuggestionResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    approve_topic_suggestion_api_topics_suggestions__suggestion_id__approve_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string | null;
-                authorization?: string | null;
-            };
-            path: {
-                suggestion_id: number;
-            };
-            cookie?: {
-                access_token?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TopicSuggestionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    dismiss_topic_suggestion_api_topics_suggestions__suggestion_id__dismiss_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string | null;
-                authorization?: string | null;
-            };
-            path: {
-                suggestion_id: number;
-            };
-            cookie?: {
-                access_token?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TopicSuggestionResponse"];
                 };
             };
             /** @description Validation Error */

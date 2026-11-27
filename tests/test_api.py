@@ -2891,18 +2891,7 @@ def test_topic_api_list_detail_update_and_suggestions(auth_client, db):
             evidence_role=models.TopicEvidenceRole.TRIGGER,
         )
     )
-    suggestion = models.TopicSuggestion(
-        user_id=user.id,
-        topic_id=topic.id,
-        suggestion_type=models.TopicSuggestionType.PIN,
-        status=models.TopicSuggestionStatus.PENDING,
-        payload_json='{"pinned": true}',
-        reason="This topic keeps resurfacing in important emails.",
-        confidence=models.ConfidenceLevel.HIGH,
-    )
-    db.add(suggestion)
     db.commit()
-    db.refresh(suggestion)
 
     response = auth_client.get("/api/topics/")
     assert response.status_code == 200
@@ -2919,14 +2908,6 @@ def test_topic_api_list_detail_update_and_suggestions(auth_client, db):
     assert response.status_code == 200
     assert response.json()["pinned"] is True
     assert response.json()["status"] == "resolved"
-
-    response = auth_client.get("/api/topics/suggestions?status=pending")
-    assert response.status_code == 200
-    assert response.json()[0]["suggestion_type"] == "pin"
-
-    response = auth_client.post(f"/api/topics/suggestions/{suggestion.id}/approve")
-    assert response.status_code == 200
-    assert response.json()["status"] == "approved"
 
 
 def test_topic_delete_removes_topic_and_evidence(auth_client, db):

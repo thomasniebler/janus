@@ -107,10 +107,9 @@ a script to show without opening the dashboard.
 | --- | --- | --- | --- |
 | Conversation Janus started, unread | A trigger run, such as the Secretary | `mark_read` | Open it in Chat |
 | Planner suggestion | Mail processing, digest, Secretary | `dismiss` | Dashboard → Planner Suggestions |
-| Topic suggestion | Topic tracking | `dismiss` | Memory → Topics |
 | Automation Janus proposed | `triggers.propose` in chat | none | Settings → Triggers |
 
-A device can only mark a conversation read or dismiss a pending suggestion.
+A device can only mark a conversation read or dismiss a pending planner suggestion.
 **Approving stays in the web app**: an approval can let an unattended run use a
 tool, and a token on a laptop should not be able to grant that. Items marked
 `needs_web` (automation proposals) can only be opened.
@@ -147,7 +146,7 @@ Each item has:
 
 | Field | Content |
 | --- | --- |
-| `kind` | `conversation`, `planner_suggestion`, `topic_suggestion`, or `trigger_proposal` |
+| `kind` | `conversation`, `planner_suggestion`, or `trigger_proposal` |
 | `id` | The item's id within its kind |
 | `title`, `summary` | Short plain text (at most 120 and 300 characters) |
 | `created_at` | When the item appeared |
