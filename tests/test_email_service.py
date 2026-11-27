@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from janus import models, security
+from janus.services import mailbox_service
 from janus.services.email_service import EmailService
 
 
@@ -214,8 +215,8 @@ def test_update_ignores_server_and_identity_fields_on_oauth_mailboxes(db):
     account.auth_type = "microsoft"
     db.commit()
 
-    updated = EmailService(db).update_account_for_user(
-        account.id, account.user_id, {"imap_server": "evil.example.com", "username": "x", "name": "Renamed"}
+    updated = mailbox_service.update_account_for_user(
+        db, account.id, account.user_id, {"imap_server": "evil.example.com", "username": "x", "name": "Renamed"}
     )
 
     assert updated.imap_server == "imap.example.com"

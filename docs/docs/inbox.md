@@ -22,7 +22,9 @@ mail access yet, the button reads **Connect …** again, and signing in once mor
 grants it. See [Integrations](integrations.md).
 
 Each account card has buttons to edit, test the connection, and delete. IMAP
-passwords and tokens are stored encrypted.
+passwords and tokens are stored encrypted. Janus starts reading a mailbox as
+soon as it is added or switched on, and stops when it is switched off or
+deleted; changing its address, server or login reconnects it.
 
 A few things differ for Outlook mailboxes: Janus never marks their mail read on
 the server, and a message moved into the inbox later is not picked up.

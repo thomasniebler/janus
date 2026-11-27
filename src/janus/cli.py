@@ -23,7 +23,7 @@ from janus.services.topic_service import TopicService
 from janus.startup import ensure_runtime_initialized
 from janus.worker_manager import worker_manager
 from janus.workers import update as update_worker
-from janus.workers.email import initial_sync_worker
+from janus.workers.email import start_mailbox_worker
 from janus.workers.errors import error_compaction_loop
 from janus.workers.planner import planner_sync_loop
 from janus.workers.whatsapp import start_account_connector
@@ -163,7 +163,7 @@ def _serve(host: str, port: int, tray: bool, server_mode: bool) -> None:
     try:
         accounts = db.query(models.EmailAccount).filter(models.EmailAccount.is_active).all()
         for account in accounts:
-            worker_manager.start(f"imap:{account.email}", initial_sync_worker, args=(account,))
+            start_mailbox_worker(account)
 
         whatsapp_accounts = db.query(models.WhatsAppAccount).filter(models.WhatsAppAccount.is_enabled.is_(True)).all()
         for whatsapp_account in whatsapp_accounts:

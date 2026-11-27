@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import math
+import threading
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -35,9 +36,18 @@ _PAGE_SIZE = 50
 class GraphMailMonitor:
     """Polls one Outlook mailbox for new inbox mail."""
 
-    def __init__(self, account: models.EmailAccount, client_factory: Callable[[], MicrosoftGraphClient] | None = None):
-        """Monitors ``account``; ``client_factory`` builds the Graph client (a test seam)."""
+    def __init__(
+        self,
+        account: models.EmailAccount,
+        client_factory: Callable[[], MicrosoftGraphClient] | None = None,
+        stop_event: threading.Event | None = None,
+    ):
+        """Monitors ``account``; ``client_factory`` builds the Graph client (a test seam).
+
+        Setting ``stop_event`` ends ``poll_loop`` at its next wait (the mailbox was deactivated or deleted).
+        """
         self.account = account
+        self._stop = stop_event or threading.Event()
         self._client_factory = client_factory or self._graph_client
         self._failures: dict[str, int] = {}
         self._last_beat = 0.0
@@ -178,6 +188,8 @@ class GraphMailMonitor:
 
     def _still_wanted(self) -> bool:
         """Whether the mailbox is still active and connected (a disconnect deactivates it)."""
+        if self._stop.is_set():
+            return False
         with database.SessionLocal() as db:
             row = db.query(models.EmailAccount).filter(models.EmailAccount.id == self.account.id).first()
             return bool(row and row.is_active and row.connection_id)
@@ -185,11 +197,15 @@ class GraphMailMonitor:
     def _nap(self, seconds: int) -> None:
         """Sleeps in heartbeat-sized steps so the account keeps reporting that it is alive."""
         remaining = seconds
-        while remaining > 0:
+        while remaining > 0 and not self._stop.is_set():
             step = min(remaining, HEARTBEAT_SECONDS)
-            time.sleep(step)
+            self._wait(step)
             remaining -= step
             self._beat()
+
+    def _wait(self, seconds: float) -> None:
+        """Sleeps ``seconds``, returning early when the monitor is asked to stop."""
+        self._stop.wait(seconds)
 
     def poll_loop(self, callback: Callable[[dict, Any], None]) -> None:
         """Polls until the mailbox is disconnected or deactivated, backing off on errors."""
@@ -208,5 +224,5 @@ class GraphMailMonitor:
                 imap_service.write_heartbeat(
                     self.account, models.MonitorStatus.ERROR, error=str(exc), source="Outlook monitor"
                 )
-                time.sleep(_ERROR_BACKOFF_SECONDS)
+                self._wait(_ERROR_BACKOFF_SECONDS)
         event_logger.log(models.EventType.INFO, "GraphMailMonitor", f"Stopped Outlook polling for {self.account.email}")

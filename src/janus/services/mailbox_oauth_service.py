@@ -63,6 +63,7 @@ def create_mailbox(db: Session, user_id: int, provider: str, name: str | None = 
         orphan.is_active = True
         db.commit()
         db.refresh(orphan)
+        _start_monitor(orphan)
         return orphan
     taken = db.query(models.EmailAccount).filter(
         (models.EmailAccount.email == address) | (models.EmailAccount.name == chosen_name)
@@ -84,7 +85,15 @@ def create_mailbox(db: Session, user_id: int, provider: str, name: str | None = 
     db.add(account)
     db.commit()
     db.refresh(account)
+    _start_monitor(account)
     return account
+
+
+def _start_monitor(account: models.EmailAccount) -> None:
+    """Starts the mailbox's monitor right away, so a new mailbox needs no restart."""
+    from janus.workers.email import start_mailbox_worker
+
+    start_mailbox_worker(account)
 
 
 def imap_access_token(account: models.EmailAccount) -> str:

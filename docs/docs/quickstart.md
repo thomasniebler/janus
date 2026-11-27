@@ -153,7 +153,7 @@ Common IMAP servers:
 | iCloud | `imap.mail.me.com` | 993 |
 | Outlook / Hotmail | `imap-mail.outlook.com` | 993 |
 
-Restart Janus after adding a mailbox (`systemctl --user restart janus` when it runs as a service): mailboxes are picked up at start. Janus then syncs recent mail and waits for new mail with IMAP IDLE. Your rules and the model sort each message; see [Inbox](inbox.md).
+Janus starts reading a mailbox as soon as you add it: it syncs recent mail and then waits for new mail with IMAP IDLE. Your rules and the model sort each message; see [Inbox](inbox.md).
 
 ## 7. Look around
 

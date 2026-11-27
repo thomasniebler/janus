@@ -36,8 +36,8 @@ SERVICE_MODULE_BUDGET_EXCEPTIONS = {
     # Raised from 650 for the owner-scoped *_for_user account/rule/email methods
     # that replaced router-level ownership checks (JAN-137), then from 680 for
     # the owner-scoped email query/outgoing-account resolver (JAN-286) and the
-    # per-owner correction-rule scope (JAN-287).
-    "src/janus/services/email_service.py": 701,
+    # per-owner correction-rule scope (JAN-287); lowered once mailbox CRUD moved to mailbox_service.py.
+    "src/janus/services/email_service.py": 656,
     "src/janus/services/local_planner_service.py": 981,
     # Raised from 638 for the bearer token hooks (JAN-342; see mcp_static_token.py and mcp_status.py),
     # then to 652 for storing discovered tool annotations (JAN-343; see mcp_metadata.py).
@@ -64,9 +64,6 @@ CORE_MODULE_BUDGET_EXCEPTIONS = {
     # Responses-only (JAN-354; the helpers live in llm_provider_clients).
     # Raised to 1173 for attaching the LLM usage callback to every model (JAN-408; the logic is llm_usage.py).
     "src/janus/llm_service.py": 1173,
-    # Raised from 600 for the heartbeat and first-sync-limit helpers the Outlook monitor shares
-    # (graph_mail_service.py).
-    "src/janus/imap_service.py": 605,
     # Raised from 600 for the proposal activation guards (JAN-235); the
     # approval rules themselves live in trigger_approval.py and the proposal
     # lifecycle in trigger_proposal_service.py. Raised to 660 to thread the event filter and

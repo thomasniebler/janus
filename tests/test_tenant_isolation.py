@@ -11,6 +11,7 @@ from datetime import timedelta
 import pytest
 
 from janus import config, models, security, time_utils, tool_policy
+from janus.services import mailbox_service
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -432,8 +433,8 @@ def test_user_scoped_service_methods_treat_foreign_rows_as_missing(db):
     emails = EmailService(db)
     conversations = ConversationService(db)
 
-    assert emails.update_account_for_user(account.id, bob.id, {"name": "x"}) is None
-    assert emails.delete_account_for_user(account.id, bob.id) is False
+    assert mailbox_service.update_account_for_user(db, account.id, bob.id, {"name": "x"}) is None
+    assert mailbox_service.delete_account_for_user(db, account.id, bob.id) is False
     assert emails.update_rule_for_user(rule.id, bob.id, is_active=False) is None
     assert emails.delete_rule_for_user(rule.id, bob.id) is False
     assert emails.get_email_for_user(record.id, bob.id) is None
