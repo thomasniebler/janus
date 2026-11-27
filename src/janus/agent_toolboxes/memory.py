@@ -27,13 +27,23 @@ def build_memory_tools(context: ToolContext) -> list[BaseTool]:
             "created_at": iso(row.created_at),
             "updated_at": iso(row.updated_at),
             "last_accessed_at": iso(row.last_accessed_at),
+            # How far the memory review checked the fact against its source conversation, and the exact
+            # passage that supports it; treat an unverified or unsupported fact as a lead, not as settled.
+            "verification": row.verification,
+            "evidence_quote": row.evidence_quote,
+            "in_memory_index": row.in_memory_index,
         }
+
+    def returned(rows: list[models.AgentMemoryFact]) -> list[dict[str, Any]]:
+        """Serialize the rows, then count the read in a separate session (the run's own session never commits)."""
+        payload = [serialize_fact(row) for row in rows]
+        run_isolated_tool_mutation(context, MemoryService, lambda counter: counter.record_access([r.id for r in rows]))
+        return payload
 
     @tool("list_memory_facts")
     def list_memory_facts() -> list[dict[str, Any]]:
-        """Returns active AgentMemoryFact rows for the current user."""
-        rows = service.list_facts(user_id, touch_accessed=False)
-        return [serialize_fact(row) for row in rows]
+        """Returns the current user's active memory facts, most recently updated first."""
+        return returned(service.list_facts(user_id, touch_accessed=False))
 
     @tool("search_facts")
     def search_facts(
@@ -53,22 +63,34 @@ def build_memory_tools(context: ToolContext) -> list[BaseTool]:
             limit=limit,
             touch_accessed=False,
         )
-        return [serialize_fact(row) for row in rows]
+        return returned(rows)
 
     @tool("add_memory_fact")
     def add_memory_fact(summary: str, detail: str | None = None) -> dict[str, Any]:
-        """Persist a durable personal memory fact for the user; do not use this to create tracked topics."""
+        """Remember a durable fact so a future session can rely on it without the user repeating it.
+
+        Use it when the user asks you to remember something, or when something is clearly worth
+        remembering; not for what you can look up again, and not for tracked topics. Put the user's
+        exact words for anything precise (names, numbers, terms) in ``detail``. The fact starts
+        unverified until the memory review checks it against this conversation.
+        """
         return run_isolated_tool_mutation(
             context,
             MemoryService,
             lambda mutation_service: serialize_fact(
-                mutation_service.create_fact(user_id=user_id, summary=summary, detail=detail)
+                mutation_service.create_fact(
+                    user_id=user_id,
+                    summary=summary,
+                    detail=detail,
+                    source=models.AgentMemorySource.AGENT,
+                    conversation_id=context.conversation_id,
+                )
             ),
         )
 
     @tool("update_fact")
     def update_fact(fact_id: int, summary: str | None = None, detail: str | None = None) -> dict[str, Any]:
-        """Updates a memory fact's summary and/or detail."""
+        """Updates a memory fact's summary and/or detail; the fact becomes unverified until the next memory review."""
         return run_isolated_tool_mutation(
             context,
             MemoryService,

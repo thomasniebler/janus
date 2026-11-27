@@ -38,6 +38,14 @@ export const memoryFactSchema = z.looseObject({
   created_at: z.string(),
   updated_at: z.string(),
   last_accessed_at: z.string().nullable(),
+  access_count: z.number().int().optional(),
+  verification: z.enum(['unverified', 'confirmed', 'corrected', 'unsupported', 'contradicted']).optional(),
+  verified_at: z.string().nullable().optional(),
+  evidence_quote: z.string().nullable().optional(),
+  review_due_at: z.string().nullable().optional(),
+  promoted: z.boolean().optional(),
+  pin: z.enum(['pinned', 'hidden']).nullable().optional(),
+  in_memory_index: z.boolean().optional(),
 });
 
 export const memoryFactListSchema = z.array(memoryFactSchema);

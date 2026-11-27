@@ -71,7 +71,7 @@ def test_constitution_is_per_user(db):
 
 
 def test_janus_system_prompt_uses_character_and_the_whole_skill_library(db):
-    """Chat prompt = character + every stored skill."""
+    """Chat prompt = character + an index line for every stored skill (full text via read_skill)."""
     user = _make_user(db, "prompt-owner")
     _save_pilot(db, user.id)
     db.add_all(
@@ -88,8 +88,9 @@ def test_janus_system_prompt_uses_character_and_the_whole_skill_library(db):
     )
 
     assert prompt.startswith("# Character constitution: Pilot")
-    assert "## Attached\n\nAttached content." in prompt
-    assert "## Unattached\n\nUnattached content." in prompt
+    assert "- **Attached**: d" in prompt
+    assert "- **Unattached**: d" in prompt
+    assert "Attached content." not in prompt
     assert "--- Tool Availability ---" in prompt
 
 

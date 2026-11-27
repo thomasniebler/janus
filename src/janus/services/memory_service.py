@@ -1,13 +1,13 @@
 """Persistence and compaction helpers for agent memory facts."""
 
 import threading
-from collections.abc import Iterable
+from collections.abc import Sequence
 
 from sqlalchemy import bindparam, select, text
 from sqlalchemy.orm import Session
 
 from janus import database, event_logger, llm_service, models, time_utils
-from janus.services import knowledge_index
+from janus.services import knowledge_index, memory_curation
 
 
 class MemoryFactNotFoundError(ValueError):
@@ -73,27 +73,55 @@ class MemoryService:
             )
 
         if results and touch_accessed:
-            now = time_utils.utcnow()
-            fact_ids = [fact.id for fact in results]
-            # Use raw SQL so SQLAlchemy's onupdate hook for updated_at is NOT
-            # triggered — only last_accessed_at is written to the database.
-            # bindparam with expanding=True generates a safe parameterized
-            # IN clause at query time.
-            # SQLite stores datetimes without timezone info.
-            naive_now = now.replace(tzinfo=None)
-            self.db.execute(
-                text("UPDATE agent_memory_facts SET last_accessed_at = :ts WHERE id IN :ids").bindparams(
-                    bindparam("ids", expanding=True)
-                ),
-                {"ts": naive_now, "ids": fact_ids},
-            )
-            self.db.commit()
+            # A listing (the Memory page) stamps the read but does not count as Janus using the fact.
+            self.record_access([fact.id for fact in results], count=False)
             # Expire the in-memory objects so subsequent reads reflect the
-            # updated last_accessed_at without triggering a second ORM flush.
+            # updated access stamps without triggering a second ORM flush.
             for fact in results:
                 self.db.expire(fact)
 
         return results
+
+    def record_access(self, fact_ids: Sequence[int], *, count: bool = True) -> None:
+        """Stamp ``last_accessed_at`` and, with ``count``, count one use of each fact by Janus; commits.
+
+        Raw SQL so SQLAlchemy's ``onupdate`` hook for ``updated_at`` is NOT
+        triggered (a read is not an edit). The access count orders the memory
+        review and the memory index (see ``memory_review``); only Janus's
+        memory tools count, not the user's listing.
+        """
+        if not fact_ids:
+            return
+        # SQLite stores datetimes without timezone info.
+        naive_now = time_utils.utcnow().replace(tzinfo=None)
+        statement = (
+            "UPDATE agent_memory_facts SET last_accessed_at = :ts, access_count = access_count + 1 WHERE id IN :ids"
+            if count
+            else "UPDATE agent_memory_facts SET last_accessed_at = :ts WHERE id IN :ids"
+        )
+        self.db.execute(
+            text(statement).bindparams(bindparam("ids", expanding=True)),
+            {"ts": naive_now, "ids": list(fact_ids)},
+        )
+        self.db.commit()
+
+    def set_pin(self, *, user_id: int, fact_id: int, pin: models.AgentMemoryPin | None) -> models.AgentMemoryFact:
+        """Pin a fact into the memory index, hide it from it, or (``None``) let the memory review decide."""
+        fact = self._owned_fact(user_id, fact_id)
+        fact.pin = pin.value if pin is not None else None
+        self.db.commit()
+        self.db.refresh(fact)
+        return fact
+
+    def _owned_fact(self, user_id: int, fact_id: int) -> models.AgentMemoryFact:
+        fact = (
+            self.db.query(models.AgentMemoryFact)
+            .filter(models.AgentMemoryFact.id == fact_id, models.AgentMemoryFact.user_id == user_id)
+            .first()
+        )
+        if fact is None:
+            raise MemoryFactNotFoundError("memory fact not found")
+        return fact
 
     @staticmethod
     def _rank_facts(stmt, ranked_ids: list[int], limit: int) -> list[models.AgentMemoryFact]:
@@ -124,8 +152,15 @@ class MemoryService:
         detail: str | None = None,
         source: models.AgentMemorySource = models.AgentMemorySource.USER,
         conversation_id: int | None = None,
+        user_stated: bool = False,
     ) -> models.AgentMemoryFact:
-        """Create or refresh a durable memory fact."""
+        """Create or refresh a durable memory fact.
+
+        ``user_stated`` marks a fact the user wrote themselves (the Memory page):
+        it is ``confirmed`` at once, since the user is its source. Every other
+        fact starts ``unverified`` until the memory review checks it against its
+        source conversation; refreshing an existing fact never downgrades it.
+        """
         cleaned_summary = self._clean_text(summary)
         if cleaned_summary is None:
             raise ValueError("Memory facts require a summary.")
@@ -149,6 +184,8 @@ class MemoryService:
             existing.detail = cleaned_detail or existing.detail
             existing.source = source
             existing.source_conversation_id = conversation_id or existing.source_conversation_id
+            if user_stated:
+                self._mark_confirmed_by_user(existing, now)
             existing.updated_at = now
             existing.last_accessed_at = now
             self.db.commit()
@@ -165,6 +202,8 @@ class MemoryService:
             source_conversation_id=conversation_id,
             last_accessed_at=now,
         )
+        if user_stated:
+            self._mark_confirmed_by_user(fact, now)
         self.db.add(fact)
         self.db.commit()
         knowledge_index.embed_owner(self.db, knowledge_index.FACT, fact.id)
@@ -178,18 +217,15 @@ class MemoryService:
         fact_id: int,
         summary: str | None = None,
         detail: str | None = None,
+        user_stated: bool = False,
     ) -> models.AgentMemoryFact:
-        """Update a user's fact summary/detail."""
-        fact = (
-            self.db.query(models.AgentMemoryFact)
-            .filter(
-                models.AgentMemoryFact.id == fact_id,
-                models.AgentMemoryFact.user_id == user_id,
-            )
-            .first()
-        )
-        if fact is None:
-            raise MemoryFactNotFoundError("memory fact not found")
+        """Update a user's fact summary/detail.
+
+        An edit invalidates the fact's evidence: the user's own edit
+        (``user_stated``) confirms it, any other edit makes it ``unverified`` and
+        due for the next memory review.
+        """
+        fact = self._owned_fact(user_id, fact_id)
 
         if summary is None and detail is None:
             raise ValueError("provide at least one field to update")
@@ -203,11 +239,27 @@ class MemoryService:
         if detail is not None:
             fact.detail = self._clean_text(detail)
 
-        fact.updated_at = time_utils.utcnow()
+        now = time_utils.utcnow()
+        if user_stated:
+            self._mark_confirmed_by_user(fact, now)
+        else:
+            fact.verification = models.AgentMemoryVerification.UNVERIFIED.value
+            fact.verified_at = None
+            fact.evidence_quote = None
+            fact.review_due_at = None
+        fact.updated_at = now
         self.db.commit()
         knowledge_index.embed_owner(self.db, knowledge_index.FACT, fact.id)
         self.db.refresh(fact)
         return fact
+
+    @staticmethod
+    def _mark_confirmed_by_user(fact: models.AgentMemoryFact, now) -> None:
+        """The user is the fact's source: confirmed, with no quote to check and no review due."""
+        fact.verification = models.AgentMemoryVerification.CONFIRMED.value
+        fact.verified_at = now
+        fact.evidence_quote = None
+        fact.review_due_at = None
 
     def delete_fact(self, *, user_id: int, fact_id: int) -> bool:
         """Delete a user's memory fact."""
@@ -366,48 +418,7 @@ class MemoryService:
                 db, llm_service.model_choice_from_settings(db, "utility"), purpose="utility"
             )
             suggestions = utility.suggest_memory_compactions(facts)
-            facts_by_id = {fact.id: fact for fact in facts}
-            used_fact_ids: set[int] = set()
-            facts_created = 0
-            facts_archived = 0
-
-            for suggestion in suggestions:
-                raw_source_ids = suggestion.get("source_ids", [])
-                if not isinstance(raw_source_ids, Iterable) or isinstance(raw_source_ids, (str, bytes)):
-                    continue
-                source_ids = []
-                for sid in raw_source_ids:
-                    try:
-                        int_id = int(sid)
-                        if int_id in facts_by_id and int_id not in used_fact_ids:
-                            source_ids.append(int_id)
-                    except (ValueError, TypeError):
-                        continue
-                summary = cls._clean_text(suggestion.get("summary") if isinstance(suggestion, dict) else None)
-                detail = cls._clean_text(suggestion.get("detail") if isinstance(suggestion, dict) else None)
-                if summary is None or len(source_ids) < 2:
-                    continue
-
-                merged_fact = models.AgentMemoryFact(
-                    user_id=run.user_id,
-                    summary=summary,
-                    detail=detail,
-                    source=models.AgentMemorySource.COMPACTION,
-                    status=models.AgentMemoryStatus.ACTIVE,
-                    last_accessed_at=time_utils.utcnow(),
-                )
-                db.add(merged_fact)
-                db.flush()
-
-                for source_id in source_ids:
-                    source_fact = facts_by_id[source_id]
-                    source_fact.status = models.AgentMemoryStatus.ARCHIVED
-                    source_fact.compacted_into_id = merged_fact.id
-                    source_fact.updated_at = time_utils.utcnow()
-                    used_fact_ids.add(source_id)
-                    facts_archived += 1
-
-                facts_created += 1
+            facts_created, facts_archived = memory_curation.apply_compactions(db, run.user_id, facts, suggestions)
 
             run.facts_created = facts_created
             run.facts_archived = facts_archived

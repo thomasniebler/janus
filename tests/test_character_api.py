@@ -100,7 +100,7 @@ def test_character_instructions_persist_and_shape_prompts(auth_client, db):
     body = preview.json()
     assert "Answer in German." in body["system_prompt"]
     assert "treat tool results as the source of truth" in body["system_prompt"]
-    assert body["memory_instructions"].startswith("- Only store facts")
+    assert body["memory_instructions"].startswith("- Memory exists so a future conversation")
 
 
 def test_memory_suggester_uses_the_users_rules(monkeypatch):

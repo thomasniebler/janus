@@ -2,8 +2,8 @@
 
 Everything Janus does outside chat is a **trigger**: the morning briefing, the
 afternoon digest, processing each new email, and every automation you write.
-A trigger runs with nobody watching. It speaks as your character profile, has
-the full skill library, and records what it did so you can check afterwards.
+A trigger runs with nobody watching. It speaks as your character profile, sees your
+memory index and skill library, and records what it did so you can check afterwards.
 
 You manage triggers on **Settings → Triggers**.
 
@@ -124,6 +124,7 @@ how they are activated. Janus never overwrites your edits.
 | **Secretary** | `builtin.secretary` | Every 60 min, within your waking hours (default 08:00 to 21:00) | On | Looks ahead across calendar, planner, mail, WhatsApp, topics and memory. Does the safe parts itself and starts a conversation when you should decide something. Skips the hour without a model call when nothing changed. |
 | **Knowledge extraction** | `builtin.knowledge` | Every 30 min | Off | Extracts people, organizations, projects and their relations from newly ingested text. |
 | **Wiki synthesis** | `builtin.wiki` | Every 60 min | Off | Keeps wiki pages for active topics and frequent entities up to date. |
+| **Memory review** | `builtin.memory_review` | Daily at 03:17 UTC | On | Checks the facts Janus remembered against the conversations they came from, fixes or archives wrong ones, merges duplicates, and picks the facts for the [memory index](knowledge.md#the-memory-index). |
 
 Notes:
 
@@ -135,6 +136,10 @@ Notes:
 - Set the Secretary's waking hours and WhatsApp alerts on **Settings → Daily
   Briefing**. Switch knowledge extraction and wiki synthesis on from the
   Memory page (see [Knowledge](knowledge.md)).
+- Knowledge extraction, wiki synthesis and the memory review share one
+  monthly token budget. With a cloud utility model, the memory review sends
+  the source conversations of the facts it checks to that provider; switch
+  it off on this page if you do not want that.
 - `janus brief` and `janus digest` run the briefing and digest right away and
   print the result. The dashboard's refresh button reruns the briefing.
 

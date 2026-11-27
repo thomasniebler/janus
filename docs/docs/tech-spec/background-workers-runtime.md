@@ -18,7 +18,13 @@ Every unit of agent work, in chat or unattended, goes through the same pipeline.
 
 A chat turn is one plan step (`step_id` `chat-conversation-<id>::message-<n>`). A trigger run is a one-step plan whose task id is the trigger's. A delegated child is its own one-step plan under a child task id.
 
-**System prompt.** Every surface renders `build_janus_system_prompt(character, skill_library, character_state=...)`: the constitution (with its `additional_instructions`), the current adaptive character state, the full skill library, the shared tool-availability rules and the untrusted-content policy. Chat adds `CHAT_PROGRESS_UPDATES` (a short plan before the first tool call and one line per round). Unattended callers append run guidance (nobody is present; report `BLOCKED` and `ERROR` answers plainly). `/ws/chat` renders the prompt per message, so an approved character change applies from the next message.
+**System prompt.** Every surface renders `build_janus_system_prompt(character, skill_library, character_state=..., memory_index=...)`: the constitution (with its `additional_instructions`), the current adaptive character state, the shared tool-availability rules, the untrusted-content policy, the memory guidance (`MEMORY_GUIDANCE`), the memory index and the skill index. The always-injected layer stays small and works as an index, following Anthropic's "The components of agent memory" (2026):
+
+- **Memory guidance** says what memory is *for* (a future session relies on it without the user repeating it), asks Janus to look in memory before answering something that depends on the user's preferences, people, projects or decisions, and to write a fact when asked or when something is clearly worth remembering. It sets no fixed rules about what to write.
+- **Memory index** (`services/memory_curation.py`, `index_facts`): at most 15 active facts (`INDEX_MAX_FACTS`) and 2,000 characters (`INDEX_MAX_CHARS`), each line `- [fact <id>] <summary>`. Pinned facts come first, then facts the [Memory review](#memory-review) promoted after confirming them; hidden facts never appear. It is rendered inside an escaped `<memory_index>` data block.
+- **Skill index**: one line per skill (`- **<name>**: <description>`, 300 characters). Janus loads a skill's full text with `read_skill(name)`, a `core` tool and therefore offered on every surface and in every task mode. The mail classifier is one tool-less model call, so `build_janus_mail_ingestion_guidance` still renders the skills' full text.
+
+ Chat adds `CHAT_PROGRESS_UPDATES` (a short plan before the first tool call and one line per round). Unattended callers append run guidance (nobody is present; report `BLOCKED` and `ERROR` answers plainly). `/ws/chat` renders the prompt per message, so an approved character change applies from the next message.
 
 ## Tool registry
 
@@ -132,7 +138,7 @@ Details:
 - **Introspection.** `ui_introspection` tools send `__UI_INTROSPECT__` and wait for the page outline or one element's styles; `services/ui_introspection.py` re-sanitizes the answer (200 nodes, 24 KB).
 - **UI blocks.** `render_ui` validates a block against the catalog in `services/ui_blocks.py` and streams `__UI_BLOCK__`; blocks are stored in `conversation_ui_blocks`.
 - **Images.** `generate_image` calls the admin-configured provider (`services/image_generation.py`), stores the file under the per-user image directory (`services/image_store.py`, quota `JANUS_IMAGE_STORAGE_LIMIT_MB`) and adds an `image` block.
-- **Memory suggestion.** After the reply the utility model may propose one short durable fact (`suggest_memory_fact`), stored with `source=agent`. It is skipped when the turn had a suspected injection.
+- **Memory suggestion.** After the reply the utility model may propose one short durable fact (`suggest_memory_fact`), stored with `source=agent`, `verification=unverified` and the conversation as its source, so the [Memory review](#memory-review) can check it. It is skipped when the turn had a suspected injection, and when Janus itself called `add_memory_fact`, `update_fact` or `group_facts` in the turn (a second, paraphrased copy would only duplicate it). The default rules (`DEFAULT_MEMORY_INSTRUCTIONS`) say what memory is for rather than listing what to store.
 - **Models.** The chat model comes from the chat surface choice, the title and memory suggestion from the utility model. An explicit choice that cannot be built closes the socket with the error; there is no silent fallback.
 
 ## Triggers and the durable worker
@@ -214,8 +220,9 @@ A failed plan raises after its state is persisted, so the row's status follows t
 | `builtin.secretary` | Secretary | every 60 min | core, calendar, jira, planner.local, topics, memory, mail, whatsapp, knowledge, wiki, web_search, triggers, planner.suggest, conversations.start, whatsapp.notify_me | see below |
 | `builtin.knowledge` | Knowledge extraction | every 30 min, off | none | `prepare`: entity and relation extraction, always `skip_output` |
 | `builtin.wiki` | Wiki synthesis | every 60 min, off | none | `prepare`: create, refresh and prune wiki pages, always `skip_output` |
+| `builtin.memory_review` | Memory review | daily 03:17 UTC, **on** | none | `prepare`: verify, merge and promote memory facts (see [Memory review](#memory-review)), always `skip_output` |
 
-Built-ins are seeded in UTC. `adopt_client_timezone()` moves a still-unedited briefing and secretary to the browser's timezone the first time one is reported. Knowledge extraction and wiki synthesis make direct model calls within a per-user monthly token budget. Self-evolution self-checks are not seeded: each is a one-time definition with `builtin_key = "selfevo.check:<id>"` whose `prepare` runs the check without a model.
+Built-ins are seeded in UTC. `adopt_client_timezone()` moves a still-unedited briefing and secretary to the browser's timezone the first time one is reported. Knowledge extraction, wiki synthesis and the memory review make direct model calls within one shared per-user monthly token budget. Self-evolution self-checks are not seeded: each is a one-time definition with `builtin_key = "selfevo.check:<id>"` whose `prepare` runs the check without a model.
 
 ### Proactive secretary
 
@@ -277,8 +284,28 @@ The `planner` worker runs `PlannerService.sync_all` every 30 minutes over Google
 ## Knowledge and memory workers
 
 - **Knowledge index** (`services/knowledge_index.py`). Every 60 s: ingest up to 50 knowledge sources (staged attachments and uploads parsed with markitdown when the `documents` extra is installed; mail, chats, events and tasks rebuilt as sources), then embed stale facts, topics, chunks and entities. It does nothing without an embedding provider or without sqlite-vec. Memory and topic writes also embed inline after commit. `janus knowledge backfill` and `janus knowledge reembed` run the same passes from the CLI.
-- **Memory compaction** runs on a background thread started from the Memory page; it merges overlapping facts and archives the originals.
+- **Memory compaction** runs on a background thread started from the Memory page; it merges overlapping facts and archives the originals (`memory_curation.apply_compactions`, shared with the memory review).
+- **Memory review** is the `builtin.memory_review` trigger, below.
 - **Topics** are captured from mail, corroborated by several mails before promotion, and read by the briefing, the digest and the topic tools.
+
+## Memory review
+
+`services/memory_review.py` is the `prepare` hook of `builtin.memory_review`: the offline pass the article calls *dreaming*. It runs daily, on by default, with no tools and no agent step: direct calls to the utility model (or the definition's model) within the knowledge budget, stopping before a call that would exceed it.
+
+1. **Verify.** Up to 8 due facts (`FACTS_PER_RUN`) are checked against their source conversation, the ground truth. Due means: active, `source` `agent` or `compaction`, a source conversation the user owns, and `review_due_at` empty or past. Facts the user wrote or edited themselves are `confirmed` without a quote and never due. Order: unverified first, then by `access_count`, then by `last_accessed_at`. The transcript is the conversation's numbered messages (2,000 characters each); above 12,000 characters only the messages sharing the most words with the fact, and their neighbours, are kept. Fact and transcript are HTML-escaped inside `<fact>` and `<transcript>` with a do-not-follow sentence. The model answers a verdict, a quote and whether the fact is volatile:
+
+   | Verdict | Effect |
+   | --- | --- |
+   | `confirmed` | `verification=confirmed`, the quote stored as `evidence_quote` |
+   | `corrected` | summary and detail rewritten from the transcript, `verification=corrected`, quote stored, re-embedded |
+   | `contradicted` | archived, `verification=contradicted`, removed from the index |
+   | `unsupported` | kept, `verification=unsupported`, never promoted |
+
+   The quote must appear in the transcript (whitespace and case ignored, at most 500 characters); a `confirmed` or `corrected` answer without such a quote counts as `unsupported`. A checked fact is due again after 90 days (`REVIEW_STABLE`), 14 days when volatile (`REVIEW_VOLATILE`), 30 days when unsupported, each halved when Janus read the fact in the last 7 days. An unusable answer leaves the fact due again in a day.
+2. **Merge.** When an active fact changed in the last day, the 100 most recently updated active facts go through `suggest_memory_compactions`, as the on-demand compaction. A merged fact keeps the newest source conversation, `confirmed` (with the sources' quotes) when every source was confirmed or corrected, the summed access count, the promotion of any source, and the sources' pin (pinned wins).
+3. **Promote.** When the run changed something, or no fact is promoted yet, the model picks at most `15 − pinned` facts from up to 80 confirmed or corrected, unpinned facts (`promoted`). These form the memory index with the user's pins.
+
+`access_count` is bumped whenever Janus's `memory` tools return a fact, and `last_accessed_at` also when the Memory page lists it (raw SQL, no `updated_at` change). The run's output is one summary line.
 
 ## Live UI refresh
 

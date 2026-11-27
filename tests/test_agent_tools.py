@@ -68,6 +68,7 @@ def test_build_tool_set_gates_on_real_connections(db):
 
     assert set(tools) == {
         "get_current_datetime",
+        "read_skill",
         "list_recent_events",
         "list_my_triggers",
         "get_trigger",

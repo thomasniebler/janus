@@ -54,7 +54,7 @@ Semgrep rule `janus-unscoped-owned-row-lookup` flags `db.get(models.X, id)` on o
 | `/api/inbox` | `inbox.py` | action inbox and device tokens |
 | `/api/github`, `/api/linear` | `github.py`, `linear.py` | instance-wide integration settings |
 | `/api/images` | `images.py` | generated images, owner-scoped, `no-store` |
-| `/api/memory` | `memory.py` | memory facts, compaction |
+| `/api/memory` | `memory.py` | memory facts (with their review state), compaction, `PUT /{id}/pin` (pin into or hide from the memory index) |
 | `/api/topics` | `topics.py` | tracked topics and their evidence |
 | `/api/knowledge` | `knowledge.py` | uploads, sources, extraction settings, entities, merge suggestions, search, graph |
 | `/api/wiki` | `wiki.py` | wiki pages, revisions, proposals, provenance |

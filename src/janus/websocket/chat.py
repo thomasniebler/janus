@@ -57,6 +57,7 @@ from janus.runtime_adapter import INJECTION_REFUSAL_REASON, TASK_MODE_ALLOWED_TO
 from janus.services import (
     character_state_service,
     image_store,
+    memory_curation,
     page_context,
     plan_step_events,
     tool_call_events,
@@ -141,11 +142,66 @@ async def _end_on_error(websocket: WebSocket, error: Exception) -> None:
     await send_error_and_close(websocket, error, "chat")
 
 
+#: Memory tools whose call in a turn means Janus already wrote memory itself, so the suggester stays quiet.
+_MEMORY_WRITE_TOOLS = frozenset({"add_memory_fact", "update_fact", "group_facts"})
+
+
+async def _suggest_memory_fact(  # noqa: PLR0913 - one turn's state, passed through from ws_chat
+    db: Session,
+    user: models.User,
+    utility_llm,
+    prepared: PreparedStep,
+    recorder: tool_call_events.ToolCallRecorder,
+    history: list[tuple[str, str]],
+    user_msg: str,
+    full_response: str,
+    conversation_id: int,
+) -> None:
+    """Let the utility model store one durable fact from the turn, as an unverified agent fact.
+
+    Memory is always on for the single Janus agent (JAN-201). It runs on every
+    turn as a best-effort side effect: a failure here must not turn the
+    already-streamed reply into an __ERROR__.
+    """
+    if _MEMORY_WRITE_TOOLS & {event.tool_name for event in recorder.events()}:
+        # Janus already judged what to remember this turn; a second, paraphrased
+        # copy from the suggester would only duplicate it.
+        return
+    try:
+        if utility_llm is None:
+            raise RuntimeError("utility model unavailable; memory suggestion skipped")
+        if prepared.trace.injection_suspected():
+            # The reply may restate the injected text, and this write
+            # would bypass the guarded memory tools (JAN-127).
+            raise RuntimeError("suspected prompt injection in this turn; memory suggestion skipped")
+        candidate = await asyncio.to_thread(
+            utility_llm.suggest_memory_fact,
+            history,
+            user_msg,
+            full_response,
+            instructions=get_memory_instructions(db, user.id),
+        )
+        if candidate is not None:
+            MemoryService(db).create_fact(
+                user_id=user.id,
+                summary=candidate["summary"],
+                detail=candidate.get("detail"),
+                source=models.AgentMemorySource.AGENT,
+                conversation_id=conversation_id,
+            )
+    except Exception as exc:
+        logger.warning("Skipping memory suggestion for this chat turn: %s", exc)
+
+
 def _build_janus_system_prompt(db: Session, user: models.User) -> str:
     """Return the chat system prompt from the user's character constitution and the skill library."""
     constitution, state = character_state_service.prompt_character(db, user.id)
     return agent_runtime.build_janus_system_prompt(
-        constitution, agent_runtime.load_skill_library(db), character_state=state, progress_updates=True
+        constitution,
+        agent_runtime.load_skill_library(db),
+        character_state=state,
+        progress_updates=True,
+        memory_index=memory_curation.index_facts(db, user.id),
     )
 
 
@@ -344,7 +400,6 @@ async def ws_chat(  # noqa: C901
         chat_model_choice = llm_service.model_choice_from_settings(db, "chat")
         llm = llm_service.build_llm_service(db, chat_model_choice, purpose="chat")
         utility_llm = _build_utility_llm(db)
-        memory = MemoryService(db)
         catalog_capabilities = user_connected_capabilities(db, user)
         broker = ToolApprovalBroker(
             send if tool_events else None,
@@ -544,33 +599,9 @@ async def ws_chat(  # noqa: C901
                 except Exception:
                     conversation.title = user_msg[:60].strip() or "New Conversation"
 
-            # Memory is always on for the single Janus agent (JAN-201). It runs
-            # on every turn as a best-effort side effect: a failure here must not
-            # turn the already-streamed reply into an __ERROR__.
-            try:
-                if utility_llm is None:
-                    raise RuntimeError("utility model unavailable; memory suggestion skipped")
-                if prepared.trace.injection_suspected():
-                    # The reply may restate the injected text, and this write
-                    # would bypass the guarded memory tools (JAN-127).
-                    raise RuntimeError("suspected prompt injection in this turn; memory suggestion skipped")
-                candidate = await asyncio.to_thread(
-                    utility_llm.suggest_memory_fact,
-                    history,
-                    user_msg,
-                    full_response,
-                    instructions=get_memory_instructions(db, user.id),
-                )
-                if candidate is not None:
-                    memory.create_fact(
-                        user_id=user.id,
-                        summary=candidate["summary"],
-                        detail=candidate.get("detail"),
-                        source=models.AgentMemorySource.AGENT,
-                        conversation_id=conversation_id,
-                    )
-            except Exception as exc:
-                logger.warning("Skipping memory suggestion for this chat turn: %s", exc)
+            await _suggest_memory_fact(
+                db, user, utility_llm, prepared, recorder, history, user_msg, full_response, conversation_id
+            )
 
             _commit_turn(db, conversation_id, user.id)
 

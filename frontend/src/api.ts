@@ -3,6 +3,7 @@ import type { components } from './generated/api';
 import type {
   AgentMemoryCompactionRun,
   AgentMemoryFact,
+  AgentMemoryPin,
   KnowledgeEntity,
   KnowledgeEntityDetail,
   KnowledgeEntityType,
@@ -492,6 +493,9 @@ export const memoryApi = {
   compact: (): Parsed<AgentMemoryCompactionRun> => parseResponse(ks.memoryCompactionRunSchema)(api.post('/api/memory/compact')),
   getLatestCompactionRun: (): Parsed<AgentMemoryCompactionRun | null> =>
     parseResponse(ks.latestMemoryCompactionRunSchema)(api.get('/api/memory/compact/latest')),
+  /** Pin a fact into the memory index, hide it from it, or hand it back to the memory review (`null`). */
+  setPin: (id: number, pin: AgentMemoryPin | null): Parsed<AgentMemoryFact> =>
+    parseResponse(ks.memoryFactSchema)(api.put(`/api/memory/${id}/pin`, { pin })),
   delete: (id: number) => api.delete<void>(`/api/memory/${id}`),
 };
 

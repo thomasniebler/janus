@@ -21,12 +21,12 @@ DEFAULT_CHARACTER = CharacterProfilePayload(
 #: written their own on the Character page (JAN-230). The JSON output contract
 #: stays in ``llm_service.suggest_memory_fact``; only these rules are editable.
 DEFAULT_MEMORY_INSTRUCTIONS = (
-    "- Only store facts that are likely useful in future conversations.\n"
-    '- Prefer explicit "remember this" requests, stable preferences, long-lived profile details,\n'
-    "  recurring constraints, and important ongoing project facts.\n"
-    "- Do not store one-off pleasantries, transient requests, or information already implied\n"
-    "  by today's mail/calendar/task context.\n"
-    "- Keep the summary short and concrete."
+    "- Memory exists so a future conversation can rely on what was learned here without the user repeating it.\n"
+    "- Store a fact when the user asks to remember something, or when the turn reveals something clearly worth\n"
+    "  remembering.\n"
+    "- Leave out what can be looked up again (today's mail, calendar, tasks) and what only matters for this turn.\n"
+    "- Keep the summary short and concrete; put the user's exact words for anything precise (names, numbers,\n"
+    "  terms, dates) in the detail."
 )
 
 

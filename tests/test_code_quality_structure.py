@@ -80,6 +80,9 @@ CORE_MODULE_BUDGET_EXCEPTIONS = {
     # secretary's WhatsApp alert in the injection-escalated tool names, then to 619 for the
     # chat allowlist's coding agents entry (JAN-403).
     "src/janus/runtime_adapter.py": 619,
+    # Raised from 600 for the Memory review built-in (its objective, prepare hook and seed); the review
+    # itself lives in services/memory_review.py.
+    "src/janus/builtin_triggers.py": 621,
 }
 
 API_HELPER_BASELINE = {

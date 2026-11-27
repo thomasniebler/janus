@@ -940,8 +940,10 @@ def test_unattended_runs_speak_as_the_users_character_with_the_skill_library(db,
     assert "# Character constitution: Night Watch" in system_prompt
     assert "Keeps an eye on overnight automations." in system_prompt
     assert "Never invent results" in system_prompt
-    assert "## Overnight triage" in system_prompt
-    assert "Check the backlog first." in system_prompt
+    # Skills are indexed by name and description; the full text is one read_skill call away.
+    assert "- **Overnight triage**: Triage" in system_prompt
+    assert "Check the backlog first." not in system_prompt
+    assert "--- Memory ---" in system_prompt
     assert "If a tool call is refused or fails, report that plainly" in system_prompt
     assert "handoff" not in system_prompt.lower()
 

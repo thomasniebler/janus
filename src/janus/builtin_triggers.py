@@ -36,6 +36,7 @@ BUILTIN_MAIL = "builtin.mail"
 BUILTIN_KNOWLEDGE = "builtin.knowledge"
 BUILTIN_WIKI = "builtin.wiki"
 BUILTIN_SECRETARY = "builtin.secretary"
+BUILTIN_MEMORY_REVIEW = "builtin.memory_review"
 
 #: Upper bound on digest emails handed to one digest run.
 _DIGEST_EMAIL_LIMIT = 50
@@ -306,6 +307,25 @@ def _prepare_wiki(db: Session, user: models.User, definition: models.TriggerDefi
     return PreparedRun(skip_output=wiki_synthesis.run_synthesis(db, user.id, definition).text())
 
 
+# --- Memory review ("dreaming") -------------------------------------------------
+
+MEMORY_REVIEW_OBJECTIVE = (
+    "Review my memory overnight: check the facts Janus remembered against the conversations they came from, fix or "
+    "archive the wrong ones with the exact passage as evidence, merge duplicates, and choose the few confirmed facts "
+    "every session should know.\n\n"
+    "This built-in makes direct calls to the utility model (or the model chosen here) within the monthly token "
+    "budget shared with knowledge extraction and wiki synthesis; it uses no tools. Facts I wrote or edited myself "
+    "are never changed, and my pins always win. With a cloud model, the source conversations are sent to that "
+    "provider."
+)
+
+
+def _prepare_memory_review(db: Session, user: models.User, definition: models.TriggerDefinition) -> PreparedRun:
+    from janus.services import memory_review
+
+    return PreparedRun(skip_output=memory_review.run_review(db, user.id, definition).text())
+
+
 # --- Proactive secretary --------------------------------------------------------
 
 SECRETARY_OBJECTIVE = (
@@ -426,6 +446,16 @@ BUILTINS: dict[str, BuiltinTrigger] = {
         schedule={"type": "interval", "minutes": 60},
         prepare=_prepare_wiki,
         enabled=False,
+    ),
+    BUILTIN_MEMORY_REVIEW: BuiltinTrigger(
+        key=BUILTIN_MEMORY_REVIEW,
+        name="Memory review",
+        objective=MEMORY_REVIEW_OBJECTIVE,
+        tool_ids=(),
+        kind=models.TriggerDefinitionKind.SCHEDULE.value,
+        # Overnight, like the offline replay it is modelled on; seeded in UTC.
+        schedule={"type": "daily", "time": "03:17", "days": []},
+        prepare=_prepare_memory_review,
     ),
 }
 
@@ -578,6 +608,7 @@ __all__ = [
     "BUILTIN_SECRETARY",
     "BUILTIN_KNOWLEDGE",
     "BUILTIN_MAIL",
+    "BUILTIN_MEMORY_REVIEW",
     "BUILTIN_WIKI",
     "BuiltinTrigger",
     "PreparedRun",
