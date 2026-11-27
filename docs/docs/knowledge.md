@@ -50,7 +50,7 @@ The **Memory review** built-in trigger runs every night (03:17 UTC; change or sw
 2. **Merge.** Facts that say the same thing are merged, as with **Compact Memory**.
 3. **Promote.** The review picks the confirmed facts every conversation should start with: the memory index.
 
-Facts you wrote or edited yourself are never changed. A checked fact is checked again after 90 days, or after 14 days when it is likely to change (a plan, a current status), and twice as often when Janus uses it. The review shares the monthly token budget of knowledge extraction and wiki synthesis. With a cloud utility model, the conversations it checks are sent to that provider.
+Facts you wrote or edited yourself are never checked, changed or merged by the review; only your own **Compact Memory** merges them. When Janus edits one of your facts, it becomes Janus's fact and is checked against the conversation it was edited in. A checked fact is checked again after 90 days, or after 14 days when it is likely to change (a plan, a current status), and twice as often when Janus uses it. The review shares the monthly token budget of knowledge extraction and wiki synthesis. With a cloud utility model, the conversations it checks are sent to that provider.
 
 ### The memory index
 

@@ -45,6 +45,7 @@ def fake_llm(monkeypatch):
             self.llm = llm
 
         def suggest_memory_compactions(self, facts):
+            llm.merge_inputs = [fact.id for fact in facts]
             return llm.compactions
 
     monkeypatch.setattr(memory_review.llm_service, "build_llm_service", lambda *args, **kwargs: _Service())
@@ -267,6 +268,41 @@ def test_merging_keeps_what_the_review_learned(db, world, fake_llm):
     assert merged.verification == CONFIRMED and merged.pin == "pinned"
     assert merged.source_conversation_id == world["conversation"].id
     assert "swimming every Tuesday" in merged.evidence_quote
+
+
+def test_the_review_never_merges_the_users_own_facts(db, world, fake_llm):
+    """Facts the user wrote or edited are not offered to the merge, even when the model names them."""
+    service = MemoryService(db)
+    mine = service.create_fact(user_id=world["user"].id, summary="Mia swims on Tuesdays", user_stated=True)
+    edited = _agent_fact(db, world["user"], world["conversation"], "Mia has a swim class")
+    service.update_fact(user_id=world["user"].id, fact_id=edited.id, detail="Tuesdays", user_stated=True)
+    other = _agent_fact(db, world["user"], world["conversation"], "Mia swims Tuesday evenings")
+    for row in (db.get(models.AgentMemoryFact, world["fact"].id), other):
+        row.review_due_at = utcnow() + timedelta(days=30)
+    db.commit()
+    fake_llm.compactions = [{"summary": "Merged", "source_ids": [mine.id, edited.id, world["fact"].id, other.id]}]
+    memory_review.run_review(db, world["user"].id, None)
+    assert sorted(fake_llm.merge_inputs) == sorted([world["fact"].id, other.id])
+    for row_id in (mine.id, edited.id):
+        assert db.get(models.AgentMemoryFact, row_id).status == models.AgentMemoryStatus.ACTIVE
+
+
+def test_an_agent_edit_is_checked_against_the_editing_conversation(db, world):
+    """Janus's edit moves the fact's source to the conversation it was edited in, as an agent fact."""
+    later = _conversation(db, world["user"], ("user", "Mia switched swimming to Thursdays."))
+    mine = MemoryService(db).create_fact(user_id=world["user"].id, summary="Mia swims Tuesdays", user_stated=True)
+    tools = {
+        tool.name: tool for tool in build_memory_tools(ToolContext(db=db, user=world["user"], conversation_id=later.id))
+    }
+    tools["update_fact"].invoke({"fact_id": mine.id, "summary": "Mia swims Thursdays"})
+    db.expire_all()
+    row = db.get(models.AgentMemoryFact, mine.id)
+    assert (row.source, row.source_conversation_id, row.verification) == (
+        models.AgentMemorySource.AGENT,
+        later.id,
+        "unverified",
+    )
+    assert row.id in [fact.id for fact in memory_review.due_facts(db, world["user"].id, utcnow().replace(tzinfo=None))]
 
 
 def test_promotion_picks_confirmed_facts_and_respects_pins(db, world, fake_llm):

@@ -41,6 +41,24 @@ db.commit()
 MemoryService._run_compaction(run.id)
 `;
 
+/**
+ * Stores one fact as the nightly memory review leaves it: written by Janus, confirmed with an
+ * exact quote from its conversation, and promoted into the memory index. Prints the fact's id.
+ */
+const SEED_REVIEWED_FACT = `
+fact = models.AgentMemoryFact(
+    user_id=user.id,
+    summary=args[0],
+    source=models.AgentMemorySource.AGENT,
+    verification="confirmed",
+    evidence_quote=args[1],
+    promoted=True,
+)
+db.add(fact)
+db.commit()
+print(fact.id)
+`;
+
 const listFacts = async (page: Page, query = ''): Promise<Fact[]> => {
   const params = new URLSearchParams({ include_archived: 'true', limit: '200' });
   if (query) params.set('query', query);
@@ -134,6 +152,56 @@ test.describe('Agent Memory (JAN-224)', () => {
     await expect(page.getByText(edited, { exact: true })).toHaveCount(0);
     await page.reload();
     await expect(page.getByText(edited, { exact: true })).toHaveCount(0);
+  });
+
+  test('shows the review state and pins or hides a fact from the memory index across reloads', async ({
+    page,
+    account,
+  }) => {
+    const mine = `Vegetarian since 2019 ${stamp}`;
+    const reviewed = `Daughter Mia swims on Tuesdays ${stamp}`;
+    const quote = 'my daughter Mia has swimming every Tuesday';
+    await createFact(page, mine);
+    await runBackendPython(SEED_REVIEWED_FACT, [reviewed, quote], { as: account.username });
+    await page.reload();
+
+    const indexMenu = (summary: string) => page.getByRole('combobox', { name: `Memory index for "${summary}"` });
+
+    // A fact the user wrote is confirmed at once but is not in the index until pinned.
+    await expect(factCard(page, mine)).toContainText('confirmed');
+    await expect(factCard(page, mine)).not.toContainText('in index');
+    await expect(indexMenu(mine)).toHaveValue('');
+    // The review's fact shows its verbatim evidence and is in the index on its own.
+    await expect(factCard(page, reviewed)).toContainText('confirmed');
+    await expect(factCard(page, reviewed)).toContainText(`Evidence: “${quote}”`);
+    await expect(factCard(page, reviewed)).toContainText('in index');
+
+    // Pin the user's fact, hide the review's fact.
+    await indexMenu(mine).selectOption('pinned');
+    await expect(factCard(page, mine)).toContainText('in index');
+    await indexMenu(reviewed).selectOption('hidden');
+    await expect(factCard(page, reviewed)).not.toContainText('in index');
+
+    // Both choices are stored and survive a reload.
+    await page.reload();
+    await expect(indexMenu(mine)).toHaveValue('pinned');
+    await expect(factCard(page, mine)).toContainText('in index');
+    await expect(indexMenu(reviewed)).toHaveValue('hidden');
+    await expect(factCard(page, reviewed)).not.toContainText('in index');
+    // The full list, not a search: the seeded fact skipped the inline search indexing of the API.
+    const stored = ((await listFacts(page)) as (Fact & { pin: string | null })[]).filter((fact) =>
+      fact.summary.includes(stamp),
+    );
+    expect(Object.fromEntries(stored.map((fact) => [fact.summary, fact.pin]))).toEqual({
+      [mine]: 'pinned',
+      [reviewed]: 'hidden',
+    });
+
+    // Automatic hands the fact back to the review: promoted, so it is in the index again.
+    await indexMenu(reviewed).selectOption('');
+    await expect(factCard(page, reviewed)).toContainText('in index');
+    await page.reload();
+    await expect(indexMenu(reviewed)).toHaveValue('');
   });
 
   test('editing a fact that was deleted elsewhere says so', async ({ page }) => {

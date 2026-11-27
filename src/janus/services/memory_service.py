@@ -218,12 +218,15 @@ class MemoryService:
         summary: str | None = None,
         detail: str | None = None,
         user_stated: bool = False,
+        conversation_id: int | None = None,
     ) -> models.AgentMemoryFact:
         """Update a user's fact summary/detail.
 
         An edit invalidates the fact's evidence: the user's own edit
-        (``user_stated``) confirms it, any other edit makes it ``unverified`` and
-        due for the next memory review.
+        (``user_stated``) confirms it. Any other edit is Janus's: the fact
+        becomes an ``agent`` fact whose source is the editing conversation
+        (``conversation_id``; ``None`` from an unattended run, which leaves
+        nothing to check it against), ``unverified`` and due for the next review.
         """
         fact = self._owned_fact(user_id, fact_id)
 
@@ -243,6 +246,8 @@ class MemoryService:
         if user_stated:
             self._mark_confirmed_by_user(fact, now)
         else:
+            fact.source = models.AgentMemorySource.AGENT
+            fact.source_conversation_id = conversation_id
             fact.verification = models.AgentMemoryVerification.UNVERIFIED.value
             fact.verified_at = None
             fact.evidence_quote = None

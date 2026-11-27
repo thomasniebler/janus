@@ -95,7 +95,13 @@ def build_memory_tools(context: ToolContext) -> list[BaseTool]:
             context,
             MemoryService,
             lambda mutation_service: serialize_fact(
-                mutation_service.update_fact(user_id=user_id, fact_id=fact_id, summary=summary, detail=detail)
+                mutation_service.update_fact(
+                    user_id=user_id,
+                    fact_id=fact_id,
+                    summary=summary,
+                    detail=detail,
+                    conversation_id=context.conversation_id,
+                )
             ),
         )
 

@@ -306,8 +306,9 @@ the URL itself reaches that site.
 `memory` · recommended. List, search, add, update, group and delete the facts
 Janus remembers about you. Ad-hoc triggers never get `delete_fact`. Each fact
 comes back with its review state (`verification`, `evidence_quote`,
-`in_memory_index`). A fact Janus adds or edits is unverified until the
-[memory review](knowledge.md#memory-review) checks it.
+`in_memory_index`). A fact Janus adds or edits becomes Janus's own (`agent`), takes the
+conversation as its source, and stays unverified until the
+[memory review](knowledge.md#memory-review) checks it against that conversation.
 
 ## Topic tools
 
