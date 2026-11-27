@@ -43,6 +43,32 @@ def test_main_import_and_tray_creation_are_safe_without_pystray_in_headless_mode
     main.create_tray_icon()
 
 
+def test_tray_skip_on_wayland_says_what_to_install(monkeypatch, caplog):
+    """Without PyGObject, pystray's AppIndicator backend fails to import; the warning names the packages."""
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "pystray":
+            raise ImportError("this platform is not supported: No module named 'gi'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-1")
+    monkeypatch.delenv("PYSTRAY_BACKEND", raising=False)
+    monkeypatch.delitem(sys.modules, "pystray", raising=False)
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    from janus.desktop import tray
+
+    with caplog.at_level("WARNING", logger="janus"):
+        tray.create_tray_icon()
+
+    message = caplog.text
+    assert "No module named 'gi'" in message
+    assert "python-gobject" in message
+    assert "python3-gi" in message
+    assert "--with PyGObject" in message
+
+
 def test_desktop_summary_prints_waybar_json(monkeypatch):
     """The desktop command stays valid JSON and bar-friendly."""
     main = importlib.import_module("janus.main")
