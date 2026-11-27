@@ -48,7 +48,11 @@ Gives Janus your Outlook calendars and your Outlook / Microsoft 365 mail. Calend
 
 ### Microsoft 365 for the agent (instance-wide)
 
-The `microsoft.*` toolboxes read and send Outlook mail, read the calendar, and read and post Teams chats. They use one instance-wide sign-in, made on the Janus host:
+The `microsoft.*` toolboxes read and send Outlook mail, read the calendar, and read and post Teams chats. They use one instance-wide sign-in, made on the Janus host. It needs more from the app registration than the per-user connection:
+
+1. Add a second **Mobile and desktop** redirect URI: `http://localhost` (the sign-in uses a local loopback).
+2. Grant the delegated permissions `User.Read`, `Mail.Read`, `Calendars.Read` and `Chat.Read`, plus `Mail.Send` and `Chat.ReadWrite` for the send tools. Get tenant admin consent if your organization requires it.
+3. Sign in on the Janus host:
 
 ```bash
 janus microsoft login    # opens a browser once
@@ -56,7 +60,9 @@ janus microsoft status   # who is signed in, and which Graph permissions the tok
 janus microsoft logout
 ```
 
-The token cache is stored encrypted with Janus's Fernet key. These toolboxes are offered to admins only. Sending mail or Teams messages asks for approval in chat and is Off for unattended runs by default.
+The sign-in requests `.default`, so the token carries exactly what the registration has consented: a missing permission shows up as an error on that tool, not as a failed sign-in. An `az login` token does not work here, because it lacks the mail and Teams permissions.
+
+The token cache is stored in `microsoft_token_cache.enc` in the data directory (mode `0600`), encrypted with Janus's Fernet key. These toolboxes are offered to admins only. Sending mail or Teams messages asks for approval in chat and is Off for unattended runs by default.
 
 ## GitHub
 
