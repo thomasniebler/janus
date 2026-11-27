@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import secrets
 import threading
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -126,6 +127,20 @@ def _session_dir() -> Path:
     path = config.get_data_dir() / "whatsapp_sessions"
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     return path
+
+
+def _new_pairing_session_path(setup_session_id: int) -> str:
+    """Return a session-store path that no earlier pairing attempt has used.
+
+    Neonize resumes the first device stored in an existing file instead of offering a
+    QR code, so a reused path (left over from an older Janus database whose setup-session
+    ids collide, or from an earlier attempt) logs in as a stale, possibly unlinked device.
+    """
+    session_dir = _session_dir()
+    while True:
+        path = session_dir / f"setup-{setup_session_id}-{secrets.token_hex(8)}.db"
+        if not path.exists():
+            return str(path)
 
 
 def _default_client_factory(session_database_path: str, client_uuid: str) -> Any:
@@ -368,19 +383,41 @@ class NeonizeConnector:
             raise
 
     def stop(self) -> None:
-        """Best-effort disconnect, safe to call from another thread."""
+        """Best-effort disconnect, safe to call from another thread.
+
+        A pairing connector is stopped outright: Neonize's ``disconnect()`` alone leaves
+        the blocking ``connect()`` call (and so the pairing thread) running.
+        """
         if self.client is not None:
+            stop_client = getattr(self.client, "stop", None) if self.setup_session_id is not None else None
             try:  # noqa: SIM105
-                self.client.disconnect()
+                (stop_client or self.client.disconnect)()
             except Exception:
                 pass
 
+    def _fail_pairing(self, message: str) -> None:
+        """Mark the setup session FAILED and end this pairing connection."""
+        if self.setup_session_id is None:
+            return
+        _update_setup_session_pairing(self.setup_session_id, state=models.WhatsAppPairingState.FAILED, message=message)
+        # Neonize callbacks run on its own dispatch thread; tear down from another one.
+        threading.Thread(target=self.stop, daemon=True).start()
+
     def _register_handlers(self, client: Any) -> None:
-        from neonize.events import ConnectedEv, DisconnectedEv, HistorySyncEv, LoggedOutEv, MessageEv, PairStatusEv
+        from neonize.events import (
+            ConnectedEv,
+            ConnectFailureEv,
+            DisconnectedEv,
+            HistorySyncEv,
+            LoggedOutEv,
+            MessageEv,
+            PairStatusEv,
+        )
 
         client.event(ConnectedEv)(self._on_connected)
         client.event(DisconnectedEv)(self._on_disconnected)
         client.event(LoggedOutEv)(self._on_logged_out)
+        client.event(ConnectFailureEv)(self._on_connect_failure)
         if self.account_id is not None:
             client.event(MessageEv)(self._on_message)
             client.event(HistorySyncEv)(self._on_history_sync)
@@ -421,6 +458,19 @@ class NeonizeConnector:
                 models.WhatsAppConnectionStatus.DISCONNECTED,
                 error="Logged out of WhatsApp on the linked device.",
             )
+        # During pairing this means the session store held an already-unlinked device:
+        # WhatsApp rejects it and never offers a QR code, so say so instead of waiting.
+        self._fail_pairing(
+            "WhatsApp rejected the stored session as logged out, so no QR code was offered. Start pairing again."
+        )
+
+    def _on_connect_failure(self, client: Any, event: Any) -> None:
+        del client
+        detail = getattr(event, "Message", "") or f"reason {getattr(event, 'Reason', 'unknown')}"
+        message = f"WhatsApp refused the connection: {detail}."
+        if self.account_id is not None:
+            _update_account_status(self.account_id, models.WhatsAppConnectionStatus.DEGRADED, error=message)
+        self._fail_pairing(message)
 
     def _on_qr(self, client: Any, qr_bytes: bytes) -> None:
         del client
@@ -615,9 +665,7 @@ class NeonizeAdapter:
                 show_fallback_import=True,
             )
 
-        session_database_path = setup_session.session_database_path or str(
-            _session_dir() / f"setup-{setup_session.id}.db"
-        )
+        session_database_path = _new_pairing_session_path(setup_session.id)
         try:
             _pairing_registry.start(setup_session.id, session_database_path)
         except Exception as exc:

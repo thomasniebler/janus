@@ -2,7 +2,10 @@
 
 import builtins
 import importlib.util
+import threading
 import time
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -203,7 +206,14 @@ def test_register_handlers_account_mode_registers_message_and_history_only():
 
     connector._register_handlers(client)
 
-    assert set(client.handlers.keys()) == {"Connected", "Disconnected", "LoggedOut", "Message", "HistorySync"}
+    assert set(client.handlers.keys()) == {
+        "Connected",
+        "Disconnected",
+        "LoggedOut",
+        "ConnectFailure",
+        "Message",
+        "HistorySync",
+    }
     assert client.qr_handler is None
 
 
@@ -215,7 +225,7 @@ def test_register_handlers_setup_mode_registers_qr_and_pairstatus_only():
 
     connector._register_handlers(client)
 
-    assert set(client.handlers.keys()) == {"Connected", "Disconnected", "LoggedOut", "PairStatus"}
+    assert set(client.handlers.keys()) == {"Connected", "Disconnected", "LoggedOut", "ConnectFailure", "PairStatus"}
     assert client.qr_handler is not None
 
 
@@ -351,6 +361,124 @@ def test_on_qr_updates_pairing_payload(db, monkeypatch, testing_session_local):
     refreshed = db.query(models.WhatsAppSetupSession).filter(models.WhatsAppSetupSession.id == session.id).one()
     assert refreshed.pairing_state == models.WhatsAppPairingState.CODE_READY
     assert refreshed.pairing_qr_payload.startswith("data:image/png;base64,")
+
+
+class _StoppableFakeClient(_FakeClient):
+    """A fake that, like the real Neonize client, has a `stop()` that ends `connect()`."""
+
+    def __init__(self):
+        super().__init__()
+        self.stopped = threading.Event()
+
+    def stop(self):
+        self.stopped.set()
+
+
+def _pairing_setup_session(db):
+    session = models.WhatsAppSetupSession(
+        user_id=1,
+        display_name="Phone",
+        initial_history_days=3,
+        pairing_state=models.WhatsAppPairingState.STARTING,
+        expires_at=time_utils.utcnow(),
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def test_begin_pairing_never_reuses_an_existing_session_store(monkeypatch, tmp_path):
+    """Regression: a leftover `setup-<id>.db` held an unlinked device, so Neonize resumed it and never showed a QR."""
+    monkeypatch.setattr(whatsapp_neonize, "_session_dir", lambda: tmp_path)
+    monkeypatch.setattr(whatsapp_neonize, "neonize_import_error", lambda: None)
+    started: list[str] = []
+    monkeypatch.setattr(whatsapp_neonize._pairing_registry, "start", lambda _id, path: started.append(path))
+    stale = tmp_path / "setup-7.db"
+    stale.write_bytes(b"old paired device")
+    setup_session = SimpleNamespace(id=7, session_database_path=str(stale))
+
+    first = whatsapp_neonize.NeonizeAdapter().begin_pairing(setup_session)
+    second = whatsapp_neonize.NeonizeAdapter().begin_pairing(setup_session)
+
+    assert first.state == models.WhatsAppPairingState.STARTING
+    assert started == [first.session_database_path, second.session_database_path]
+    assert first.session_database_path != second.session_database_path
+    for path in started:
+        assert Path(path).parent == tmp_path
+        assert Path(path).name.startswith("setup-7-")
+        assert not Path(path).exists()
+
+
+def test_logged_out_during_pairing_fails_the_session_and_stops_the_client(db, monkeypatch, testing_session_local):
+    """A stored-but-unlinked device is rejected with no QR: fail visibly instead of 'Waiting for a QR code' forever."""
+    monkeypatch.setattr(database, "SessionLocal", testing_session_local)
+    session = _pairing_setup_session(db)
+    connector = NeonizeConnector(session_database_path="/tmp/s.db", client_uuid="setup-1", setup_session_id=session.id)
+    connector.client = _StoppableFakeClient()
+
+    connector._on_logged_out(connector.client, SimpleNamespace(OnConnect=True, Reason=1))
+
+    db.expire_all()
+    refreshed = db.query(models.WhatsAppSetupSession).filter(models.WhatsAppSetupSession.id == session.id).one()
+    assert refreshed.pairing_state == models.WhatsAppPairingState.FAILED
+    assert "logged out" in refreshed.pairing_message
+    assert connector.client.stopped.wait(2)
+    assert connector.client.disconnect_called is False
+
+
+def test_connect_failure_during_pairing_fails_the_session(db, monkeypatch, testing_session_local):
+    """Any refused connection during pairing should surface WhatsApp's reason on the setup session."""
+    monkeypatch.setattr(database, "SessionLocal", testing_session_local)
+    session = _pairing_setup_session(db)
+    connector = NeonizeConnector(session_database_path="/tmp/s.db", client_uuid="setup-1", setup_session_id=session.id)
+    connector.client = _StoppableFakeClient()
+
+    connector._on_connect_failure(connector.client, SimpleNamespace(Reason=405, Message="client outdated"))
+
+    db.expire_all()
+    refreshed = db.query(models.WhatsAppSetupSession).filter(models.WhatsAppSetupSession.id == session.id).one()
+    assert refreshed.pairing_state == models.WhatsAppPairingState.FAILED
+    assert "client outdated" in refreshed.pairing_message
+    assert connector.client.stopped.wait(2)
+
+
+def test_connect_failure_on_an_account_marks_it_degraded(db, monkeypatch, testing_session_local):
+    """An account connector records the refusal; it leaves stopping to its supervisor."""
+    monkeypatch.setattr(database, "SessionLocal", testing_session_local)
+    user = models.User(username="owner", hashed_password="hash", is_admin=True)
+    db.add(user)
+    db.commit()
+    account = models.WhatsAppAccount(
+        user_id=user.id, display_name="Phone", provider="whatsapp_neonize", session_database_path="/tmp/a.db"
+    )
+    db.add(account)
+    db.commit()
+    db.refresh(account)
+    connector = NeonizeConnector(session_database_path="/tmp/a.db", client_uuid="account-1", account_id=account.id)
+    connector.client = _StoppableFakeClient()
+
+    connector._on_connect_failure(connector.client, SimpleNamespace(Reason=403, Message=""))
+
+    db.expire_all()
+    refreshed = db.get(models.WhatsAppAccount, account.id)
+    assert refreshed.connection_status == models.WhatsAppConnectionStatus.DEGRADED
+    assert "reason 403" in refreshed.last_sync_error
+    assert not connector.client.stopped.is_set()
+
+
+def test_stop_ends_a_pairing_client_but_only_disconnects_an_account_client():
+    """Neonize's `disconnect()` leaves `connect()` blocking, so pairing connectors must call `stop()`."""
+    pairing = NeonizeConnector(session_database_path="/tmp/s.db", client_uuid="setup-1", setup_session_id=1)
+    pairing.client = _StoppableFakeClient()
+    account = NeonizeConnector(session_database_path="/tmp/a.db", client_uuid="account-1", account_id=1)
+    account.client = _StoppableFakeClient()
+
+    pairing.stop()
+    account.stop()
+
+    assert pairing.client.stopped.is_set() and pairing.client.disconnect_called is False
+    assert account.client.disconnect_called is True and not account.client.stopped.is_set()
 
 
 def test_whatsapp_connector_worker_returns_when_account_missing(db, monkeypatch, testing_session_local):
