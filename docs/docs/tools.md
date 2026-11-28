@@ -147,7 +147,9 @@ Off" means its Unattended switch starts Off.
 
 ## Core tools
 
-`core` · never. `get_current_datetime`. Always available.
+`core` · never. `get_current_datetime`, and `read_skill`, which loads one
+skill's full instructions: the system prompt lists each skill in one line.
+Always available.
 
 ## System introspection tools
 
@@ -302,7 +304,11 @@ the URL itself reaches that site.
 ## Memory tools
 
 `memory` · recommended. List, search, add, update, group and delete the facts
-Janus remembers about you. Ad-hoc triggers never get `delete_fact`.
+Janus remembers about you. Ad-hoc triggers never get `delete_fact`. Each fact
+comes back with its review state (`verification`, `evidence_quote`,
+`in_memory_index`). A fact Janus adds or edits becomes Janus's own (`agent`), takes the
+conversation as its source, and stays unverified until the
+[memory review](knowledge.md#memory-review) checks it against that conversation.
 
 ## Topic tools
 

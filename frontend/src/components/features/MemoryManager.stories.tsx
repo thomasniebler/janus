@@ -45,6 +45,46 @@ const facts: AgentMemoryFact[] = [
   },
 ];
 
+/** One fact per memory-review state, with evidence, an automatic index entry, a pin and a hidden fact. */
+const reviewedFacts: AgentMemoryFact[] = [
+  {
+    ...facts[0],
+    id: 11,
+    summary: 'Daughter Mia swims on Tuesdays at 5pm.',
+    detail: null,
+    source: 'agent',
+    verification: 'confirmed',
+    evidence_quote: 'my daughter Mia has swimming every Tuesday at 5pm',
+    verified_at: '2026-09-21T03:17:00Z',
+    promoted: true,
+    pin: null,
+    in_memory_index: true,
+  },
+  {
+    ...facts[0],
+    id: 12,
+    summary: 'Dentist is Dr. Okafor in Leipzig.',
+    detail: null,
+    source: 'agent',
+    verification: 'corrected',
+    evidence_quote: 'My dentist is Dr. Okafor in Leipzig.',
+    verified_at: '2026-09-21T03:17:00Z',
+    pin: 'pinned',
+    in_memory_index: true,
+  },
+  { ...facts[1], id: 13, verification: 'unverified', pin: 'hidden', in_memory_index: false },
+  { ...facts[1], id: 14, summary: 'Plans a trip to Porto in May.', verification: 'unsupported', in_memory_index: false },
+  {
+    ...facts[2],
+    id: 15,
+    summary: 'Works from the Berlin office on Fridays.',
+    source: 'agent',
+    verification: 'contradicted',
+    evidence_quote: 'I stopped going to the office on Fridays.',
+    in_memory_index: false,
+  },
+];
+
 const runningCompaction: AgentMemoryCompactionRun = {
   id: 9,
   status: 'running',
@@ -89,6 +129,19 @@ type Story = StoryObj<typeof meta>;
 
 export const Populated: Story = {
   decorators: [withQueryData(seed({ latestRun: completedCompaction }))],
+};
+
+/** The memory review's states: verification badges, evidence quotes, and the index menu (automatic, pinned, hidden). */
+export const ReviewStates: Story = {
+  decorators: [withQueryData(seed({ facts: reviewedFacts, latestRun: completedCompaction }))],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByText('corrected')).toBeInTheDocument();
+    await expect(canvas.getAllByText('in index')).toHaveLength(2);
+    await expect(
+      canvas.getByRole('combobox', { name: 'Memory index for "Dentist is Dr. Okafor in Leipzig."' }),
+    ).toHaveValue('pinned');
+  },
 };
 
 export const Empty: Story = {

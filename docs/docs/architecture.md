@@ -42,7 +42,7 @@ One FastAPI server answers every request. Each request is checked for a valid lo
 
 ## Agent runtime
 
-Every piece of agent work, a chat message or a background run, goes through one runtime. It builds Janus's instructions from your [character profile](knowledge.md#character-profile) and the skill library, picks the toolboxes the task needs, and checks each one against your [tool permissions](tools.md#how-permissions-work) before the model may use it. In chat, risky tools such as sending mail ask you first with an approval card. Text from outside (mail, web pages, messages) is marked as untrusted, and a suspected prompt injection blocks consequential tools for the rest of the turn. See [Background Workers and Runtime](tech-spec/background-workers-runtime.md) and [LLM and Agent Safety](tech-spec/llm-agent-safety.md).
+Every piece of agent work, a chat message or a background run, goes through one runtime. It builds Janus's instructions from your [character profile](knowledge.md#character-profile), a short [memory index](knowledge.md#the-memory-index) and a one-line index of the skill library, picks the toolboxes the task needs, and checks each one against your [tool permissions](tools.md#how-permissions-work) before the model may use it. In chat, risky tools such as sending mail ask you first with an approval card. Text from outside (mail, web pages, messages) is marked as untrusted, and a suspected prompt injection blocks consequential tools for the rest of the turn. See [Background Workers and Runtime](tech-spec/background-workers-runtime.md) and [LLM and Agent Safety](tech-spec/llm-agent-safety.md).
 
 ## Triggers and workers
 

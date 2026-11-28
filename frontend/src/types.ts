@@ -1054,7 +1054,23 @@ export interface AgentMemoryFact {
   created_at: string;
   updated_at: string;
   last_accessed_at: string | null;
+  /** Times Janus's memory tools returned the fact. */
+  access_count?: number;
+  /** How far the nightly memory review checked the fact against its source conversation. */
+  verification?: AgentMemoryVerification;
+  verified_at?: string | null;
+  /** The exact passage of the source conversation that supports the fact. */
+  evidence_quote?: string | null;
+  review_due_at?: string | null;
+  /** Chosen by the memory review for the memory index injected into every prompt. */
+  promoted?: boolean;
+  /** The user's override of `promoted`: pinned into the index, hidden from it, or `null` (the review decides). */
+  pin?: AgentMemoryPin | null;
+  in_memory_index?: boolean;
 }
+
+export type AgentMemoryVerification = 'unverified' | 'confirmed' | 'corrected' | 'unsupported' | 'contradicted';
+export type AgentMemoryPin = 'pinned' | 'hidden';
 
 export interface AgentMemoryCompactionRun {
   id: number;

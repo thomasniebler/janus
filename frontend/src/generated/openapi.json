@@ -7672,6 +7672,107 @@
         }
       }
     },
+    "/api/memory/{fact_id}/pin": {
+      "put": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Pin Memory Fact",
+        "description": "Pin a fact into the memory index injected into every prompt, hide it from the index, or reset (``null``).",
+        "operationId": "pin_memory_fact_api_memory__fact_id__pin_put",
+        "parameters": [
+          {
+            "name": "fact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Fact Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentMemoryFactPin"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentMemoryFactResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tools/a2a-agents": {
       "get": {
         "tags": [
@@ -21871,6 +21972,23 @@
         "title": "AgentMemoryFactCreate",
         "description": "Request schema for creating a user-authored fact."
       },
+      "AgentMemoryFactPin": {
+        "properties": {
+          "pin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentMemoryPin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "AgentMemoryFactPin",
+        "description": "Request schema for pinning a fact into the memory index, hiding it, or handing it back to the review."
+      },
       "AgentMemoryFactResponse": {
         "properties": {
           "id": {
@@ -21943,6 +22061,72 @@
               }
             ],
             "title": "Last Accessed At"
+          },
+          "access_count": {
+            "type": "integer",
+            "title": "Access Count",
+            "default": 0
+          },
+          "verification": {
+            "type": "string",
+            "title": "Verification",
+            "default": "unverified"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "evidence_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Quote"
+          },
+          "review_due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Due At"
+          },
+          "promoted": {
+            "type": "boolean",
+            "title": "Promoted",
+            "default": false
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin"
+          },
+          "in_memory_index": {
+            "type": "boolean",
+            "title": "In Memory Index",
+            "default": false
           }
         },
         "type": "object",
@@ -21989,6 +22173,15 @@
         "type": "object",
         "title": "AgentMemoryFactUpdate",
         "description": "Request schema for editing a fact's summary and/or detail (JAN-224).\n\nAn omitted field is left unchanged; an empty ``detail`` clears it."
+      },
+      "AgentMemoryPin": {
+        "type": "string",
+        "enum": [
+          "pinned",
+          "hidden"
+        ],
+        "title": "AgentMemoryPin",
+        "description": "The user's override of whether a fact appears in the memory index."
       },
       "AgentMemorySource": {
         "type": "string",

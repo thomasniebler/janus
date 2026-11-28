@@ -1,6 +1,7 @@
 """Durable memory facts of the single Janus agent and their compaction runs."""
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Enum,
@@ -32,9 +33,31 @@ class AgentMemoryFact(database.Base):
     created_at = Column(DateTime, default=utcnow, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
     last_accessed_at = Column(DateTime, nullable=True)
+    #: Times Janus's memory tools returned the fact; orders the memory review and the index.
+    access_count = Column(Integer, default=0, server_default="0", nullable=False)
+    #: ``AgentMemoryVerification`` value: how far the fact was checked against its source conversation.
+    verification = Column(String(20), default="unverified", server_default="unverified", nullable=False)
+    verified_at = Column(DateTime, nullable=True)
+    #: The exact passage of the source conversation that supports the fact (verbatim, checked on save).
+    evidence_quote = Column(Text, nullable=True)
+    #: When the memory review should check the fact again; ``NULL`` means it is due.
+    review_due_at = Column(DateTime, nullable=True)
+    #: Chosen by the memory review for the small memory index injected into every prompt.
+    promoted = Column(Boolean, default=False, server_default="0", nullable=False)
+    #: ``AgentMemoryPin`` value: the user's own pinned/hidden override of ``promoted``; ``NULL`` lets the review decide.
+    pin = Column(String(10), nullable=True)
 
     user = relationship("User")
     compacted_into = relationship("AgentMemoryFact", remote_side=[id])
+
+    @property
+    def in_memory_index(self) -> bool:
+        """Whether the fact is eligible for the memory index (pinned, or promoted and not hidden).
+
+        Eligibility only: ``memory_curation.index_facts`` also requires an active,
+        confirmed fact and applies the index's size caps.
+        """
+        return self.pin == "pinned" or (self.pin is None and bool(self.promoted))
 
 
 class AgentMemoryCompactionRun(database.Base):

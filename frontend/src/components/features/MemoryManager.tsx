@@ -3,7 +3,7 @@ import React, { useId, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Brain, Database, Pencil, Plus, RefreshCw, Search, Sparkles, Trash2 } from 'lucide-react';
 import { memoryApi } from '../../api';
-import type { AgentMemoryCompactionRun, AgentMemoryFact } from '../../types';
+import type { AgentMemoryCompactionRun, AgentMemoryFact, AgentMemoryPin, AgentMemoryVerification } from '../../types';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
@@ -71,21 +71,70 @@ const MemoryFactEditor: React.FC<{ fact: AgentMemoryFact; onDone: () => void }> 
   );
 };
 
-/** One stored fact: summary, detail, origin and status, with its edit and delete buttons. */
+const VERIFICATION_LABELS: Record<AgentMemoryVerification, { title: string; className: string }> = {
+  unverified: {
+    title: 'Not checked yet. The nightly memory review checks facts Janus wrote against the conversation they came from.',
+    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  },
+  confirmed: {
+    title: 'You wrote it, or its conversation supports it as written.',
+    className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  },
+  corrected: {
+    title: 'The memory review rewrote it to match its conversation.',
+    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  },
+  unsupported: {
+    title: 'Its conversation does not mention it; it is kept but never added to the memory index automatically.',
+    className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  },
+  contradicted: {
+    title: 'Its conversation says otherwise; the memory review archived it.',
+    className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  },
+};
+
+const PIN_OPTIONS: { value: '' | AgentMemoryPin; label: string }[] = [
+  { value: '', label: 'Index: automatic' },
+  { value: 'pinned', label: 'Index: pinned' },
+  { value: 'hidden', label: 'Index: hidden' },
+];
+
+/** One stored fact: summary, detail, origin, status and verification, with its index, edit and delete controls. */
 const MemoryFactView: React.FC<{
   fact: AgentMemoryFact;
   onEdit: () => void;
   onDelete: () => void;
+  onPin: (pin: AgentMemoryPin | null) => void;
   isDeleting: boolean;
-}> = ({ fact, onEdit, onDelete, isDeleting }) => (
+}> = ({ fact, onEdit, onDelete, onPin, isDeleting }) => (
   <>
     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
       <div className="min-w-0">
         <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{fact.summary}</p>
         {fact.detail && <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{fact.detail}</p>}
+        {fact.evidence_quote && (
+          <blockquote className="mt-2 border-l-2 border-gray-200 dark:border-gray-700 pl-3 text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap">
+            <span className="font-medium">Evidence:</span> “{fact.evidence_quote}”
+          </blockquote>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="rounded-full bg-primary/10 px-2 py-1 font-medium text-primary">{fact.source}</span>
+        <span
+          className={`rounded-full px-2 py-1 font-medium ${VERIFICATION_LABELS[fact.verification ?? 'unverified'].className}`}
+          title={VERIFICATION_LABELS[fact.verification ?? 'unverified'].title}
+        >
+          {fact.verification ?? 'unverified'}
+        </span>
+        {fact.in_memory_index && fact.status === 'active' && (
+          <span
+            className="rounded-full bg-primary/10 px-2 py-1 font-medium text-primary"
+            title="In the memory index Janus sees at the start of every conversation and run."
+          >
+            in index
+          </span>
+        )}
         <span
           className={`rounded-full px-2 py-1 font-medium ${
             fact.status === 'active'
@@ -112,9 +161,24 @@ const MemoryFactView: React.FC<{
           aria-label={`Delete memory fact "${fact.summary}"`}
           icon={<Trash2 size={15} className="text-red-500" />}
         />
+        <select
+          value={fact.pin ?? ''}
+          onChange={(event) => onPin((event.target.value || null) as AgentMemoryPin | null)}
+          aria-label={`Memory index for "${fact.summary}"`}
+          className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1 text-xs"
+        >
+          {PIN_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
-    <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">Updated {formatServerDateTime(fact.updated_at) ?? fact.updated_at}</p>
+    <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+      Updated {formatServerDateTime(fact.updated_at) ?? fact.updated_at}
+      {fact.verified_at && <> · Checked {formatServerDateTime(fact.verified_at) ?? fact.verified_at}</>}
+    </p>
   </>
 );
 
@@ -161,6 +225,11 @@ export const MemoryManager: React.FC = () => {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['memory-compaction-latest'] }),
   });
 
+  const pinMutation = useMutation({
+    mutationFn: ({ id, pin }: { id: number; pin: AgentMemoryPin | null }) => memoryApi.setPin(id, pin),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['memory-facts'] }),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => memoryApi.delete(id),
     onSuccess: () => {
@@ -184,7 +253,9 @@ export const MemoryManager: React.FC = () => {
             Agent Memory
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Durable facts Janus can search and reuse in memory-enabled chats.
+            Durable facts Janus can search and reuse. The nightly Memory review checks the facts Janus wrote against the
+            conversations they came from and picks the few for the memory index every conversation starts with; pin or
+            hide a fact to decide yourself.
           </p>
         </div>
 
@@ -319,6 +390,7 @@ export const MemoryManager: React.FC = () => {
                         onConfirm: () => deleteMutation.mutate(fact.id),
                       })
                     }
+                    onPin={(pin) => pinMutation.mutate({ id: fact.id, pin })}
                     isDeleting={deleteMutation.isPending && deleteMutation.variables === fact.id}
                   />
                 )}

@@ -17,7 +17,7 @@ Janus keeps all durable state in one SQL database through SQLAlchemy 2.0: SQLite
 | Mail | `email_accounts`, `emails`, `rules`, `email_clarification_requests` |
 | Planner | `planner_accounts`, `calendar_events`, `tasks` (imported, read-only); `planner_tasks`, `planner_events`, `planner_links`, `planner_suggestions` (Janus-owned) |
 | Reminders and topics | `reminder_memory`, `tracked_topics`, `topic_evidence`, `topic_suggestions`, `topic_tracking_preferences` |
-| Memory | `agent_memory_facts`, `agent_memory_compaction_runs` |
+| Memory | `agent_memory_facts` (with the memory review's `verification`, `verified_at`, `evidence_quote`, `review_due_at`, `access_count`, `promoted` and the user's `pin`, migration `f3c5e7a9b1d4`), `agent_memory_compaction_runs` |
 | Knowledge | `knowledge_sources`, `knowledge_chunks`, `knowledge_embeddings`, `knowledge_entities`, `knowledge_mentions`, `knowledge_relations`, `knowledge_relation_evidence`, `knowledge_merge_suggestions`, `knowledge_preferences`, `knowledge_llm_usage`, `wiki_pages`, `wiki_page_revisions` |
 | Chat | `conversations`, `conversation_messages`, `conversation_tool_calls`, `conversation_ui_blocks`, `generated_images` |
 | Character and skills | `character_profiles`, `character_states`, `character_state_proposals`, `character_state_changes`, `agent_skills`, `skill_suggestion_dismissals` |

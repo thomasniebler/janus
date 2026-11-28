@@ -145,7 +145,7 @@ def test_janus_system_prompt_renders_the_character_and_shared_guardrails() -> No
 
 def test_janus_system_prompt_collapses_nullish_skill_content() -> None:
     """Skills with blank names or content render cleanly instead of as empty headings."""
-    from janus.agent_runtime import build_janus_system_prompt
+    from janus.agent_runtime import build_janus_mail_ingestion_guidance, build_janus_system_prompt
 
     constitution = CharacterConstitution(
         constitution_id="test",
@@ -163,7 +163,12 @@ def test_janus_system_prompt_collapses_nullish_skill_content() -> None:
 
     prompt = build_janus_system_prompt(constitution, skills)
 
+    # The skill index lists named skills by description; a nameless skill cannot be loaded by name.
     assert "# Agent Skills" in prompt
-    assert "## Empty Skill" in prompt
-    assert "\n\nUseful content." in prompt
-    assert "  Useful content.  " not in prompt
+    assert "- **Empty Skill**: Empty content" in prompt
+    assert "Useful content." not in prompt
+
+    guidance = build_janus_mail_ingestion_guidance(constitution, skills)
+    assert "## Empty Skill" in guidance
+    assert "\n\nUseful content." in guidance
+    assert "  Useful content.  " not in guidance

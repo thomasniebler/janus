@@ -1398,6 +1398,26 @@ export interface paths {
         patch: operations["update_memory_fact_api_memory__fact_id__patch"];
         trace?: never;
     };
+    "/api/memory/{fact_id}/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pin Memory Fact
+         * @description Pin a fact into the memory index injected into every prompt, hide it from the index, or reset (``null``).
+         */
+        put: operations["pin_memory_fact_api_memory__fact_id__pin_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tools/a2a-agents": {
         parameters: {
             query?: never;
@@ -3963,6 +3983,13 @@ export interface components {
             detail?: string | null;
         };
         /**
+         * AgentMemoryFactPin
+         * @description Request schema for pinning a fact into the memory index, hiding it, or handing it back to the review.
+         */
+        AgentMemoryFactPin: {
+            pin?: components["schemas"]["AgentMemoryPin"] | null;
+        };
+        /**
          * AgentMemoryFactResponse
          * @description Serialized response for a stored memory fact.
          */
@@ -3993,6 +4020,34 @@ export interface components {
             updated_at: string;
             /** Last Accessed At */
             last_accessed_at: string | null;
+            /**
+             * Access Count
+             * @default 0
+             */
+            access_count: number;
+            /**
+             * Verification
+             * @default unverified
+             */
+            verification: string;
+            /** Verified At */
+            verified_at?: string | null;
+            /** Evidence Quote */
+            evidence_quote?: string | null;
+            /** Review Due At */
+            review_due_at?: string | null;
+            /**
+             * Promoted
+             * @default false
+             */
+            promoted: boolean;
+            /** Pin */
+            pin?: string | null;
+            /**
+             * In Memory Index
+             * @default false
+             */
+            in_memory_index: boolean;
         };
         /**
          * AgentMemoryFactUpdate
@@ -4006,6 +4061,12 @@ export interface components {
             /** Detail */
             detail?: string | null;
         };
+        /**
+         * AgentMemoryPin
+         * @description The user's override of whether a fact appears in the memory index.
+         * @enum {string}
+         */
+        AgentMemoryPin: "pinned" | "hidden";
         /**
          * AgentMemorySource
          * @description Origin of an agent memory fact.
@@ -12159,6 +12220,46 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AgentMemoryFactUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentMemoryFactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pin_memory_fact_api_memory__fact_id__pin_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                fact_id: number;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentMemoryFactPin"];
             };
         };
         responses: {

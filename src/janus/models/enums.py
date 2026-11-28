@@ -242,6 +242,28 @@ class AgentMemoryStatus(str, enum.Enum):
     ARCHIVED = "archived"
 
 
+class AgentMemoryVerification(str, enum.Enum):
+    """How far a memory fact has been checked against its source conversation (memory review)."""
+
+    #: Not checked yet (every new fact Janus writes starts here).
+    UNVERIFIED = "unverified"
+    #: The user stated it directly in the UI/API, or the transcript supports it as written.
+    CONFIRMED = "confirmed"
+    #: The transcript supports a different version; the fact was rewritten to match it.
+    CORRECTED = "corrected"
+    #: The transcript does not mention it; kept, but never promoted to the memory index.
+    UNSUPPORTED = "unsupported"
+    #: The transcript says otherwise; the fact was archived.
+    CONTRADICTED = "contradicted"
+
+
+class AgentMemoryPin(str, enum.Enum):
+    """The user's override of whether a fact appears in the memory index."""
+
+    PINNED = "pinned"
+    HIDDEN = "hidden"
+
+
 class AgentMemoryCompactionStatus(str, enum.Enum):
     """Lifecycle state for a background memory compaction run."""
 

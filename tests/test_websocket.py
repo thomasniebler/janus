@@ -432,15 +432,15 @@ def test_ws_chat_injects_skills_into_system_prompt(auth_client, db):
             _collect_messages(ws)
             ws.close()
 
-    # Verify that the system prompt is character-sourced and includes the skills
+    # Verify that the system prompt is character-sourced and indexes the skills (full text via read_skill)
     assert captured_prompt is not None, "System prompt should have been captured"
     assert "# Character constitution: Janus" in captured_prompt, "Character constitution must be present"
     assert "--- Tool Availability ---" in captured_prompt, "Tool availability section must be present"
+    assert "--- Memory ---" in captured_prompt, "Memory guidance must be present"
     assert "# Agent Skills" in captured_prompt, "Skills section header must be present"
-    assert "## Skill Alpha" in captured_prompt, "First skill name must be present"
-    assert "This is the content for skill alpha." in captured_prompt, "First skill content must be present"
-    assert "## Skill Beta" in captured_prompt, "Second skill name must be present"
-    assert "This is the content for skill beta." in captured_prompt, "Second skill content must be present"
+    assert "- **Skill Alpha**: First test skill" in captured_prompt, "First skill must be indexed"
+    assert "- **Skill Beta**: Second test skill" in captured_prompt, "Second skill must be indexed"
+    assert "This is the content for skill alpha." not in captured_prompt, "Skill text loads on demand"
 
 
 def test_ws_chat_omits_skills_section_when_no_skills(auth_client, db):

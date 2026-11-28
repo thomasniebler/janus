@@ -63,6 +63,42 @@ describe('MemoryManager', () => {
     expect(screen.getByText('Mornings are best for focused work.')).toBeInTheDocument();
   });
 
+  it('shows the review state and pins a fact into the memory index', async () => {
+    const fact = {
+      id: 7,
+      summary: 'Mia has swimming on Tuesdays.',
+      detail: null,
+      source: 'agent' as const,
+      status: 'active' as const,
+      source_conversation_id: 3,
+      compacted_into_id: null,
+      created_at: '2025-01-02T08:00:00Z',
+      updated_at: '2025-01-03T08:00:00Z',
+      last_accessed_at: null,
+      verification: 'confirmed' as const,
+      evidence_quote: 'my daughter Mia has swimming every Tuesday',
+      verified_at: '2025-01-04T03:17:00Z',
+      promoted: true,
+      pin: null,
+      in_memory_index: true,
+    };
+    vi.mocked(memoryApi.list).mockResolvedValue(response([fact]));
+    vi.mocked(memoryApi.getLatestCompactionRun).mockResolvedValue(response(null));
+    vi.mocked(memoryApi.setPin).mockResolvedValue(response({ ...fact, pin: 'pinned' as const }));
+
+    renderManager();
+
+    expect(await screen.findByText('confirmed')).toBeInTheDocument();
+    expect(screen.getByText('in index')).toBeInTheDocument();
+    expect(screen.getByText(/my daughter Mia has swimming every Tuesday/)).toBeInTheDocument();
+
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Memory index for "Mia has swimming on Tuesdays."' }),
+      'pinned'
+    );
+    await waitFor(() => expect(memoryApi.setPin).toHaveBeenCalledWith(7, 'pinned'));
+  });
+
   it('creates a new memory fact', async () => {
     vi.mocked(memoryApi.list).mockResolvedValue(response([]));
     vi.mocked(memoryApi.getLatestCompactionRun).mockResolvedValue(response(null));

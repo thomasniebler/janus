@@ -4,13 +4,13 @@ Janus keeps what it learns about you in a few layers. Each layer has a tab or a 
 
 | Layer | What it holds | Where you manage it |
 |---|---|---|
-| Agent memory | Short facts about you and your work | `/memory` → **Agent Memory** |
+| Agent memory | Short facts about you and your work, checked overnight | `/memory` → **Agent Memory** |
 | Topics | Ongoing subjects, backed by evidence from mail | `/memory` → **Topics** |
 | Documents | Files and mail attachments Janus can search | `/memory` → **Documents** |
 | Knowledge | Searchable passages, plus people, organizations and projects and how they relate | `/memory` → **Knowledge** |
 | Wiki | One page per topic or busy entity, with citations | `/memory` → **Wiki** |
 | Character | Who Janus is and how it talks to you | Settings → **Character** |
-| Skills | Reusable instructions in every prompt | Settings → **Skills** |
+| Skills | Reusable instructions Janus loads when they apply | Settings → **Skills** |
 
 The **Mail Prioritization Rules** tab on `/memory` holds your mail rules; see [Inbox](inbox.md).
 
@@ -23,10 +23,44 @@ A memory fact is one short summary, with optional detail. Janus reads your facts
 Facts come from three places:
 
 - **You.** Add a fact under **Add memory fact** on the Agent Memory tab, or edit and delete facts in **Stored facts**.
-- **Janus in chat.** With the `memory` toolbox, Janus lists, searches, adds, updates, deletes and groups facts when you ask it to.
-- **After each chat turn.** The utility model reads the turn and may store one fact. Your **Memory instructions** on Settings → Character decide what is worth keeping. A turn with a suspected prompt injection stores nothing.
+- **Janus in chat.** With the `memory` toolbox, Janus lists, searches, adds, updates, deletes and groups facts. It writes a fact when you ask it to remember something, or when something is clearly worth remembering.
+- **After each chat turn.** The utility model reads the turn and may store one fact. Your **Memory instructions** on Settings → Character decide what is worth keeping. A turn with a suspected prompt injection stores nothing, and neither does a turn in which Janus already wrote memory itself.
 
 Adding a fact whose summary matches an active fact (ignoring case) refreshes that fact instead of creating a duplicate.
+
+### Verification
+
+Each fact shows how far it was checked:
+
+| Badge | Meaning |
+|---|---|
+| unverified | Janus wrote it and the memory review has not checked it yet |
+| confirmed | You wrote or edited it, or its conversation supports it as written |
+| corrected | The memory review rewrote it to match its conversation |
+| unsupported | Its conversation does not mention it. It is kept, but never added to the memory index on its own |
+| contradicted | Its conversation says otherwise, so the memory review archived it |
+
+A checked fact shows the **Evidence**: the exact words from the conversation that support it.
+
+### Memory review
+
+The **Memory review** built-in trigger runs every night (03:17 UTC; change or switch it off on Settings → Triggers). It is the "dreaming" step from Anthropic's research on agent memory:
+
+1. **Check.** Up to 8 facts Janus wrote are compared with the conversation they came from. Unchecked facts go first, then the ones Janus uses most. A fact is only confirmed with an exact quote from the conversation.
+2. **Merge.** Facts that say the same thing are merged, as with **Compact Memory**.
+3. **Promote.** The review picks the confirmed facts every conversation should start with: the memory index.
+
+Facts you wrote or edited yourself are never checked, changed or merged by the review; only your own **Compact Memory** merges them. When Janus edits one of your facts, it becomes Janus's fact and is checked against the conversation it was edited in. A checked fact is checked again after 90 days, or after 14 days when it is likely to change (a plan, a current status), and twice as often when Janus uses it. The review shares the monthly token budget of knowledge extraction and wiki synthesis. With a cloud utility model, the conversations it checks are sent to that provider.
+
+### The memory index
+
+Janus starts every conversation and every trigger run with a short memory index: at most 15 facts, about 2,000 characters. It holds the facts you pinned and the ones the memory review confirmed and promoted. Everything else stays searchable, and Janus is told to look there before it answers something that depends on your preferences, people, projects or earlier decisions.
+
+Use the **Index** menu on a fact to decide yourself:
+
+- **automatic**: the memory review decides;
+- **pinned**: always in the index, first;
+- **hidden**: never in the index.
 
 ### Compaction
 
@@ -221,7 +255,7 @@ Janus reads its own state with the `character` toolbox. A proposed focus that lo
 
 ## Skills
 
-A skill is a named block of instructions, in the `SKILL.md` format. Every skill in the library is rendered into Janus's system prompt.
+A skill is a named block of instructions, in the `SKILL.md` format. Janus's system prompt lists every skill in one line, its name and description, so write the description as "when to use it". Janus loads a skill's full instructions with the `read_skill` tool when it needs them. The mail classifier, which has no tools, still gets every skill's full text.
 
 Every signed-in user can read the library on Settings → Skills. Admins can also:
 

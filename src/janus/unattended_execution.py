@@ -33,7 +33,7 @@ from janus.agent_toolboxes.shared import TurnToolCall
 from janus.capability_profile import user_connected_capabilities
 from janus.plan_graph import PlanStep, TaskContext
 from janus.runtime_adapter import RuntimeAdapter, ToolCallRecord
-from janus.services import toolset_store
+from janus.services import memory_curation, toolset_store
 from janus.services.character_state_service import prompt_character
 from janus.tool_registry import ToolSelectionDenial
 from janus.toolset_selection import ToolsetChoice
@@ -387,12 +387,20 @@ def execute_unattended_step_detailed(
         raise RuntimeError(message)
 
     authorized_tool_ids = tuple(entry.id for entry in prepared.selection.entries)
-    # Unattended runs speak as the user's Janus character with the full skill
-    # library, exactly like chat; only the run guidance differs.
+    # Unattended runs speak as the user's Janus character with the skill index
+    # and the memory index, exactly like chat; only the run guidance differs.
     # The persisted adaptive state (JAN-301) is rendered too; unattended runs never change it.
     constitution, character_state = prompt_character(db, user.id)
     system_prompt = "\n\n".join(
-        [build_janus_system_prompt(constitution, load_skill_library(db), character_state=character_state), guidance]
+        [
+            build_janus_system_prompt(
+                constitution,
+                load_skill_library(db),
+                character_state=character_state,
+                memory_index=memory_curation.index_facts(db, user.id),
+            ),
+            guidance,
+        ]
     )
     token = _CURRENT_MODEL_CHOICE.set(model_choice)
     limits_token = _CURRENT_RUN_LIMITS.set(run_limits_for(definition))

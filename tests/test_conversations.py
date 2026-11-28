@@ -569,8 +569,8 @@ def test_ws_chat_system_prompt_comes_from_character(auth_client, db, monkeypatch
     assert "Speaks plainly and double-checks sources." in system_prompt
     assert "Never guess dates" in system_prompt
     assert "--- Tool Availability ---" in system_prompt
-    assert "## Unattached skill" in system_prompt
-    assert "Applies to the one agent." in system_prompt
+    assert "- **Unattached skill**: Flat library" in system_prompt
+    assert "Applies to the one agent." not in system_prompt  # loaded on demand with read_skill
     # No per-agent context flags leak into the single-agent prompt.
     assert "for this agent." not in system_prompt
 

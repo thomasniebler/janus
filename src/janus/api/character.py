@@ -11,6 +11,7 @@ from janus import agent_runtime, database, models, security
 from janus.schemas import character as character_schemas
 from janus.schemas import character_state as state_schemas
 from janus.services import character_state_service as state_service
+from janus.services import memory_curation
 from janus.services.character_service import (
     DEFAULT_CHARACTER,
     DEFAULT_MEMORY_INSTRUCTIONS,
@@ -79,6 +80,7 @@ def preview_character_prompt(
             agent_runtime.load_skill_library(db),
             # The saved adaptive state (JAN-301), exactly as the runtime renders it.
             character_state=state_service.runtime_state(db, user.id, constitution),
+            memory_index=memory_curation.index_facts(db, user.id),
         ),
         memory_instructions=payload.memory_instructions or DEFAULT_MEMORY_INSTRUCTIONS,
     )
