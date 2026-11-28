@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.18.0](https://github.com/thomasniebler/janus/compare/v1.17.1...v1.18.0) (2026-11-28)
+
+
+### Features
+
+* **memory:** nightly memory review, a small memory index, and a skill index ([#23](https://github.com/thomasniebler/janus/issues/23)) ([fd317b4](https://github.com/thomasniebler/janus/commit/fd317b46a339aae7766a07552f17e05af4c71600))
+* **settings:** regroup the Settings tabs and add provider-native web search ([#25](https://github.com/thomasniebler/janus/issues/25)) ([c3e4134](https://github.com/thomasniebler/janus/commit/c3e4134454ad4bfa6beffd7c9689be4edab0161b))
+
 ## [1.17.1](https://github.com/thomasniebler/janus/compare/v1.17.0...v1.17.1) (2026-11-27)
 
 
