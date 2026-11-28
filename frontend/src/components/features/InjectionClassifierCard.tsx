@@ -111,7 +111,7 @@ export const InjectionClassifierCard: React.FC = () => {
         {status.is_cloud && (
           <p className="text-xs rounded-xl p-3 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
             {status.model} is a cloud model: with this on, borderline outside text is sent to that provider. Choose an
-            Ollama model under Settings → AI &amp; System (utility model) to keep it local.
+            Ollama model under Settings → AI &amp; Models (utility model) to keep it local.
           </p>
         )}
         <div className="grid gap-4 md:grid-cols-2">

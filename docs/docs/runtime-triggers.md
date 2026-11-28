@@ -30,7 +30,7 @@ Click **New trigger** and fill in:
 | **Name** | Shown on the card and on every run. |
 | **Objective** | The prompt: what Janus should do on each run. |
 | **Tools** | The toolboxes the run may use (*Tools this trigger may use*). Only these, plus *Core tools*, are offered. |
-| **Model** | Optional. *Default model* follows Settings → AI & System. Pick a provider and model to use another one. If that model cannot be used, the run fails instead of falling back. |
+| **Model** | Optional. *Default model* follows Settings → AI & Models. Pick a provider and model to use another one. If that model cannot be used, the run fails instead of falling back. |
 | **Run limits** | Optional. Tool-calling rounds per run (default 8, up to 500) and seconds per run (default 180, up to 24 h). Each can be left at the default, set, or switched to **No limit**. A run that hits a limit fails and is retried. |
 | **Activation** | When it runs (below). |
 
@@ -307,7 +307,7 @@ listed in that chat under **Delegated tasks**.
 - **Webhooks:** create a webhook under **Webhooks** on Settings → Triggers.
   Outside services send signed JSON to its URL, and each accepted request
   fires `webhook.received`. Filter on `webhook` to react to one sender only.
-- **Telegram:** link your own bot on Settings → Connections. A message you
+- **Telegram:** link your own bot on Settings → Connections → Messaging. A message you
   send it fires `telegram.message_received`. A trigger with
   [Telegram alerts](tools.md#telegram-alerts) can answer you there.
 
@@ -316,7 +316,7 @@ Setup and signing are in [Integrations](integrations.md).
 ## What unattended runs may do
 
 Nobody can approve a tool call during a run. Instead, each toolbox has an
-**Unattended: Allowed / Off** switch on Settings → Tools & Connections. The
+**Unattended: Allowed / Off** switch on Settings → Tools & Safety. The
 toolboxes with the biggest effects (sending mail, GitHub, Linear and so on)
 default to Off. A tool that is Off answers `BLOCKED` and is listed under
 **Refused tool calls**. Tools you pick on a definition you wrote, or on an

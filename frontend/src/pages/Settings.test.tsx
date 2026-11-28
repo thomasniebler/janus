@@ -20,7 +20,9 @@ vi.mock('../components/features/CharacterProfileManager', () => ({ CharacterProf
 vi.mock('../components/features/RuntimeTriggerManager', () => ({ RuntimeTriggerManager: () => <div>Mock runtime trigger manager</div> }));
 vi.mock('../components/features/GitHubConfig', () => ({ GitHubConfig: () => <div>Mock github config</div> }));
 vi.mock('../components/features/LinearConfig', () => ({ LinearConfig: () => <div>Mock linear config</div> }));
-vi.mock('../components/features/WebSearchConfig', () => ({ WebSearchConfig: () => <div>Mock web search config</div> }));
+vi.mock('../components/features/CapabilitySettings', () => ({ CapabilitySettings: () => <div>Mock capability settings</div> }));
+vi.mock('../components/features/TelegramConfig', () => ({ TelegramConfig: () => <div>Mock telegram config</div> }));
+vi.mock('../components/features/DeviceAccessSettings', () => ({ DeviceAccessSettings: () => <div>Mock device access</div> }));
 vi.mock('../components/features/SelfEvolutionConfig', () => ({ SelfEvolutionConfig: () => <div>Mock self-evolution config</div> }));
 vi.mock('../components/features/ConnectionsConfig', () => ({ ConnectionsConfig: () => <div>Mock connections config</div> }));
 vi.mock('../components/features/MailIngestionConfig', () => ({
@@ -28,8 +30,6 @@ vi.mock('../components/features/MailIngestionConfig', () => ({
 }));
 vi.mock('../components/features/LLMConfig', () => ({ LLMConfig: () => <div>Mock llm config</div> }));
 vi.mock('../components/features/SurfaceModelConfig', () => ({ SurfaceModelConfig: () => <div>Mock surface model config</div> }));
-vi.mock('../components/features/EmbeddingConfig', () => ({ EmbeddingConfig: () => <div>Mock embedding config</div> }));
-vi.mock('../components/features/ImageGenerationConfig', () => ({ ImageGenerationConfig: () => <div>Mock image generation config</div> }));
 vi.mock('../components/features/PasswordChangeCard', () => ({ PasswordChangeCard: () => <div>Mock password card</div> }));
 vi.mock('../components/features/SkillManager', () => ({ SkillManager: () => <div>Mock skill manager</div> }));
 // Stubbed like the other panels: under `isolate: false`, rendering the real one would load
@@ -43,7 +43,7 @@ vi.mock('./ErrorsPage', () => ({ default: () => <div>Mock errors</div> }));
 // importing the real layouts here would leak them past each shell test's own mocks.
 vi.mock('../components/appShells', () => ({ loadAppShell: vi.fn(() => Promise.resolve(() => null)) }));
 
-const renderPage = () => {
+const renderPage = (initialEntry = '/settings') => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -53,7 +53,7 @@ const renderPage = () => {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/settings']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <UIVersionProvider initialUIVersion="v1">
           <Settings />
         </UIVersionProvider>
@@ -81,17 +81,74 @@ describe('Settings', () => {
     await user.click(screen.getByRole('tab', { name: /daily briefing/i }));
 
     expect(screen.getByText('Mock briefing settings')).toBeInTheDocument();
-    expect(screen.queryByText('Mock account manager')).not.toBeInTheDocument();
+    expect(screen.queryByText('Mock llm config')).not.toBeInTheDocument();
   });
 
-  it('renders the WhatsApp settings section from the settings navigation', async () => {
+  it('opens AI & Models first, with the models and the search & images sub-tabs', async () => {
     renderPage();
     const user = userEvent.setup();
 
     await screen.findByRole('heading', { name: /settings/i });
-    await user.click(screen.getByRole('tab', { name: /whatsapp/i }));
+    expect(screen.getByRole('tab', { name: 'AI & Models' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Mock llm config')).toBeInTheDocument();
+    expect(screen.getByText('Mock surface model config')).toBeInTheDocument();
 
+    await user.click(screen.getByRole('tab', { name: 'Search & images' }));
+    expect(screen.getByText('Mock capability settings')).toBeInTheDocument();
+    expect(screen.queryByText('Mock llm config')).not.toBeInTheDocument();
+  });
+
+  it('groups the connections into Mail, Calendar & tasks, Messaging and Developer sub-tabs', async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: /settings/i });
+    await user.click(screen.getByRole('tab', { name: 'Connections' }));
+    expect(screen.getByText('Mock account manager')).toBeInTheDocument();
+    expect(screen.getByText('Mock mail ingestion config')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Calendar & tasks' }));
+    expect(screen.getByText('Mock connections config')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Messaging' }));
     expect(screen.getByText('Mock WhatsApp manager')).toBeInTheDocument();
+    expect(screen.getByText('Mock telegram config')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Developer' }));
+    expect(screen.getByText('Mock github config')).toBeInTheDocument();
+    expect(screen.getByText('Mock linear config')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['accounts', 'Mock account manager'],
+    ['mail-ingestion', 'Mock mail ingestion config'],
+    ['whatsapp', 'Mock WhatsApp manager'],
+    ['github', 'Mock github config'],
+    ['linear', 'Mock linear config'],
+    ['planner', 'Mock connections config'],
+  ])('keeps the old ?tab=%s link working', async (legacyTab, content) => {
+    renderPage(`/settings?tab=${legacyTab}`);
+
+    expect(await screen.findByText(content)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Connections' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('keeps the device access card next to the password on the Security tab', async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: /settings/i });
+    await user.click(screen.getByRole('tab', { name: 'Security' }));
+
+    expect(screen.getByText('Mock password card')).toBeInTheDocument();
+    expect(screen.getByText('Mock device access')).toBeInTheDocument();
+  });
+
+  it('puts self-evolution next to the tool registry on Tools & Safety', async () => {
+    renderPage('/settings?tab=tools');
+
+    expect(await screen.findByText('Mock MCP registry')).toBeInTheDocument();
+    expect(screen.getByText('Mock self-evolution config')).toBeInTheDocument();
   });
 
   it('renders the character constitution section from the settings navigation', async () => {

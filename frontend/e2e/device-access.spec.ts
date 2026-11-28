@@ -3,12 +3,12 @@ import { E2E_BASE_URL } from './env';
 import { expect, test } from './fixtures';
 
 /**
- * Device tokens for the action inbox (Settings -> Daily Briefing -> Desktop and device access): a token is
+ * Device tokens for the action inbox (Settings -> Security -> Desktop and device access): a token is
  * shown once, opens only the inbox, survives a reload as a prefix, and stops working once revoked. Each test
  * runs as its own throwaway user (the `asThrowawayUser` fixture).
  */
 const openDeviceAccess = async (page: Page) => {
-  await page.goto('/settings?tab=briefing');
+  await page.goto('/settings?tab=security');
   await expect(page.getByRole('heading', { name: 'Desktop and device access' })).toBeVisible();
 };
 

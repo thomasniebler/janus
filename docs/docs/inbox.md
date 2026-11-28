@@ -6,7 +6,7 @@ the action inbox.
 
 ## Email accounts
 
-Manage mailboxes in **Settings → Email Accounts** (the same list also sits at
+Manage mailboxes in **Settings → Connections → Mail** (the same list also sits at
 the top of the **Emails** page).
 
 | Button | Mailbox | How Janus reads it |
@@ -35,7 +35,7 @@ A new mailbox does not import its whole history. The first sync looks at mail
 from the last 30 days and takes at most the newest **Initial Sync Email Limit**
 messages (default 100). After that, Janus only fetches new mail.
 
-An administrator sets that limit in **Settings → Mail Ingestion**. Other users
+An administrator sets that limit in **Settings → Connections → Mail**. Other users
 see it read-only.
 
 ## How new mail is sorted
@@ -124,7 +124,7 @@ Chat, **Planner Suggestions** on the Dashboard, and the proposal count on
 
 A script authenticates with a device token instead of your password.
 
-1. Open **Settings → Daily Briefing → Desktop and device access**.
+1. Open **Settings → Security → Desktop and device access**.
 2. Give the device a name (for example "Laptop popup") and press
    **Create token**.
 3. Copy the token. It starts with `jdt_` and is shown only once.

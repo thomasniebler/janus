@@ -29,7 +29,7 @@ def _get_github_service(db: Session) -> GitHubService:
     if not settings.github_token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="GitHub token is not configured. Add it in Settings → GitHub.",
+            detail="GitHub token is not configured. Add it in Settings → Connections → Developer.",
         )
     token = security.security_service.decrypt(settings.github_token)
     return GitHubService(token=token)

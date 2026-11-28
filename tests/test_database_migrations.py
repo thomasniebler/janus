@@ -402,7 +402,8 @@ def test_github_models_and_azure_migration_upgrades_existing_settings_and_downgr
                 )
         # The widened column round-trips the longest new member through the ORM enum.
         with sessionmaker(bind=engine)() as session:
-            assert session.query(models.Settings).one().llm_provider == models.LLMProvider.GITHUB_MODELS
+            # Only this column: the database is at an older revision than the model's newest columns.
+            assert session.query(models.Settings.llm_provider).scalar() == models.LLMProvider.GITHUB_MODELS
 
         command.downgrade(alembic_config, "c3e9a1f7d2b8")
 
@@ -2424,5 +2425,33 @@ def test_oauth_connections_migration_backfills_google_calendar_connections(tmp_p
         with engine.connect() as conn:
             row = conn.execute(text("SELECT user_id, provider, credentials FROM oauth_connections")).one()
         assert tuple(row) == (user_id, "google", "encrypted-blob")
+    finally:
+        engine.dispose()
+
+
+def test_web_search_model_migration_adds_a_nullable_column_and_keeps_the_stored_backend(tmp_path):
+    """The model column is additive: an existing Brave setup is untouched, and downgrading drops only the column."""
+    database_url = f"sqlite:///{tmp_path / 'web-search-model.db'}"
+    engine = create_engine(database_url, connect_args={"check_same_thread": False})
+    alembic_config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    alembic_config.set_main_option("sqlalchemy.url", database_url)
+
+    try:
+        command.upgrade(alembic_config, "f3c5e7a9b1d4")
+        with engine.begin() as conn:
+            conn.execute(text("INSERT INTO settings (web_search_provider, web_search_api_key) VALUES ('brave', 'enc')"))
+        assert "web_search_model" not in {column["name"] for column in inspect(engine).get_columns("settings")}
+
+        command.upgrade(alembic_config, "a1c4e7b9d2f6")
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT web_search_provider, web_search_api_key, web_search_model FROM settings")
+            ).one()
+        assert tuple(row) == ("brave", "enc", None)
+
+        command.downgrade(alembic_config, "f3c5e7a9b1d4")
+        assert "web_search_model" not in {column["name"] for column in inspect(engine).get_columns("settings")}
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT web_search_provider FROM settings")).scalar_one() == "brave"
     finally:
         engine.dispose()

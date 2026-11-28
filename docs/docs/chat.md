@@ -110,7 +110,7 @@ to use …**, with the tool, its risk level, and the exact arguments.
 A card you don't answer counts as denied after 5 minutes.
 
 Whether a tool asks, is off, or always runs in chat is its **In chat** switch
-(**Ask / Off / Always allow**) in **Settings → Tools & Connections**. The
+(**Ask / Off / Always allow**) in **Settings → Tools & Safety**. The
 **Allow all** mode skips the card for every tool not switched Off. See
 [How permissions work](tools.md#how-permissions-work) for the full rules,
 including what unattended runs may do.
@@ -150,7 +150,7 @@ and tool trace.
 
 ## Submit an idea to Linear
 
-When Linear is connected (**Settings → Linear**), the chat header shows
+When Linear is connected (**Settings → Connections → Developer**), the chat header shows
 **Submit Idea**, which files a Linear issue from a title and description you
 enter.
 

@@ -81,7 +81,7 @@ export const RuntimeTriggerManager: React.FC = () => {
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Nobody is watching a trigger run, so tools that are off for unattended runs (Settings → Tools &amp; Connections)
+            Nobody is watching a trigger run, so tools that are off for unattended runs (Settings → Tools &amp; Safety)
             are refused, and every refusal is written into the run's result. Picking a tool on a trigger you created yourself allows it for that trigger.
           </p>
           <Link to="/docs/runtime-triggers" className="inline-flex font-medium text-primary hover:underline">

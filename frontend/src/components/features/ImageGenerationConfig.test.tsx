@@ -41,7 +41,7 @@ describe('ImageGenerationConfig', () => {
     vi.mocked(plannerApi.updateSettings).mockReset();
   });
 
-  it('offers only cloud providers and saves one with its default model', async () => {
+  it('lists every AI provider but only lets a cloud image provider be chosen, and saves it with its default model', async () => {
     vi.mocked(plannerApi.updateSettings).mockResolvedValue({
       data: { ...baseSettings, image_provider: 'openai', image_model: 'gpt-image-1' },
     } as never);
@@ -49,8 +49,15 @@ describe('ImageGenerationConfig', () => {
     const user = userEvent.setup();
 
     const select = await screen.findByLabelText('Image provider');
-    const options = Array.from((select as HTMLSelectElement).options).map((option) => option.value);
-    expect(options).toEqual(['', 'openai', 'gemini', 'openrouter']);
+    const options = Array.from((select as HTMLSelectElement).options);
+    expect(options.filter((option) => !option.disabled).map((option) => option.value)).toEqual(['', 'openai', 'gemini', 'openrouter']);
+    expect(options.filter((option) => option.disabled).map((option) => option.value)).toEqual([
+      'ollama',
+      'anthropic',
+      'github_models',
+      'azure_openai',
+    ]);
+    expect(screen.getByRole('option', { name: 'Anthropic (cannot generate images)' })).toBeDisabled();
     await user.selectOptions(select, 'openai');
     expect(screen.getByLabelText('Image model')).toHaveAttribute('placeholder', 'gpt-image-1');
     expect(screen.getByTestId('image-cloud-hint')).toHaveTextContent('sent to OpenAI');

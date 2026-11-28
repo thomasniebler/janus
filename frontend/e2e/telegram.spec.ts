@@ -44,7 +44,7 @@ test.afterAll(async () => {
 
 test('connect a bot, link your chat with the pairing code, and send a test message', async ({ page }) => {
   queued = [];
-  await page.goto('/settings?tab=connections');
+  await page.goto('/settings?tab=connections&sub=messaging');
   const card = page.getByTestId('telegram-config');
   await card.getByLabel('Bot token').fill('999:WRONG');
   await card.getByRole('button', { name: 'Connect' }).click();

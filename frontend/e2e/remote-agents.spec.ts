@@ -68,7 +68,7 @@ test.describe('Remote agents in settings (JAN-404)', () => {
   test('add, switch on, refresh, and remove a remote agent; the token never comes back', async ({ page }) => {
     await page.goto('/settings?tab=tools');
     await page.getByRole('button', { name: 'Add remote agent' }).click();
-    await page.getByLabel('Name').last().fill(AGENT_NAME);
+    await page.getByLabel('Name', { exact: true }).fill(AGENT_NAME);
     await page.getByLabel('Agent URL').fill(fake.url);
     await page.getByLabel('Bearer token (optional)').fill(TOKEN);
     await page.getByRole('button', { name: 'Add and fetch card' }).click();
@@ -98,7 +98,7 @@ test.describe('Remote agents in settings (JAN-404)', () => {
   test('refuses an agent URL on a private network', async ({ page }) => {
     await page.goto('/settings?tab=tools');
     await page.getByRole('button', { name: 'Add remote agent' }).click();
-    await page.getByLabel('Name').last().fill('Private');
+    await page.getByLabel('Name', { exact: true }).fill('Private');
     await page.getByLabel('Agent URL').fill('http://10.0.0.1');
     await page.getByRole('button', { name: 'Add and fetch card' }).click();
     await expect(page.getByText('The agent URL resolves to a blocked network address.')).toBeVisible();

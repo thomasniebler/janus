@@ -184,8 +184,7 @@ STUBBED_DENIAL_REASONS = frozenset({"confirmation_required", "missing_capability
 
 _REFUSAL_EXPLANATIONS = {
     "confirmation_required": (
-        "the user has switched it off for unattended runs (Settings -> Tools & Connections) "
-        "and nobody is here to allow it"
+        "the user has switched it off for unattended runs (Settings -> Tools & Safety) and nobody is here to allow it"
     ),
     "missing_capability": "the integration it needs is not connected",
     "disabled_by_context": "it is not available in this context",

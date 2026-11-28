@@ -51,26 +51,24 @@ TOOL_NAMES: dict[str, str] = {
 UI_ACTION_TOOL_NAMES: frozenset[str] = frozenset(TOOL_NAMES.values())
 
 MEMORY_TABS = ("facts", "topics", "documents", "knowledge", "wiki", "rules")
+#: Earlier top-level tabs: each opens its Connections sub-tab (``LEGACY_TABS`` in pages/settingsTabs.ts).
+LEGACY_SETTINGS_TABS = ("accounts", "mail-ingestion", "whatsapp", "github", "linear")
 SETTINGS_TABS = (
-    "accounts",
-    "whatsapp",
-    "security",
-    "appearance",
-    "briefing",
-    "character",
-    "runtime",
-    "skills",
-    "mail-ingestion",
     "system",
     "connections",
-    "github",
-    "linear",
     "tools",
-    "events",
+    "character",
+    "skills",
+    "runtime",
+    "briefing",
+    "security",
+    "appearance",
     "status",
     "stats",
+    "events",
     # Admin-only in the UI; Settings.tsx redirects non-admins away from it.
     "errors",
+    *LEGACY_SETTINGS_TABS,
 )
 #: Navigation targets: path -> allowed ``tab`` values (``()`` means no query at all).
 ROUTES: dict[str, tuple[str, ...]] = {

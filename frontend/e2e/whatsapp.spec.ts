@@ -21,7 +21,7 @@ import {
 const minutesAgo = (minutes: number) => Date.now() / 1000 - minutes * 60;
 
 const openWhatsAppSettings = async (page: Page) => {
-  await page.goto('/settings?tab=whatsapp');
+  await page.goto('/settings?tab=connections&sub=messaging');
   await expect(page.getByRole('heading', { name: 'WhatsApp Setup' })).toBeVisible();
 };
 

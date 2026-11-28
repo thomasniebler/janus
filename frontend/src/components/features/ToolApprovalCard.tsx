@@ -79,7 +79,7 @@ export const ToolApprovalCard: React.FC<ToolApprovalCardProps> = ({ request, ans
           type="button"
           disabled={answered || !onAnswer}
           onClick={() => onAnswer?.(request.call_id, 'always')}
-          title="Approve this call and stop asking for this tool in chat (change it in Settings → Tools & Connections)"
+          title="Approve this call and stop asking for this tool in chat (change it in Settings → Tools & Safety)"
           className="inline-flex items-center gap-1 rounded border border-emerald-600 bg-white px-2.5 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-900 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
         >
           <CheckCheck size={12} aria-hidden="true" />

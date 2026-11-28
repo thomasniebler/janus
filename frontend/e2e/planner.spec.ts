@@ -277,7 +277,7 @@ test.describe('Planner: Google Calendar and Tasks', () => {
   }) => {
     upstream.requests.length = 0;
     const consent = await mockGoogleConsent(page, 'e2e-auth-code');
-    await page.goto('/settings?tab=connections');
+    await page.goto('/settings?tab=connections&sub=calendar');
     // The Connections tab renders once the connection status loads, which can exceed the
     // default 5s assertion timeout while other specs share the backend. The client id and
     // secret come from the configuration (see env.ts), so Connect is enabled right away.
@@ -359,7 +359,7 @@ test.describe('Planner: Google Calendar and Tasks', () => {
     expect(briefing.summary).toContain('E2E Google task');
 
     // Disconnecting removes the accounts and everything they imported.
-    await page.goto('/settings?tab=connections');
+    await page.goto('/settings?tab=connections&sub=calendar');
     await page.getByRole('button', { name: 'Disconnect Google' }).click();
     await expect(page.getByText('Google disconnected.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Connect Google' })).toBeVisible();
@@ -371,7 +371,7 @@ test.describe('Planner: Google Calendar and Tasks', () => {
 
   test('a rejected authorization code leaves Google unconnected and explains why', async ({ page }) => {
     await mockGoogleConsent(page, 'e2e-rejected-code');
-    await page.goto('/settings?tab=connections');
+    await page.goto('/settings?tab=connections&sub=calendar');
     await expect(page.getByRole('button', { name: 'Connect Google' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Connect Google' }).click();
@@ -395,7 +395,7 @@ test.describe('Planner: Google Calendar and Tasks', () => {
       await route.fulfill({ status: 302, headers: { location: callback.toString() } });
     });
     upstream.requests.length = 0;
-    await page.goto('/settings?tab=connections');
+    await page.goto('/settings?tab=connections&sub=calendar');
 
     await page.getByRole('button', { name: 'Connect Google' }).click();
 

@@ -39,6 +39,43 @@ export const BraveConfigured: Story = {
   ],
 };
 
+const nativeDefaults = {
+  default_models: { openai: 'gpt-4.1-mini', gemini: 'gemini-2.5-flash', anthropic: 'claude-haiku-4-5', openrouter: 'openai/gpt-4.1-mini' },
+};
+
+/** Searching through the OpenAI key stored on the Models tab. */
+export const OpenAIConfigured: Story = {
+  decorators: [
+    withQueryData(
+      seed({
+        provider: 'openai',
+        api_key_configured: false,
+        base_url: null,
+        model: 'gpt-4.1-mini',
+        ...nativeDefaults,
+        provider_keys: { openai: true },
+        configured: true,
+      })
+    ),
+  ],
+};
+
+/** A native provider is chosen but its chat key is missing, so the card warns and search stays off. */
+export const GeminiWithoutKey: Story = {
+  decorators: [
+    withQueryData(
+      seed({
+        provider: 'gemini',
+        api_key_configured: false,
+        base_url: null,
+        ...nativeDefaults,
+        provider_keys: { gemini: false },
+        configured: false,
+      })
+    ),
+  ],
+};
+
 export const ReadOnlyForNonAdmin: Story = {
   args: { isAdmin: false },
   decorators: [withQueryData(seed({ provider: null, api_key_configured: false, base_url: null, configured: false }))],

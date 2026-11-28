@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import type { ConnectionProvider, ConnectionStatus } from '../../types';
-import { TelegramConfig } from './TelegramConfig';
 
 /** The backend's `detail` for a failed request, else the request's own error, else `fallback`. */
 const requestErrorMessage = (error: unknown, fallback: string) =>
@@ -38,7 +37,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({ status, signInLinked, onFee
 
   const connectMutation = useMutation({
     mutationFn: async () => (await connectionsApi.getAuthUrl(status.provider)).data.url,
-    // Hand the browser to the provider's consent screen; it returns to Settings -> Connections.
+    // Hand the browser to the provider's consent screen; it returns to Settings -> Connections -> Calendar & tasks.
     onSuccess: (url) => {
       window.location.href = url;
     },
@@ -154,7 +153,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({ status, signInLinked, onFee
   );
 };
 
-/** Settings -> Connections: one "Connect" button per provider; calendars and mailboxes are chosen on their pages. */
+/** Settings -> Connections -> Calendar & tasks: one "Connect" button per provider; calendars and mailboxes are chosen on their pages. */
 export const ConnectionsConfig: React.FC = () => {
   const [feedback, setFeedback] = useState<{ status: 'success' | 'error'; message: string } | null>(null);
 
@@ -180,12 +179,11 @@ export const ConnectionsConfig: React.FC = () => {
   return (
     <div className="space-y-6">
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        Connect your accounts once. Then pick the calendars to sync on the Planner page and add mailboxes on the Mail
-        page.
+        Connect your Google or Microsoft account once. Then pick the calendars to sync on the Planner page and add mailboxes under
+        Settings → Connections → Mail.
       </p>
       <ProviderCard status={overview.google} signInLinked={currentUser?.google_linked ?? false} onFeedback={setFeedback} />
       <ProviderCard status={overview.microsoft} onFeedback={setFeedback} />
-      <TelegramConfig />
       {feedback && (
         <div
           role="status"

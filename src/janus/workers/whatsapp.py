@@ -94,7 +94,7 @@ def send_text_message(account_id: int, chat_jid: str, text: str) -> tuple[str, d
     client = getattr(connector, "client", None)
     if client is None:
         raise WhatsAppNotConnectedError(
-            "this WhatsApp account is not connected right now; check Settings -> WhatsApp and try again"
+            "this WhatsApp account is not connected right now; check Settings -> Connections -> Messaging and try again"
         )
     response = client.send_message(chat_jid, text)
     message_id = str(getattr(response, "ID", "") or "") or f"janus-{uuid.uuid4().hex}"

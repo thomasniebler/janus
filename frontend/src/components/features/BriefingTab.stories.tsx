@@ -16,7 +16,6 @@ const seed = (queryClient: QueryClient) => {
       },
     ],
   );
-  queryClient.setQueryData(['inbox', 'tokens'], []);
   queryClient.setQueryData(['secretary', 'settings'], {
     secretary_active_start_hour: 8,
     secretary_active_end_hour: 21,

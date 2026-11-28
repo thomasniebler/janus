@@ -2,7 +2,7 @@
 
 Janus acts through **toolboxes**. Each toolbox has a registry id (such as
 `mail.send`), holds one or more tools, and is one row on **Settings → Tools &
-Connections → Built-in Janus tools**. Each toolbox section below is the page
+Safety → Built-in Janus tools**. Each toolbox section below is the page
 its `docs_ref` points to, so a `BLOCKED` answer names the section that
 explains it.
 
@@ -124,7 +124,7 @@ never when it is off, not even on a definition that lists them.
 
 Janus does not offer the model every allowed toolbox. Before each chat
 message, each ad-hoc follow-up, and each delegated task, a quick call to the
-utility model (Settings → AI & System) picks the toolboxes the request needs.
+utility model (Settings → AI & Models) picks the toolboxes the request needs.
 
 - **It only narrows.** The pick is limited to what your switches, a
   definition's tool list or a delegation grant already allow. Approval cards
@@ -291,8 +291,9 @@ administrator sets up.
 ## Web search
 
 `web_search` · never. Sends only the short query Janus writes to the
-configured search provider (Brave or SearXNG). Results are untrusted content.
-Needs a search provider set up by an administrator.
+configured search provider (SearXNG, Brave, or the search tool of OpenAI, Gemini,
+Anthropic or OpenRouter). Results are untrusted content. Needs a search provider
+set up by an administrator under **Settings → AI & Models → Search & images**.
 
 ## Web page reader
 
@@ -420,7 +421,7 @@ everything**. Needs an image provider set up by an administrator.
 `self_evolution` · required. File improvement issues, start implementation
 jobs, merge gated pull requests and releases, and schedule production
 self-checks. Administrators only; needs GitHub and Linear and the
-self-evolution loop switched on (Settings → Tools & Connections). Its
+self-evolution loop switched on (Settings → Tools & Safety). Its
 Unattended switch follows that setting.
 
 ## Shell
@@ -440,7 +441,7 @@ operator allows edits. Administrators only; off until the operator sets
 ## Remote MCP tools
 
 `mcp.<server>.<tool>`. Tools from the MCP servers you added on Settings →
-Tools & Connections. A tool the server marks read-only (`readOnlyHint`) is
+Tools & Safety. A tool the server marks read-only (`readOnlyHint`) is
 `never`; every other one is `required` and asks before each call. Output and
 descriptions are untrusted content. Chat only (locked) unless Unattended is
 set to **Allow everything**. See [Integrations](integrations.md).

@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures';
 
 /**
- * Settings → Email Accounts against the real backend (JAN-142): every answer here
+ * Settings → Connections → Mail against the real backend (JAN-142): every answer here
  * (account list, saved account, connection test) is validated by the API client, so a
  * regression in either the backend shape or the client schema breaks this flow.
  * The account points at a closed local port, so nothing ever reaches a mail server.
@@ -15,7 +15,7 @@ test.describe('Email accounts', () => {
     const renamed = `${name} (renamed)`;
     const address = `e2e-work-${Date.now()}@example.com`;
 
-    await page.goto('/settings');
+    await page.goto('/settings?tab=connections&sub=mail');
     await expect(page.getByRole('heading', { name: 'Connected Accounts' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Custom IMAP' }).click();

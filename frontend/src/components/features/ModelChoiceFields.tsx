@@ -29,7 +29,7 @@ interface ModelChoiceFieldsProps {
 /**
  * Optional provider/model override for one surface (JAN-233).
  *
- * "Default model" keeps whatever Settings -> AI & System uses. An explicit
+ * "Default model" keeps whatever Settings -> AI & Models uses. An explicit
  * choice is never silently replaced by the default: if it is unusable, the
  * run or chat fails with an error that names it.
  */
@@ -48,7 +48,7 @@ export const ModelChoiceFields: React.FC<ModelChoiceFieldsProps> = ({ label, pro
           onChange={(event) => onChange(event.target.value || null, null)}
           className={selectClass}
         >
-          <option value="">Default model (Settings → AI &amp; System)</option>
+          <option value="">Default model (Settings → AI &amp; Models)</option>
           {(Object.keys(PROVIDER_LABELS) as LLMProviderId[]).map((id) => (
             <option key={id} value={id}>
               {PROVIDER_LABELS[id]}

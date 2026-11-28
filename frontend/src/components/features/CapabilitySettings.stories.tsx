@@ -3,9 +3,9 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { expect, within } from 'storybook/test';
 import type { PlannerSettings } from '../../types';
 import { withQueryData } from '../../test/storybookQueryClient';
-import { AdditionalModelSettings } from './AdditionalModelSettings';
+import { CapabilitySettings } from './CapabilitySettings';
 
-// Only the fields the three cards read; the rest of PlannerSettings is omitted.
+// Only the fields the cards read; the rest of PlannerSettings is omitted.
 const baseSettings = {
   llm_provider: 'ollama',
   chat_llm_provider: null,
@@ -34,12 +34,19 @@ const seed =
   (settings: Partial<PlannerSettings>) =>
   (queryClient: QueryClient) => {
     queryClient.setQueryData(['system-settings'], { ...baseSettings, ...settings });
+    queryClient.setQueryData(['web-search-settings'], {
+      provider: null,
+      api_key_configured: false,
+      base_url: null,
+      configured: false,
+    });
   };
 
 const meta = {
-  title: 'Features/AdditionalModelSettings',
-  component: AdditionalModelSettings,
-} satisfies Meta<typeof AdditionalModelSettings>;
+  title: 'Features/CapabilitySettings',
+  component: CapabilitySettings,
+  args: { isAdmin: true },
+} satisfies Meta<typeof CapabilitySettings>;
 
 export default meta;
 
@@ -51,6 +58,7 @@ export const Defaults: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole('heading', { name: 'Semantic search' })).toBeInTheDocument();
+    await expect(canvas.getByRole('heading', { name: 'Web Search' })).toBeInTheDocument();
     await expect(canvas.getByRole('heading', { name: 'Image generation' })).toBeInTheDocument();
   },
 };

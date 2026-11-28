@@ -14,7 +14,7 @@ const errorMessage = (error: unknown): string => {
   return 'The Telegram request could not be completed.';
 };
 
-/** Settings -> Connections -> Telegram: your own bot, linked to your own chat (JAN-405). */
+/** Settings -> Connections -> Messaging -> Telegram: your own bot, linked to your own chat (JAN-405). */
 export const TelegramConfig: React.FC = () => {
   const queryClient = useQueryClient();
   const [token, setToken] = useState('');

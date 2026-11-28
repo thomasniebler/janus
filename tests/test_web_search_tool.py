@@ -302,7 +302,15 @@ def test_settings_api_roundtrip_encrypts_and_clears(admin_client, db):
     """Settings round-trip: key is encrypted, never echoed, and clearable."""
     response = admin_client.get("/api/web-search/settings")
     assert response.status_code == 200
-    assert response.json() == {"provider": None, "api_key_configured": False, "base_url": None, "configured": False}
+    assert response.json() == {
+        "provider": None,
+        "api_key_configured": False,
+        "base_url": None,
+        "model": None,
+        "default_models": ws.DEFAULT_NATIVE_MODELS,
+        "provider_keys": {"openai": False, "gemini": False, "anthropic": False, "openrouter": False},
+        "configured": False,
+    }
 
     response = admin_client.patch("/api/web-search/settings", json={"provider": "brave", "api_key": "brv"})
     assert response.status_code == 200
@@ -314,7 +322,38 @@ def test_settings_api_roundtrip_encrypts_and_clears(admin_client, db):
     assert "brv" not in response.text
 
     response = admin_client.patch("/api/web-search/settings", json={"provider": "", "api_key": ""})
-    assert response.json() == {"provider": None, "api_key_configured": False, "base_url": None, "configured": False}
+    assert response.json()["provider"] is None
+    assert response.json()["api_key_configured"] is False
+    assert response.json()["configured"] is False
+
+
+def test_settings_api_native_provider_needs_the_stored_chat_key(admin_client, db):
+    """A native provider is only configured once its chat key is stored; the model follows its provider."""
+    response = admin_client.patch("/api/web-search/settings", json={"provider": "openai", "model": " gpt-x "})
+    assert response.status_code == 200
+    assert response.json()["provider"] == "openai"
+    assert response.json()["model"] == "gpt-x"
+    assert response.json()["configured"] is False
+    assert response.json()["provider_keys"]["openai"] is False
+
+    _configure(db, openai_api_key=security.security_service.encrypt("sk-chat"))
+    response = admin_client.get("/api/web-search/settings")
+    assert response.json()["configured"] is True
+    assert response.json()["provider_keys"]["openai"] is True
+    assert "sk-chat" not in response.text
+
+    # Switching provider drops the old provider's model; an explicit model is kept.
+    response = admin_client.patch("/api/web-search/settings", json={"provider": "gemini"})
+    assert response.json()["model"] is None
+    response = admin_client.patch("/api/web-search/settings", json={"provider": "anthropic", "model": "claude-x"})
+    assert response.json()["model"] == "claude-x"
+    response = admin_client.patch("/api/web-search/settings", json={"model": ""})
+    assert response.json()["model"] is None
+
+
+def test_settings_api_rejects_unknown_provider(admin_client):
+    """Only the known backends are accepted."""
+    assert admin_client.patch("/api/web-search/settings", json={"provider": "bing"}).status_code == 422
 
 
 def test_settings_api_rejects_bad_base_url(admin_client):

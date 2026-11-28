@@ -45,7 +45,7 @@ describe('CalendarSourceCard', () => {
     const loadCalendars = vi.fn();
     renderCard({ connected: false, loadCalendars });
 
-    expect(screen.getByRole('link', { name: 'Open Connections' })).toHaveAttribute('href', '/settings?tab=connections');
+    expect(screen.getByRole('link', { name: 'Open Connections' })).toHaveAttribute('href', '/settings?tab=connections&sub=calendar');
     expect(loadCalendars).not.toHaveBeenCalled();
   });
 

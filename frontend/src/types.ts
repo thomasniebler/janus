@@ -920,12 +920,21 @@ export interface LinearSettingsUpdate {
   default_team_id?: string | null;
 }
 
-export type WebSearchProvider = 'brave' | 'searxng';
+/** Search backends that need no chat key of their own. */
+export type IndependentSearchProvider = 'brave' | 'searxng';
+/** Chat providers whose own search tool can answer; they reuse the key stored for chat. */
+export type NativeSearchProvider = 'openai' | 'gemini' | 'anthropic' | 'openrouter';
+export type WebSearchProvider = IndependentSearchProvider | NativeSearchProvider;
 
 export interface WebSearchSettings {
   provider: WebSearchProvider | null;
   api_key_configured: boolean;
   base_url: string | null;
+  /** Model for the native providers; null = that provider's default. */
+  model?: string | null;
+  default_models?: Partial<Record<NativeSearchProvider, string>>;
+  /** Whether each native provider already has the chat key it reuses. */
+  provider_keys?: Partial<Record<NativeSearchProvider, boolean>>;
   configured: boolean;
 }
 
@@ -933,6 +942,7 @@ export interface WebSearchSettingsUpdate {
   provider?: WebSearchProvider | '' | null;
   api_key?: string | null;
   base_url?: string | null;
+  model?: string | null;
 }
 
 export interface LinearIssueCreate {

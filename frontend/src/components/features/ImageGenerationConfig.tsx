@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Check, Cloud, ImageIcon } from 'lucide-react';
 import { plannerApi } from '../../api';
+import { unsupportedProviders } from '../../lib/aiProviders';
 import type { ImageProviderId } from '../../lib/imageGeneration';
 import type { PlannerSettings } from '../../types';
 import { Button } from '../ui/Button';
@@ -69,8 +70,8 @@ export const ImageGenerationConfig: React.FC = () => {
           Image generation
         </h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Lets Janus draw pictures in chat when you ask for one. Images are made by a cloud model; Ollama and Anthropic
-          cannot generate images.
+          Lets Janus draw pictures in chat when you ask for one. Images are made by a cloud model; the providers marked
+          below cannot generate images.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -85,6 +86,11 @@ export const ImageGenerationConfig: React.FC = () => {
               {PROVIDER_LABELS[id]}
             </option>
           ))}
+          {unsupportedProviders(Object.keys(PROVIDER_LABELS)).map(([id, label]) => (
+            <option key={id} value={id} disabled>
+              {label} (cannot generate images)
+            </option>
+          ))}
         </Select>
         {current.provider && (
           <>
@@ -95,7 +101,7 @@ export const ImageGenerationConfig: React.FC = () => {
               onChange={(event) => update({ model: event.target.value })}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Uses the {PROVIDER_LABELS[current.provider]} key configured above. Each image costs money on that account and
+              Uses the {PROVIDER_LABELS[current.provider]} key stored on the Models tab. Each image costs money on that account and
               is kept with its conversation until you delete the conversation; each user may store up to{' '}
               {settings.image_storage_limit_mb ?? 200} MB of images.
             </p>
@@ -107,7 +113,7 @@ export const ImageGenerationConfig: React.FC = () => {
               <p className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400" data-testid="image-key-missing">
                 <AlertCircle size={14} className="mt-0.5 shrink-0" />
                 No {PROVIDER_LABELS[current.provider]} API key is stored yet, so Janus cannot generate images until you add one
-                in AI Configuration.
+                under AI &amp; Models → Models.
               </p>
             )}
           </>

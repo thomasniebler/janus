@@ -15,7 +15,7 @@ def _load_github_service(context: ToolContext) -> tuple[GitHubService, str | Non
     """Return a configured GitHub service and default repository."""
     settings = context.db.query(models.Settings).first()
     if settings is None or not settings.github_token:
-        raise ValueError("GitHub token is not configured. Add it in Settings → GitHub.")
+        raise ValueError("GitHub token is not configured. Add it in Settings → Connections → Developer.")
     token = security.security_service.decrypt(settings.github_token)
     return GitHubService(token=token), settings.github_default_repo
 

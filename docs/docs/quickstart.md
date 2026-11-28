@@ -124,7 +124,7 @@ Passwords can be at most 72 bytes.
 
 ## 5. Connect a model
 
-Open **Settings → AI & System**. In the **AI Configuration** card, pick a provider and fill in its fields:
+Open **Settings → AI & Models → Models**. In the **AI Configuration** card, pick a provider and fill in its fields:
 
 | Provider | What you need |
 |---|---|
@@ -140,7 +140,7 @@ Click **Test Selected Backend**, then **Save Backend Settings**. Only an admin c
 
 ## 6. Add a mail account
 
-Open **Settings → Email Accounts** (or the **Email Preview** page). In **Connected Accounts**:
+Open **Settings → Connections → Mail** (or the **Email Preview** page). In **Connected Accounts**:
 
 - **Custom IMAP**: enter the server, port, username and password. For Gmail, use an [app password](https://support.google.com/accounts/answer/185833).
 - **Add Google mailbox** or **Add Microsoft mailbox**: available once the operator configured Google or Microsoft. See [Integrations](integrations.md).
@@ -159,7 +159,7 @@ Janus starts reading a mailbox as soon as you add it: it syncs recent mail and t
 
 - **Dashboard**: today's morning briefing. The built-in triggers (Morning briefing at 06:30, Afternoon digest at 16:00, Mail processing for every new mail) are under **Settings → Triggers**. See [Runtime triggers](runtime-triggers.md).
 - **Chat**: talk to Janus on any page. See [Chat](chat.md).
-- **Settings → Tools & Connections**: what Janus may do on its own. See [Tools and permissions](tools.md).
+- **Settings → Tools & Safety**: what Janus may do on its own. See [Tools and permissions](tools.md).
 - **Settings → Character**: how Janus speaks.
 
 From the command line, `uv run janus brief` and `uv run janus digest` run the briefing and digest now and print them.
@@ -187,7 +187,7 @@ In a git checkout, a plain `uv sync` removes extras that you do not name. Repeat
 
 Other optional pieces:
 
-- **Ollama** for local chat models and local embeddings. Install it from [ollama.com](https://ollama.com), pull a model, and select it in **Settings → AI & System**. For local embeddings also run `ollama pull nomic-embed-text`.
+- **Ollama** for local chat models and local embeddings. Install it from [ollama.com](https://ollama.com), pull a model, and select it in **Settings → AI & Models → Models**. For local embeddings also run `ollama pull nomic-embed-text`.
 - **Google and Microsoft** sign-in, mail and calendars need OAuth client ids in `settings.toml`. See [Integrations](integrations.md).
 - **The tray icon on Wayland** needs AppIndicator libraries. See [Desktop](desktop.md).
 - **Shell and coding-agent tools** are off unless the operator turns them on. See [Configuration](configuration.md#all-settings).

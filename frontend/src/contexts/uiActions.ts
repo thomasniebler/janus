@@ -49,10 +49,12 @@ export const parseUIAction = (body: string): UIActionRequest | null => {
 
 const MEMORY_TABS = ['facts', 'topics', 'documents', 'knowledge', 'wiki', 'rules'];
 const SETTINGS_TABS = [
-  'accounts', 'whatsapp', 'security', 'appearance', 'briefing', 'character', 'runtime', 'skills',
-  'mail-ingestion', 'system', 'connections', 'github', 'linear', 'tools', 'events', 'status', 'stats',
+  'system', 'connections', 'tools', 'character', 'skills', 'runtime', 'briefing', 'security', 'appearance',
+  'status', 'stats', 'events',
   // Admin-only in the UI; Settings.tsx redirects non-admins away from it.
   'errors',
+  // Earlier top-level tabs: each opens its Connections sub-tab (`LEGACY_TABS` in pages/settingsTabs.ts).
+  'accounts', 'mail-ingestion', 'whatsapp', 'github', 'linear',
 ];
 /** Navigation targets, mirroring the backend's `ROUTES` (`services/ui_actions.py`): path -> allowed `tab` values. */
 const ROUTE_TABS: Record<string, readonly string[]> = {
