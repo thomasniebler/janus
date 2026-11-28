@@ -66,6 +66,12 @@ SETTINGS_TABS = (
     "events",
     # Admin-only in the UI; Settings.tsx redirects non-admins away from it.
     "errors",
+    # Earlier top-level tabs: each opens its Connections sub-tab (``LEGACY_TABS`` in pages/settingsTabs.ts).
+    "accounts",
+    "mail-ingestion",
+    "whatsapp",
+    "github",
+    "linear",
 )
 #: Navigation targets: path -> allowed ``tab`` values (``()`` means no query at all).
 ROUTES: dict[str, tuple[str, ...]] = {

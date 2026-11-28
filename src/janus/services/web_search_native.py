@@ -182,6 +182,8 @@ def _anthropic(
         {
             "model": model,
             "max_tokens": 1024,
+            # Without this Claude may answer a stable-knowledge query from memory and never search.
+            "system": "Always use the web_search tool for the user's query; never answer from memory.",
             "messages": [{"role": "user", "content": query}],
             "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
         },

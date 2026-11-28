@@ -97,6 +97,9 @@ describe('normalizeRoute', () => {
     expect(normalizeRoute('/memory?tab=topics')).toBe('/memory?tab=topics');
     // Admin-only tab: allowed here, Settings.tsx still redirects non-admins.
     expect(normalizeRoute('/settings?tab=errors')).toBe('/settings?tab=errors');
+    // Earlier top-level tabs still navigate; Settings opens their Connections sub-tab.
+    expect(normalizeRoute('/settings?tab=whatsapp')).toBe('/settings?tab=whatsapp');
+    expect(normalizeRoute('/settings?tab=linear')).toBe('/settings?tab=linear');
     for (const bad of [
       'https://evil.example.com/',
       '//evil.example.com',

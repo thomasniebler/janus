@@ -178,6 +178,7 @@ def test_anthropic_uses_the_web_search_tool_and_cited_text():
     assert seen["headers"] == {"x-api-key": "sk-test", "anthropic-version": native.ANTHROPIC_VERSION}
     assert seen["body"]["tools"] == [{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}]
     assert seen["body"]["messages"] == [{"role": "user", "content": "q"}]
+    assert "web_search" in seen["body"]["system"]
     assert results == [
         ws.WebSearchResult(title="C", url="https://example.com/c", snippet="Cited C."),
         ws.WebSearchResult(title="D", url="https://example.com/d", snippet=""),

@@ -53,6 +53,8 @@ const SETTINGS_TABS = [
   'status', 'stats', 'events',
   // Admin-only in the UI; Settings.tsx redirects non-admins away from it.
   'errors',
+  // Earlier top-level tabs: each opens its Connections sub-tab (`LEGACY_TABS` in pages/settingsTabs.ts).
+  'accounts', 'mail-ingestion', 'whatsapp', 'github', 'linear',
 ];
 /** Navigation targets, mirroring the backend's `ROUTES` (`services/ui_actions.py`): path -> allowed `tab` values. */
 const ROUTE_TABS: Record<string, readonly string[]> = {

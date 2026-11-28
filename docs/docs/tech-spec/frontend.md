@@ -49,7 +49,7 @@ Settings pages, grouped in the navigation (`pages/Settings.tsx`; ids and sub-tab
 | Account | Security (`security`, with device tokens), Appearance (`appearance`) | |
 | Monitoring | System Status, Stats, System Events, Error Groups (admins) | |
 
-A page without sub-tabs has no `sub` parameter; an unknown `sub` falls back to the page's first sub-tab. The first-run default is AI & Models. `LEGACY_TABS` keeps the earlier top-level ids working (`accounts`, `mail-ingestion`, `whatsapp`, `github`, `linear`, `planner`): they resolve to their Connections sub-tab and the URL is rewritten. The OAuth callbacks land on `?tab=connections` (Google and Microsoft, which opens Calendar & tasks) and `?tab=tools` (MCP). The backend's `SETTINGS_TABS` allowlist for `ui_navigate` (`services/ui_actions.py`) lists the page ids only, mirrored in `contexts/uiActions.ts`.
+A page without sub-tabs has no `sub` parameter; an unknown `sub` falls back to the page's first sub-tab. The first-run default is AI & Models. `LEGACY_TABS` keeps the earlier top-level ids working (`accounts`, `mail-ingestion`, `whatsapp`, `github`, `linear`, `planner`): they resolve to their Connections sub-tab and the URL is rewritten. The OAuth callbacks land on `?tab=connections` (Google and Microsoft, which opens Calendar & tasks) and `?tab=tools` (MCP). The backend's `SETTINGS_TABS` allowlist for `ui_navigate` (`services/ui_actions.py`, mirrored in `contexts/uiActions.ts`) lists the page ids and the earlier top-level ids; `ui_navigate` takes a single `tab`, so an earlier id is how Janus reaches a Connections sub-tab.
 
 ## Interchangeable app shells
 

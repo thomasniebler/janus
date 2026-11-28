@@ -55,6 +55,9 @@ def _user(db, name: str = "ui-user") -> models.User:
         ("/memory", "/memory"),
         # Admin-only tab: the server allows it, Settings.tsx keeps enforcing admin visibility.
         ("/settings?tab=errors", "/settings?tab=errors"),
+        # Earlier top-level tabs still navigate (they open their Connections sub-tab).
+        ("/settings?tab=whatsapp", "/settings?tab=whatsapp"),
+        ("/settings?tab=github", "/settings?tab=github"),
     ],
 )
 def test_navigate_accepts_known_routes(route, normalized):

@@ -192,9 +192,11 @@ const Settings: React.FC = () => {
   ];
 
   // Which tab Janus sees in chat (JAN-250); the tab's data comes from its own section.
-  useTabbedPageContext('Settings', 'Settings', sections.flatMap((section) => section.items), activeTab, (tab) =>
-    setActiveTab(tab as TabId)
-  );
+  // A navigate action may name an earlier tab (`whatsapp`, `github`, ...): it opens its Connections sub-tab.
+  useTabbedPageContext('Settings', 'Settings', sections.flatMap((section) => section.items), activeTab, (tab) => {
+    const resolved = resolveSettingsLocation(tab, null);
+    if (resolved) setLocation(resolved);
+  });
 
   if (searchParams.get('tab') === 'rules') {
     return <Navigate to="/memory?tab=rules" replace />;
