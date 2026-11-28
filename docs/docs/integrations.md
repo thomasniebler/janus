@@ -6,19 +6,19 @@ Some integrations are **instance-wide**: one credential, set by an admin, that e
 
 | Integration | Scope | Where |
 |---|---|---|
-| Google, Microsoft (Connect) | Per user | Settings → Connections |
+| Google, Microsoft (Connect) | Per user | Settings → Connections → Calendar & tasks |
 | Microsoft 365 for the agent | Instance-wide | `janus microsoft login` |
-| GitHub, Linear | Instance-wide, admin | Settings → GitHub, Settings → Linear |
+| GitHub, Linear | Instance-wide, admin | Settings → Connections → Developer |
 | Jira | Per user | `janus planner add` |
-| WhatsApp | Per user | Settings → WhatsApp |
-| Telegram | Per user | Settings → Connections |
+| WhatsApp | Per user | Settings → Connections → Messaging |
+| Telegram | Per user | Settings → Connections → Messaging |
 | Inbound webhooks | Per user | Settings → Triggers |
-| Remote MCP servers, A2A agents | Per user | Settings → Tools & Connections |
-| Web search | Instance-wide, admin | Settings → Tools & Connections |
-| Image generation | Instance-wide, admin | Settings → AI & System |
+| Remote MCP servers, A2A agents | Per user | Settings → Tools & Safety |
+| Web search | Instance-wide, admin | Settings → AI & Models → Search & images |
+| Image generation | Instance-wide, admin | Settings → AI & Models → Search & images |
 | Azure resources | Instance-wide, admin | `JANUS_AZURE_ENABLED` |
 | Shell, coding agents | Instance-wide, admin | `JANUS_SHELL_TOOL_ENABLED`, `JANUS_CODING_AGENTS_ENABLED` |
-| Self-evolution loop | Admin | Settings → Tools & Connections |
+| Self-evolution loop | Admin | Settings → Tools & Safety |
 
 What a connected integration lets Janus *do* is governed by its toolboxes and their switches; see [Tools](tools.md#how-permissions-work).
 
@@ -33,7 +33,7 @@ An operator sets it up once:
 3. Add `<base_url>/api/connections/google/callback` as its redirect URI. `<base_url>` is `JANUS_BASE_URL`.
 4. Set `JANUS_GOOGLE_CLIENT_ID` and `JANUS_GOOGLE_CLIENT_SECRET`.
 
-Then each user clicks **Connect** on the Google card in Settings → Connections. Janus asks for Calendar, Tasks and full Gmail access (IMAP over XOAUTH2 has no narrower scope). After connecting, add the Gmail mailbox under Settings → Email Accounts; Janus starts reading it right away.
+Then each user clicks **Connect** on the Google card in Settings → Connections → Calendar & tasks. Janus asks for Calendar, Tasks and full Gmail access (IMAP over XOAUTH2 has no narrower scope). After connecting, add the Gmail mailbox under Settings → Connections → Mail; Janus starts reading it right away.
 
 ## Microsoft
 
@@ -45,7 +45,7 @@ Gives Janus your Outlook calendars and your Outlook / Microsoft 365 mail. Calend
 
 1. In the app registration, add a **Mobile and desktop** (public client) redirect URI of `<base_url>/api/connections/microsoft/callback`.
 2. Grant the delegated permissions `Calendars.Read.Shared` and `Mail.Read`.
-3. Each user clicks **Connect** on the Microsoft card in Settings → Connections. Then add the Outlook mailbox under Settings → Email Accounts; Janus starts reading it right away.
+3. Each user clicks **Connect** on the Microsoft card in Settings → Connections → Calendar & tasks. Then add the Outlook mailbox under Settings → Connections → Mail; Janus starts reading it right away.
 
 ### Microsoft 365 for the agent (instance-wide)
 
@@ -67,7 +67,7 @@ The token cache is stored in `microsoft_token_cache.enc` in the data directory (
 
 ## GitHub
 
-The `github` toolbox lets Janus inspect and manage pull requests and issues. An admin sets it up in Settings → GitHub:
+The `github` toolbox lets Janus inspect and manage pull requests and issues. An admin sets it up in Settings → Connections → Developer:
 
 1. Create a **fine-grained token** on the target repository with **Pull requests: Read and write** and **Contents: Read and write** (needed to merge), plus **Issues: Read and write** to file issues from chat. The self-evolution loop also needs **Checks: Read** and **Commit statuses: Read**. A classic token with the `repo` scope covers all of these.
 2. Paste it as **Personal Access Token**.
@@ -77,7 +77,7 @@ The token is stored encrypted and shared by every user. The toolbox asks for app
 
 ## Linear
 
-The `linear` toolbox lets Janus read, create and update Linear issues. An admin sets it up in Settings → Linear:
+The `linear` toolbox lets Janus read, create and update Linear issues. An admin sets it up in Settings → Connections → Developer:
 
 1. In Linear, open **Settings → API** and create a personal API key.
 2. Paste it as **Personal API Key**.
@@ -111,7 +111,7 @@ uv tool install 'janus-assistant[whatsapp]'   # tool install
 
 ### Pair an account
 
-In Settings → WhatsApp, open **WhatsApp Setup**:
+In Settings → Connections → Messaging, open **WhatsApp Setup**:
 
 1. Enter a **Display Name**.
 2. Choose **Pair in Janus** and scan the QR code with WhatsApp on your phone (**Linked devices**).
@@ -138,7 +138,7 @@ Messages you send, including those Janus sends for you, emit nothing. The `whats
 You link your own Telegram bot to your own private chat. Messages you send there start Telegram triggers, and trigger runs can message you back.
 
 1. In Telegram, create a bot with **@BotFather** and copy its token.
-2. In Settings → Connections, paste it as **Bot token** and click **Connect**. Janus checks the token and shows a pairing code.
+2. In Settings → Connections → Messaging, paste it as **Bot token** and click **Connect**. Janus checks the token and shows a pairing code.
 3. Send `/start <code>` to your bot from a **private** chat. That chat becomes the only one Janus listens and writes to; everyone else is ignored.
 4. Click **Send test message** to check the link.
 
@@ -201,7 +201,7 @@ A valid delivery answers `202`. The run sees the webhook name, the sender's even
 
 Janus is an MCP **client**: it can call tools on remote MCP servers over HTTP. It is not an MCP server itself.
 
-In Settings → Tools & Connections, click **Add MCP server**:
+In Settings → Tools & Safety, click **Add MCP server**:
 
 1. Enter a **Provider name** and the **HTTP MCP endpoint**. The endpoint must use HTTPS and resolve to a public address; plain HTTP is accepted only on loopback.
 2. Choose how to authenticate:
@@ -217,7 +217,7 @@ Each discovered tool becomes a toolbox named `mcp.<server>.<tool>`. Remote tools
 
 Janus can hand a question to another agent that speaks the Agent2Agent (A2A) protocol over JSON-RPC.
 
-In Settings → Tools & Connections, under remote agents, click **Add remote agent**:
+In Settings → Tools & Safety, under remote agents, click **Add remote agent**:
 
 1. Enter a **Name** and the **Agent URL** (the base address that serves `/.well-known/agent-card.json`), plus an optional **Bearer token**.
 2. Click **Add and fetch card**. Janus fetches the agent card and shows the skills the agent advertises.
@@ -227,12 +227,15 @@ Each agent becomes a toolbox `a2a.<id>`, offered in chat only, and each call ask
 
 ## Web search and web fetch
 
-**Web search** lets Janus search the public web. An admin picks a **Provider** in Settings → Tools & Connections:
+**Web search** lets Janus search the public web. An admin picks a **Provider** in Settings → AI & Models → Search & images:
 
-| Provider | Setting |
-|---|---|
-| SearXNG (self-hosted) | **SearXNG base URL**; the instance must have JSON output enabled |
-| Brave Search API | **Brave Search API key** |
+| Provider | Setting | Where the query goes |
+|---|---|---|
+| SearXNG (self-hosted) | **SearXNG base URL**; the instance must have JSON output enabled | Your own instance |
+| Brave Search API | **Brave Search API key** | Brave |
+| OpenAI, Gemini, Anthropic, OpenRouter | **Search model** (optional); reuses the API key stored for that provider under AI & Models → Models | That provider |
+
+The last row uses the provider's own search tool: Janus sends the query to a model with search switched on and keeps the sources it cites (title, URL and the cited passage). Each search is a model call billed to that account, so pick a small model that supports web search; the field shows the default. If the provider has no API key stored yet, the card says so and Janus cannot search until you add one.
 
 Only the query Janus writes leaves the machine, never your mail or chat. Results are treated as untrusted content. The `web_search` toolbox is on for trigger runs unless you switch it Off.
 
@@ -283,7 +286,7 @@ Both toolboxes ask for approval of the exact command or prompt in chat, and are 
 
 ## Image generation
 
-Image generation stays off until an admin picks an **Image provider** and an **Image model** in Settings → AI & System. The providers are OpenAI, Gemini and OpenRouter. Each reuses the API key stored for the chat provider of the same name, so there is no second credential.
+Image generation stays off until an admin picks an **Image provider** and an **Image model** in Settings → AI & Models → Search & images. The picker lists every provider from the Models tab, but only OpenAI, Gemini and OpenRouter can generate images; the others are greyed out. Each reuses the API key stored for the chat provider of the same name, so there is no second credential.
 
 The `images` toolbox is chat-only. Trigger runs get it only under **Allow everything**.
 
@@ -296,7 +299,7 @@ The self-evolution loop lets Janus work on its own code without a human approvin
 3. It merges the resulting pull request, then the release PR.
 4. It runs a production self-check after the release, and opens a revert PR if the check fails.
 
-It is opt-in and admin-only. It needs the GitHub integration and the Linear integration with a **Default Team**. Write the Routine's prompt so it carries out the fire payload Janus sends (for example "Implement the Linear issue described in the routine fire payload, following its rules"), and keep the payload's instruction to name the session and issue in the PR description: Janus merges only PRs that name a session it started. In Settings → Tools & Connections, the admin sets:
+It is opt-in and admin-only. It needs the GitHub integration and the Linear integration with a **Default Team**. Write the Routine's prompt so it carries out the fire payload Janus sends (for example "Implement the Linear issue described in the routine fire payload, following its rules"), and keep the payload's instruction to name the session and issue in the PR description: Janus merges only PRs that name a session it started. In Settings → Tools & Safety, the admin sets:
 
 - **Claude Code Routine trigger id** and **Routine API token**;
 - **GitHub repository** (empty uses the GitHub default);

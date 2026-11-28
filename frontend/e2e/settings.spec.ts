@@ -16,20 +16,57 @@ test.describe('Settings page', () => {
     });
   });
 
-  test('defaults to the Email Accounts tab', async ({ page }) => {
+  test('defaults to the AI & Models tab and groups the pages under headings', async ({ page }) => {
     await page.goto('/settings');
 
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-    const accountsTab = page.getByRole('tab', { name: 'Email Accounts' });
-    await expect(accountsTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'AI & Models' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Models', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page).toHaveURL(/tab=system&sub=models/);
+    const nav = page.getByRole('tablist', { name: 'Settings sections' });
+    for (const group of ['Setup', 'Assistant', 'Automation', 'Account', 'Monitoring']) {
+      await expect(nav.getByText(group, { exact: true })).toBeVisible();
+    }
+  });
+
+  test('the Connections tab splits mail, calendars, messaging and developer accounts into sub-tabs', async ({ page }) => {
+    await page.goto('/settings');
+    await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+
+    await expect(page).toHaveURL(/tab=connections&sub=mail/);
     await expect(page.getByRole('heading', { name: 'Connected Accounts' })).toBeVisible();
     await expect(page.getByText('No email accounts connected.')).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Messaging' }).click();
+    await expect(page).toHaveURL(/sub=messaging/);
+    await expect(page.getByRole('heading', { name: 'WhatsApp Setup' })).toBeVisible();
+    await expect(page.getByTestId('telegram-config')).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Developer' }).click();
+    await expect(page.getByRole('heading', { name: 'GitHub', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Linear', exact: true })).toBeVisible();
   });
+
+  for (const { legacy, expected } of [
+    { legacy: 'accounts', expected: /tab=connections&sub=mail/ },
+    { legacy: 'mail-ingestion', expected: /tab=connections&sub=mail/ },
+    { legacy: 'whatsapp', expected: /tab=connections&sub=messaging/ },
+    { legacy: 'github', expected: /tab=connections&sub=developer/ },
+    { legacy: 'linear', expected: /tab=connections&sub=developer/ },
+  ]) {
+    test(`an old ?tab=${legacy} link lands on its new place`, async ({ page }) => {
+      await page.goto(`/settings?tab=${legacy}`);
+
+      await expect(page.getByRole('tab', { name: 'Connections', exact: true })).toHaveAttribute('aria-selected', 'true');
+      await expect(page).toHaveURL(expected);
+    });
+  }
 
   test('switches to the Connections tab and offers Google and shows Microsoft as not set up', async ({ page }) => {
     await page.goto('/settings');
 
     await page.getByRole('tab', { name: 'Connections', exact: true }).click();
+    await page.getByRole('tab', { name: 'Calendar & tasks' }).click();
 
     await expect(page).toHaveURL(/tab=connections/);
     await expect(page.getByRole('tab', { name: 'Connections', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -167,9 +204,9 @@ test.describe('Settings page', () => {
   });
 
   test('configures semantic search, keeps it across a reload, and turns it off again', async ({ page }) => {
-    await page.goto('/settings?tab=system');
+    await page.goto('/settings?tab=system&sub=capabilities');
     await expect(page.getByRole('heading', { name: 'Semantic search' })).toBeVisible();
-    // Every control below is unique on the AI & System tab.
+    // Every control below is unique on the Search & images tab.
     const card = page;
     const provider = card.getByLabel('Embedding provider');
     const save = card.getByRole('button', { name: 'Save semantic search' });

@@ -182,7 +182,7 @@ def set_modes(
 
 #: Entries whose unattended switch is a dedicated opt-in (JAN-320), with the reason shown in the UI.
 SWITCH_GOVERNED: dict[str, str] = {
-    "self_evolution": "Follows the Self-evolution switch (Settings -> Tools & Connections -> Self-evolution).",
+    "self_evolution": "Follows the Self-evolution switch (Settings -> Tools & Safety -> Self-evolution).",
 }
 
 

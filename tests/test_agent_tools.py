@@ -1140,7 +1140,7 @@ def test_github_tools_missing_token_uses_settings_copy(db):
     user = _make_user(db, "github-tool-missing-token")
     tools = _tool_map(db, user)
 
-    with pytest.raises(ValueError, match="Settings → GitHub"):
+    with pytest.raises(ValueError, match="Settings → Connections → Developer"):
         tools["list_prs"].invoke({})
 
 
@@ -1255,5 +1255,5 @@ def test_linear_tools_missing_api_key_uses_settings_copy(db):
     user = _make_user(db, "linear-tool-missing-api-key")
     tools = _tool_map(db, user)
 
-    with pytest.raises(ValueError, match="Settings → Linear"):
+    with pytest.raises(ValueError, match="Settings → Connections → Developer"):
         tools["list_linear_tasks"].invoke({})

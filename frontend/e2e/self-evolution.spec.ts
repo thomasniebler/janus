@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures';
 import { api } from './helpers';
 
-/** Self-evolution settings card on Settings -> Tools & Connections (JAN-320). */
+/** Self-evolution settings card on Settings -> Tools & Safety (JAN-320). */
 test.describe('Self-evolution settings', () => {
   test.afterEach(async ({ page }) => {
     // Leave the loop off and unconfigured for every other test.

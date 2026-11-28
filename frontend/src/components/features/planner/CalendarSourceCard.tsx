@@ -30,7 +30,7 @@ const NotConnectedHint: React.FC<{ title: string; configured: boolean }> = ({ ti
     {configured
       ? `Connect ${title.split(' ')[0]} to choose calendars to sync.`
       : `${title.split(' ')[0]} is not set up on this server yet.`}{' '}
-    <Link to="/settings?tab=connections" className="text-primary underline">
+    <Link to="/settings?tab=connections&sub=calendar" className="text-primary underline">
       Open Connections
     </Link>
   </p>

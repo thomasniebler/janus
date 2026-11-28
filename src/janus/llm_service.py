@@ -353,7 +353,7 @@ def _build_digest_topic_threads_text(emails: list[dict]) -> str:
 class ModelChoice:
     """An optional provider/model override for one surface (JAN-233).
 
-    Both empty means "the default model from Settings -> AI & System". A model
+    Both empty means "the default model from Settings -> AI & Models". A model
     without a provider uses the default provider with that model.
     """
 
@@ -415,7 +415,7 @@ def build_llm_service(db: Session | None, choice: ModelChoice | None, *, purpose
         label = f"{choice.provider or 'default provider'}/{choice.model or 'default model'}"
         remedy = (
             "Janus does not fall back to the default model; fix the model setting or add the provider's "
-            "credentials under Settings -> AI & System."
+            "credentials under Settings -> AI & Models."
         )
         raise ModelUnavailableError(
             f"The {purpose} model {label} is not usable: {error}. {remedy}",

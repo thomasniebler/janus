@@ -159,7 +159,7 @@ def require_enabled(db: Session, user: models.User) -> models.SelfEvolutionSetti
     """Return the settings row or refuse when the loop is off for this user."""
     if not is_enabled(db, user):
         raise SelfEvolutionDisabledError(
-            "self-evolution is switched off for this user (Settings -> Tools & Connections -> Self-evolution); "
+            "self-evolution is switched off for this user (Settings -> Tools & Safety -> Self-evolution); "
             "nothing was done"
         )
     row = get_settings(db, user.id)
@@ -406,7 +406,7 @@ def github(db: Session) -> GitHubService:
     """Return a GitHub client over the instance-wide token."""
     settings = _instance_settings(db)
     if not settings.github_token:
-        raise SelfEvolutionError("GitHub is not configured (Settings -> GitHub)")
+        raise SelfEvolutionError("GitHub is not configured (Settings -> Connections -> Developer)")
     return github_factory(security.security_service.decrypt(settings.github_token))
 
 
@@ -422,7 +422,7 @@ def linear(db: Session) -> tuple[LinearService, str]:
     """Return a Linear client and the default team."""
     settings = _instance_settings(db)
     if not settings.linear_api_key or not settings.linear_default_team_id:
-        raise SelfEvolutionError("Linear needs an API key and a default team (Settings -> Linear)")
+        raise SelfEvolutionError("Linear needs an API key and a default team (Settings -> Connections -> Developer)")
     return linear_factory(security.security_service.decrypt(settings.linear_api_key)), settings.linear_default_team_id
 
 

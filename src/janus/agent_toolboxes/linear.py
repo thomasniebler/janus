@@ -41,7 +41,7 @@ def _load_linear_service(context: ToolContext) -> tuple[LinearService, str | Non
     """Return a configured Linear service and default team reference."""
     settings = context.db.query(models.Settings).first()
     if settings is None or not settings.linear_api_key:
-        raise ValueError("Linear API key is not configured. Add it in Settings → Linear.")
+        raise ValueError("Linear API key is not configured. Add it in Settings → Connections → Developer.")
     api_key = security.security_service.decrypt(settings.linear_api_key)
     return LinearService(api_key=api_key), settings.linear_default_team_id
 

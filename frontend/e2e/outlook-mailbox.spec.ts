@@ -35,7 +35,7 @@ test.describe('Outlook mailbox', () => {
       await route.fulfill({ response, json: { ...body, microsoft: { ...body.microsoft, configured: true } } });
     });
 
-    await page.goto('/settings');
+    await page.goto('/settings?tab=connections&sub=mail');
     await page.getByRole('button', { name: 'Add Microsoft mailbox' }).click();
 
     // This spec's mailbox is the only account on the page (others clean up after themselves).

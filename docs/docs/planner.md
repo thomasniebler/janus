@@ -8,9 +8,9 @@ and proposes new tasks and events for you to approve.
 
 | Source | What Janus reads | How you connect it |
 | --- | --- | --- |
-| **Google Calendar** | Events of the calendars you pick | **Settings → Connections** → connect Google |
+| **Google Calendar** | Events of the calendars you pick | **Settings → Connections → Calendar & tasks** → connect Google |
 | **Google Tasks** | Your tasks | Same Google connection |
-| **Outlook Calendar** | Events of the calendars you pick, through Microsoft Graph | **Settings → Connections** → connect Microsoft |
+| **Outlook Calendar** | Events of the calendars you pick, through Microsoft Graph | **Settings → Connections → Calendar & tasks** → connect Microsoft |
 | **Jira** | Open issues assigned to you, as tasks | `janus planner add` (below) |
 | **Janus planner** | Your own local tasks and events | Built in; nothing to connect |
 

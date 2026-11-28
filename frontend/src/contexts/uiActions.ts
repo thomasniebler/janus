@@ -49,8 +49,8 @@ export const parseUIAction = (body: string): UIActionRequest | null => {
 
 const MEMORY_TABS = ['facts', 'topics', 'documents', 'knowledge', 'wiki', 'rules'];
 const SETTINGS_TABS = [
-  'accounts', 'whatsapp', 'security', 'appearance', 'briefing', 'character', 'runtime', 'skills',
-  'mail-ingestion', 'system', 'connections', 'github', 'linear', 'tools', 'events', 'status', 'stats',
+  'system', 'connections', 'tools', 'character', 'skills', 'runtime', 'briefing', 'security', 'appearance',
+  'status', 'stats', 'events',
   // Admin-only in the UI; Settings.tsx redirects non-admins away from it.
   'errors',
 ];

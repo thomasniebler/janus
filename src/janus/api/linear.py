@@ -27,7 +27,7 @@ def _get_linear_service(db: Session) -> LinearService:
     if not settings.linear_api_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Linear API key is not configured. Add it in Settings → Linear.",
+            detail="Linear API key is not configured. Add it in Settings → Connections → Developer.",
         )
     api_key = security.security_service.decrypt(settings.linear_api_key)
     return LinearService(api_key=api_key)

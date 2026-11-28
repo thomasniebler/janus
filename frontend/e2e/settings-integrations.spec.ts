@@ -12,6 +12,14 @@ import { api } from './helpers';
  */
 const succeeded = (page: Page, message: string) => page.getByRole('status').filter({ hasText: message });
 
+/** A card on Connections -> Developer: the innermost block holding its heading and its own Save button. */
+const integrationCard = (page: Page, title: string) =>
+  page
+    .locator('div')
+    .filter({ has: page.getByRole('heading', { name: title, exact: true }) })
+    .filter({ has: page.getByRole('button', { name: 'Save Settings' }) })
+    .last();
+
 test.describe('GitHub and Linear settings', () => {
   test.afterEach(async ({ page }) => {
     await api(page, 'patch', '/api/github/settings', { token: '', default_repo: '' });
@@ -20,13 +28,14 @@ test.describe('GitHub and Linear settings', () => {
 
   test('saves the GitHub token write-only and clears it again', async ({ page }) => {
     const token = 'ghp_e2eSecretToken0123456789';
-    await page.goto('/settings?tab=github');
+    await page.goto('/settings?tab=connections&sub=developer');
+    const github = integrationCard(page, 'GitHub');
     await expect(page.getByText('No token has been stored yet.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Test Connection' })).toBeDisabled();
+    await expect(github.getByRole('button', { name: 'Test Connection' })).toBeDisabled();
 
     await page.getByLabel('Personal Access Token').fill(token);
     await page.getByLabel('Default Repository').fill('octo-org/janus-e2e');
-    await page.getByRole('button', { name: 'Save Settings' }).click();
+    await github.getByRole('button', { name: 'Save Settings' }).click();
     await expect(succeeded(page, 'GitHub settings saved.')).toBeVisible();
     await expect(page.getByText('Token is stored encrypted at rest.')).toBeVisible();
 
@@ -39,12 +48,12 @@ test.describe('GitHub and Linear settings', () => {
     await expect(page.getByLabel('Personal Access Token')).toHaveValue('');
     await expect(page.getByLabel('Personal Access Token')).toHaveAttribute('placeholder', /Token configured/);
     await expect(page.getByLabel('Default Repository')).toHaveValue('octo-org/janus-e2e');
-    await expect(page.getByRole('button', { name: 'Test Connection' })).toBeEnabled();
+    await expect(github.getByRole('button', { name: 'Test Connection' })).toBeEnabled();
 
     // Clearing used to send `null` ("unchanged"), so the token stayed while the card said saved.
     await page.getByRole('button', { name: 'Clear stored token' }).click();
     await page.getByLabel('Default Repository').fill('');
-    await page.getByRole('button', { name: 'Save Settings' }).click();
+    await github.getByRole('button', { name: 'Save Settings' }).click();
     await expect(succeeded(page, 'GitHub settings saved.')).toBeVisible();
     await expect(page.getByText('No token has been stored yet.')).toBeVisible();
     expect(await (await page.request.get('/api/github/settings')).json()).toEqual({
@@ -55,12 +64,13 @@ test.describe('GitHub and Linear settings', () => {
 
   test('saves the Linear key write-only with a trimmed default team, then clears both', async ({ page }) => {
     const key = 'lin_api_e2eSecretKey0123456789';
-    await page.goto('/settings?tab=linear');
+    await page.goto('/settings?tab=connections&sub=developer');
+    const linear = integrationCard(page, 'Linear');
     await expect(page.getByText('No API key has been stored yet.')).toBeVisible();
 
     await page.getByLabel('Personal API Key').fill(`  ${key}\n`);
     await page.getByLabel('Default Team (key or ID)').fill(' ENG ');
-    await page.getByRole('button', { name: 'Save Settings' }).click();
+    await linear.getByRole('button', { name: 'Save Settings' }).click();
     await expect(succeeded(page, 'Linear settings saved.')).toBeVisible();
     await expect(page.getByText('API key is stored encrypted at rest.')).toBeVisible();
 
@@ -75,7 +85,7 @@ test.describe('GitHub and Linear settings', () => {
 
     await page.getByRole('button', { name: 'Clear stored key' }).click();
     await page.getByLabel('Default Team (key or ID)').fill('');
-    await page.getByRole('button', { name: 'Save Settings' }).click();
+    await linear.getByRole('button', { name: 'Save Settings' }).click();
     await expect(succeeded(page, 'Linear settings saved.')).toBeVisible();
     await expect(page.getByText('No API key has been stored yet.')).toBeVisible();
     expect(await (await page.request.get('/api/linear/settings')).json()).toEqual({
@@ -92,9 +102,9 @@ test.describe('Web search settings', () => {
 
   test('switches from SearXNG to Brave, keeps the key write-only, and turns it off', async ({ page }) => {
     const key = 'BSA-e2e-secret-key';
-    await page.goto('/settings?tab=tools');
+    await page.goto('/settings?tab=system&sub=capabilities');
     // The Web Search card: the innermost block holding its heading and its Save button
-    // (the Self-evolution card on the same tab has a "Save Settings" button too).
+    // (the other cards on the tab name their Save buttons differently).
     const card = page
       .locator('div')
       .filter({ has: page.getByRole('heading', { name: 'Web Search' }) })
@@ -134,6 +144,41 @@ test.describe('Web search settings', () => {
     await card.getByRole('button', { name: 'Save Settings' }).click();
     await expect(card.getByText('Not configured')).toBeVisible();
   });
+
+  test('offers the AI providers, shows the cloud hint, and keeps the model per provider', async ({ page }) => {
+    await page.goto('/settings?tab=system&sub=capabilities');
+    const card = page
+      .locator('div')
+      .filter({ has: page.getByRole('heading', { name: 'Web Search' }) })
+      .filter({ has: page.getByRole('button', { name: 'Save Settings' }) })
+      .last();
+    const provider = card.getByLabel('Provider', { exact: true });
+
+    await expect(provider.locator('option')).toHaveText([
+      'Disabled',
+      'SearXNG (self-hosted, stays local)',
+      'Brave Search API (third party)',
+      'OpenAI',
+      'Google Gemini',
+      'Anthropic',
+      'OpenRouter',
+    ]);
+    await provider.selectOption('anthropic');
+    await expect(card.getByLabel('Search model')).toHaveAttribute('placeholder', /claude/);
+    await expect(card.getByTestId('web-search-cloud-hint')).toContainText('sent to Anthropic');
+    // Native providers reuse the chat key: no separate key field.
+    await expect(card.getByLabel(/api key/i)).toHaveCount(0);
+
+    await card.getByLabel('Search model').fill('claude-e2e-model');
+    await card.getByRole('button', { name: 'Save Settings' }).click();
+    await expect(succeeded(page, 'Web search settings saved.')).toBeVisible();
+    expect(await (await page.request.get('/api/web-search/settings')).json()).toMatchObject({
+      provider: 'anthropic',
+      model: 'claude-e2e-model',
+    });
+    await page.reload();
+    await expect(card.getByLabel('Search model')).toHaveValue('claude-e2e-model');
+  });
 });
 
 test.describe('Mail ingestion settings', () => {
@@ -149,7 +194,7 @@ test.describe('Mail ingestion settings', () => {
   });
 
   test('saves a new initial sync limit, refuses an invalid one, and keeps it across a reload', async ({ page }) => {
-    await page.goto('/settings?tab=mail-ingestion');
+    await page.goto('/settings?tab=connections&sub=mail');
     const limit = page.getByLabel('Initial Sync Email Limit');
     const save = page.getByRole('button', { name: 'Save Mail Ingestion Settings' });
     await expect(limit).toHaveValue(String(initialLimit));
@@ -326,21 +371,21 @@ test.describe('Settings as a non-admin', () => {
     await expect(member.getByRole('button', { name: 'Test Selected Backend' })).toHaveCount(0);
     await expect(member.getByRole('button', { name: 'Save Backend Settings' })).toHaveCount(0);
 
-    for (const [tab, field, message] of [
-      ['github', 'Personal Access Token', 'Only an administrator can change GitHub settings.'],
-      ['linear', 'Personal API Key', 'Only an administrator can change Linear settings.'],
+    for (const [field, message] of [
+      ['Personal Access Token', 'Only an administrator can change GitHub settings.'],
+      ['Personal API Key', 'Only an administrator can change Linear settings.'],
     ] as const) {
-      await member.goto(`/settings?tab=${tab}`);
+      await member.goto('/settings?tab=connections&sub=developer');
       await expect(member.getByText(message, { exact: false })).toBeVisible();
       await expect(member.getByLabel(field)).toBeDisabled();
       await expect(member.getByRole('button', { name: 'Save Settings' })).toHaveCount(0);
     }
 
-    await member.goto('/settings?tab=tools');
+    await member.goto('/settings?tab=system&sub=capabilities');
     await expect(member.getByText('Only an administrator can change web search settings.')).toBeVisible();
     await expect(member.getByLabel('Provider', { exact: true })).toBeDisabled();
 
-    await member.goto('/settings?tab=mail-ingestion');
+    await member.goto('/settings?tab=connections&sub=mail');
     await expect(member.getByText('Only an administrator can change mail ingestion settings.')).toBeVisible();
     await expect(member.getByLabel('Initial Sync Email Limit')).toBeDisabled();
     await expect(member.getByRole('button', { name: 'Save Mail Ingestion Settings' })).toHaveCount(0);

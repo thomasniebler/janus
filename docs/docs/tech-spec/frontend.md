@@ -37,7 +37,19 @@ Pages compose feature components; there are no monolithic pages. `src/components
 
 `/events`, `/status` and `/errors` redirect to their Settings tabs. Unknown paths go to `/`.
 
-Settings tabs: Email Accounts, WhatsApp, Security, Appearance, Daily Briefing (with the secretary), Character, Triggers (`runtime`), Skills, Mail Ingestion, AI & System (LLM, surface models, embeddings, images), Connections, GitHub, Linear, Tools & Connections (`tools`: web search, self-evolution, remote MCP, tool permissions, remote agents, injection classifier), and Monitoring (Status, Stats, System Events, Error Groups for admins).
+Settings pages, grouped in the navigation (`pages/Settings.tsx`; ids and sub-tabs in `pages/settingsTabs.ts`):
+
+| Group | Page (`?tab=`) | Sub-tabs (`&sub=`) |
+|---|---|---|
+| Setup | AI & Models (`system`) | `models` (LLM, models per surface), `capabilities` (semantic search, web search, image generation) |
+| Setup | Connections (`connections`) | `mail` (mailboxes, mail ingestion), `calendar` (Google, Microsoft), `messaging` (WhatsApp, Telegram), `developer` (GitHub, Linear) |
+| Setup | Tools & Safety (`tools`) | tool permissions, remote MCP, remote agents, injection classifier, self-evolution |
+| Assistant | Character (`character`), Skills (`skills`) | |
+| Automation | Triggers (`runtime`), Daily Briefing (`briefing`, with the secretary) | |
+| Account | Security (`security`, with device tokens), Appearance (`appearance`) | |
+| Monitoring | System Status, Stats, System Events, Error Groups (admins) | |
+
+A page without sub-tabs has no `sub` parameter; an unknown `sub` falls back to the page's first sub-tab. The first-run default is AI & Models. `LEGACY_TABS` keeps the earlier top-level ids working (`accounts`, `mail-ingestion`, `whatsapp`, `github`, `linear`, `planner`): they resolve to their Connections sub-tab and the URL is rewritten. The OAuth callbacks land on `?tab=connections` (Google and Microsoft, which opens Calendar & tasks) and `?tab=tools` (MCP). The backend's `SETTINGS_TABS` allowlist for `ui_navigate` (`services/ui_actions.py`) lists the page ids only, mirrored in `contexts/uiActions.ts`.
 
 ## Interchangeable app shells
 

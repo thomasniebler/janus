@@ -267,7 +267,7 @@ export const DefinitionEditor: React.FC<EditorProps> = ({ initial, builtin, user
           Only the selected tools are offered to Janus.{' '}
           {userAuthored
             ? 'On a trigger you create, picking a tool that is off for unattended runs allows it for this trigger.'
-            : 'Tools that are off for unattended runs (Settings → Tools & Connections) stay refused here.'}
+            : 'Tools that are off for unattended runs (Settings → Tools & Safety) stay refused here.'}
         </p>
         <div className="mt-2 grid gap-2 md:grid-cols-2">
           {selectableTools.map((tool) => (

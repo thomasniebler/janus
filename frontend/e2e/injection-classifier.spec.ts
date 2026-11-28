@@ -10,7 +10,7 @@ const card = (page: Page) => page.getByTestId('injection-classifier-card');
 const toggle = (page: Page) => card(page).getByRole('checkbox', { name: CARD_NAME });
 const classifierStatus = async (page: Page) => (await page.request.get('/api/tools/injection-classifier')).json();
 
-/** Settings -> Tools & Connections, Model-based prompt-injection check card (JAN-289). */
+/** Settings -> Tools & Safety, Model-based prompt-injection check card (JAN-289). */
 test.describe('Model-based prompt-injection check', () => {
   test.afterEach(async ({ page }) => {
     // Leave the check off with the default budget, and the utility model local, for every other test.

@@ -103,7 +103,7 @@ def _configured(context: ToolContext) -> tuple[models.Settings, image_generation
         choice = image_generation.configured_choice(settings)
         if settings is None or choice is None:
             raise ImageToolFailed(
-                "no image provider is configured; an administrator can choose one under Settings -> AI & System "
+                "no image provider is configured; an administrator can choose one under Settings -> AI & Models "
                 "-> Image generation"
             )
         db.expunge(settings)

@@ -52,23 +52,18 @@ UI_ACTION_TOOL_NAMES: frozenset[str] = frozenset(TOOL_NAMES.values())
 
 MEMORY_TABS = ("facts", "topics", "documents", "knowledge", "wiki", "rules")
 SETTINGS_TABS = (
-    "accounts",
-    "whatsapp",
-    "security",
-    "appearance",
-    "briefing",
-    "character",
-    "runtime",
-    "skills",
-    "mail-ingestion",
     "system",
     "connections",
-    "github",
-    "linear",
     "tools",
-    "events",
+    "character",
+    "skills",
+    "runtime",
+    "briefing",
+    "security",
+    "appearance",
     "status",
     "stats",
+    "events",
     # Admin-only in the UI; Settings.tsx redirects non-admins away from it.
     "errors",
 )

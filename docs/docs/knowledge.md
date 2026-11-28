@@ -74,7 +74,7 @@ The **Compaction status** card shows the last run's status and summary. Only one
 
 ### Search
 
-Memory facts and topics are searchable by meaning and by keyword once an embedding model is set (Settings → AI & System). The knowledge-index worker embeds new and changed facts in the background. To embed everything at once, run:
+Memory facts and topics are searchable by meaning and by keyword once an embedding model is set (Settings → AI & Models → Search & images). The knowledge-index worker embeds new and changed facts in the background. To embed everything at once, run:
 
 ```bash
 janus knowledge reembed          # missing or stale embeddings only
@@ -167,7 +167,7 @@ When on, every 30 minutes the utility model reads newly ingested passages and re
 Extraction stays within a **monthly token budget** (2,000,000 tokens by default). The card shows the tokens used this month, the calls made and the passages waiting. Set your own budget there. Wiki synthesis draws from the same budget.
 
 !!! warning "Cloud models"
-    If your utility model is a cloud model, turning extraction on sends the text of all ingested sources to that provider. Pick an Ollama model as the utility model under Settings → AI & System to keep it local.
+    If your utility model is a cloud model, turning extraction on sends the text of all ingested sources to that provider. Pick an Ollama model as the utility model under Settings → AI & Models to keep it local.
 
 ### Merge review
 

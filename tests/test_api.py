@@ -2447,7 +2447,9 @@ def test_linear_connection_test_requires_stored_key(auth_client):
     """Connection testing returns a helpful error when no key is configured."""
     response = auth_client.post("/api/linear/test")
     assert response.status_code == 400
-    assert response.json()["detail"] == ("Linear API key is not configured. Add it in Settings → Linear.")
+    assert response.json()["detail"] == (
+        "Linear API key is not configured. Add it in Settings → Connections → Developer."
+    )
 
 
 def test_create_linear_issue_uses_default_team(auth_client, db, monkeypatch):
@@ -2640,7 +2642,9 @@ def test_github_connection_test_requires_stored_token(auth_client):
     """Connection testing returns a helpful error when no token is configured."""
     response = auth_client.post("/api/github/test")
     assert response.status_code == 400
-    assert response.json()["detail"] == ("GitHub token is not configured. Add it in Settings → GitHub.")
+    assert response.json()["detail"] == (
+        "GitHub token is not configured. Add it in Settings → Connections → Developer."
+    )
 
 
 def test_create_github_issue_uses_default_repo(auth_client, db, monkeypatch):

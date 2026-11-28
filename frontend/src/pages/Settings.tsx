@@ -1,6 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
-import { Activity, AlertTriangle, BarChart3, Bot, Calendar, Check, AlertCircle, GitBranch, Link, Mail, MessageSquare, Monitor, Palette, Shield, Sparkles, Wrench } from 'lucide-react';
+import {
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  BarChart3,
+  Bot,
+  Check,
+  Link2,
+  Monitor,
+  Newspaper,
+  Palette,
+  Shield,
+  Sparkles,
+  UserRound,
+  Wrench,
+  Zap,
+} from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { AccountManager } from '../components/features/AccountManager';
 import { AppearanceSettings } from '../components/features/AppearanceSettings';
@@ -13,16 +29,20 @@ import { BriefingTab } from '../components/features/BriefingTab';
 import { GitHubConfig } from '../components/features/GitHubConfig';
 import { LinearConfig } from '../components/features/LinearConfig';
 import { ConnectionsConfig } from '../components/features/ConnectionsConfig';
+import { TelegramConfig } from '../components/features/TelegramConfig';
 import { MailIngestionConfig } from '../components/features/MailIngestionConfig';
 import { LLMConfig } from '../components/features/LLMConfig';
+import { SurfaceModelConfig } from '../components/features/SurfaceModelConfig';
+import { CapabilitySettings } from '../components/features/CapabilitySettings';
 import { MCPRegistryManager } from '../components/features/MCPRegistryManager';
+import { SelfEvolutionConfig } from '../components/features/SelfEvolutionConfig';
+import { DeviceAccessSettings } from '../components/features/DeviceAccessSettings';
 import { PasswordChangeCard } from '../components/features/PasswordChangeCard';
-import { PageSectionNav } from '../components/layout/PageSectionNav';
+import { PageSectionNav, type PageSectionNavItem, type PageSectionNavSection } from '../components/layout/PageSectionNav';
 import { proposalBadgeLabel } from '../components/layout/useNavItems';
 import { useOpenProposalCount } from '../components/features/triggers/triggerProposalCount';
 import { SkillManager } from '../components/features/SkillManager';
-import { AdditionalModelSettings } from '../components/features/AdditionalModelSettings';
-import { ToolIntegrationSettings } from '../components/features/ToolIntegrationSettings';
+import { SubTabs } from '../components/ui/SubTabs';
 import { useTabbedPageContext } from '../hooks/pageContextSections';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { googleOAuthErrorMessage } from '../lib/googleOAuthErrors';
@@ -31,50 +51,43 @@ import StatusPage from './StatusPage';
 import StatsPage from './StatsPage';
 import ErrorsPage from './ErrorsPage';
 import { authApi } from '../api';
+import { DEFAULT_TAB, SETTINGS_SUB_TABS, type SettingsLocation, type TabId, locationFor, resolveSettingsLocation } from './settingsTabs';
 
-type TabId =
-  | 'accounts'
-  | 'whatsapp'
-  | 'security'
-  | 'appearance'
-  | 'briefing'
-  | 'character'
-  | 'runtime'
-  | 'skills'
-  | 'mail-ingestion'
-  | 'system'
-  | 'connections'
-  | 'github'
-  | 'linear'
-  | 'tools'
-  | 'events'
-  | 'status'
-  | 'stats'
-  | 'errors';
-
-const SETTINGS_SECTION_IDS: Record<TabId, { tabId: string; panelId: string }> = {
-  accounts: { tabId: 'settings-tab-accounts', panelId: 'settings-panel-accounts' },
-  whatsapp: { tabId: 'settings-tab-whatsapp', panelId: 'settings-panel-whatsapp' },
-  security: { tabId: 'settings-tab-security', panelId: 'settings-panel-security' },
-  appearance: { tabId: 'settings-tab-appearance', panelId: 'settings-panel-appearance' },
-  briefing: { tabId: 'settings-tab-briefing', panelId: 'settings-panel-briefing' },
-  character: { tabId: 'settings-tab-character', panelId: 'settings-panel-character' },
-  runtime: { tabId: 'settings-tab-runtime', panelId: 'settings-panel-runtime' },
-  skills: { tabId: 'settings-tab-skills', panelId: 'settings-panel-skills' },
-  'mail-ingestion': { tabId: 'settings-tab-mail-ingestion', panelId: 'settings-panel-mail-ingestion' },
-  system: { tabId: 'settings-tab-system', panelId: 'settings-panel-system' },
-  connections: { tabId: 'settings-tab-connections', panelId: 'settings-panel-connections' },
-  github: { tabId: 'settings-tab-github', panelId: 'settings-panel-github' },
-  linear: { tabId: 'settings-tab-linear', panelId: 'settings-panel-linear' },
-  tools: { tabId: 'settings-tab-tools', panelId: 'settings-panel-tools' },
-  events: { tabId: 'settings-tab-events', panelId: 'settings-panel-events' },
-  status: { tabId: 'settings-tab-status', panelId: 'settings-panel-status' },
-  stats: { tabId: 'settings-tab-stats', panelId: 'settings-panel-stats' },
-  errors: { tabId: 'settings-tab-errors', panelId: 'settings-panel-errors' },
-};
+const sectionIds = (id: string) => ({ tabId: `settings-tab-${id}`, panelId: `settings-panel-${id}` });
 
 /** Query parameters the Google, Microsoft and MCP OAuth callbacks append to the Settings redirect. */
 const OAUTH_CALLBACK_PARAMS = ['connected', 'error', 'oauth_connected', 'oauth_error'] as const;
+
+/** One page's panel: only the active page mounts its content. */
+const Panel: React.FC<{ id: TabId; active: boolean; children: React.ReactNode }> = ({ id, active, children }) => (
+  <section
+    id={sectionIds(id).panelId}
+    role="tabpanel"
+    aria-labelledby={sectionIds(id).tabId}
+    hidden={!active}
+    tabIndex={active ? 0 : -1}
+  >
+    {active && <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">{children}</div>}
+  </section>
+);
+
+/** A sub-tab's panel inside a page. */
+const SubPanel: React.FC<{ page: TabId; id: string; active: boolean; children: React.ReactNode }> = ({
+  page,
+  id,
+  active,
+  children,
+}) => (
+  <div
+    id={`settings-${page}-panel-${id}`}
+    role="tabpanel"
+    aria-labelledby={`settings-${page}-tab-${id}`}
+    hidden={!active}
+    className="space-y-6"
+  >
+    {active && children}
+  </div>
+);
 
 const Settings: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -85,26 +98,24 @@ const Settings: React.FC = () => {
     staleTime: Infinity,
   });
 
-  const [activeTab, setActiveTab] = useState<TabId>(() => {
-    // `?tab=planner` was this tab's name before Google and Microsoft moved here.
-    const rawTab = searchParams.get('tab');
-    const tab = (rawTab === 'planner' ? 'connections' : rawTab) as TabId | null;
+  const [location, setLocation] = useState<SettingsLocation>(() => {
     if (searchParams.get('connected') || searchParams.get('error')) {
-      return 'connections';
+      return locationFor('connections', 'calendar');
     }
     if (searchParams.get('oauth_connected') || searchParams.get('oauth_error')) {
-      return 'tools';
+      return locationFor('tools');
     }
-    const valid = Object.keys(SETTINGS_SECTION_IDS) as TabId[];
-    if (tab && valid.includes(tab)) {
-      const resolved = tab as TabId;
-      if (resolved === 'errors' && !(currentUser?.is_admin ?? false)) {
-        return 'accounts';
-      }
+    // Current and legacy `?tab=` ids both resolve; see `LEGACY_TABS`.
+    const resolved = resolveSettingsLocation(searchParams.get('tab'), searchParams.get('sub'));
+    if (resolved && !(resolved.tab === 'errors' && !(currentUser?.is_admin ?? false))) {
       return resolved;
     }
-    return 'accounts';
+    return locationFor(DEFAULT_TAB);
   });
+  const activeTab = location.tab;
+  const activeSub = location.sub;
+  const setActiveTab = (tab: TabId) => setLocation(locationFor(tab));
+  const setActiveSub = (sub: string) => setLocation((current) => locationFor(current.tab, sub));
 
   const [toast, setToast] = useState<{ status: 'success' | 'error'; message: string } | null>(() => {
     const connected = searchParams.get('connected');
@@ -136,7 +147,7 @@ const Settings: React.FC = () => {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // Keep the URL in sync with the active tab, and drop the one-shot OAuth callback
+  // Keep the URL in sync with the active tab and sub-tab, and drop the one-shot OAuth callback
   // parameters (read into the toast above) in the same update: two separate updates in
   // one commit raced, and the tab update put the stale `error` back (JAN-318).
   useEffect(() => {
@@ -144,43 +155,52 @@ const Settings: React.FC = () => {
       const next = new URLSearchParams(prev);
       OAUTH_CALLBACK_PARAMS.forEach((param) => next.delete(param));
       next.set('tab', activeTab);
+      if (activeSub) next.set('sub', activeSub);
+      else next.delete('sub');
       return next;
     }, { replace: true });
-  }, [activeTab, setSearchParams]);
+  }, [activeTab, activeSub, setSearchParams]);
 
   const isAdmin = currentUser?.is_admin ?? false;
   const openProposals = useOpenProposalCount();
 
-  const tabs = [
-    { id: 'accounts' as const, name: 'Email Accounts', icon: Mail, ...SETTINGS_SECTION_IDS.accounts },
-    { id: 'whatsapp' as const, name: 'WhatsApp', icon: MessageSquare, ...SETTINGS_SECTION_IDS.whatsapp },
-    { id: 'security' as const, name: 'Security', icon: Shield, ...SETTINGS_SECTION_IDS.security },
-    { id: 'appearance' as const, name: 'Appearance', icon: Palette, ...SETTINGS_SECTION_IDS.appearance },
-    { id: 'briefing' as const, name: 'Daily Briefing', icon: Sparkles, ...SETTINGS_SECTION_IDS.briefing },
-    { id: 'character' as const, name: 'Character', icon: Sparkles, ...SETTINGS_SECTION_IDS.character },
-    { id: 'runtime' as const, name: 'Triggers', icon: Activity, badge: openProposals, badgeLabel: proposalBadgeLabel(openProposals), ...SETTINGS_SECTION_IDS.runtime },
-    { id: 'skills' as const, name: 'Skills', icon: Wrench, ...SETTINGS_SECTION_IDS.skills },
-    { id: 'mail-ingestion' as const, name: 'Mail Ingestion', icon: Mail, ...SETTINGS_SECTION_IDS['mail-ingestion'] },
-    { id: 'system' as const, name: 'AI & System', icon: Bot, ...SETTINGS_SECTION_IDS.system },
-    { id: 'connections' as const, name: 'Connections', icon: Calendar, ...SETTINGS_SECTION_IDS.connections },
-    { id: 'github' as const, name: 'GitHub', icon: GitBranch, ...SETTINGS_SECTION_IDS.github },
-    { id: 'linear' as const, name: 'Linear', icon: Link, ...SETTINGS_SECTION_IDS.linear },
-    { id: 'tools' as const, name: 'Tools & Connections', icon: Wrench, ...SETTINGS_SECTION_IDS.tools },
-  ];
+  const page = (id: TabId, name: string, icon: PageSectionNavItem['icon']): PageSectionNavItem => ({ id, name, icon, ...sectionIds(id) });
 
-  const monitoringTabs = [
-    { id: 'status' as const, name: 'System Status', icon: Monitor, ...SETTINGS_SECTION_IDS.status },
-    { id: 'stats' as const, name: 'Stats', icon: BarChart3, ...SETTINGS_SECTION_IDS.stats },
-    { id: 'events' as const, name: 'System Events', icon: Activity, ...SETTINGS_SECTION_IDS.events },
-    ...(isAdmin ? [{ id: 'errors' as const, name: 'Error Groups', icon: AlertTriangle, ...SETTINGS_SECTION_IDS.errors }] : []),
+  const sections: PageSectionNavSection[] = [
+    {
+      title: 'Setup',
+      items: [page('system', 'AI & Models', Bot), page('connections', 'Connections', Link2), page('tools', 'Tools & Safety', Wrench)],
+    },
+    { title: 'Assistant', items: [page('character', 'Character', UserRound), page('skills', 'Skills', Sparkles)] },
+    {
+      title: 'Automation',
+      items: [
+        { ...page('runtime', 'Triggers', Zap), badge: openProposals, badgeLabel: proposalBadgeLabel(openProposals) },
+        page('briefing', 'Daily Briefing', Newspaper),
+      ],
+    },
+    { title: 'Account', items: [page('security', 'Security', Shield), page('appearance', 'Appearance', Palette)] },
+    {
+      title: 'Monitoring',
+      items: [
+        page('status', 'System Status', Monitor),
+        page('stats', 'Stats', BarChart3),
+        page('events', 'System Events', Activity),
+        ...(isAdmin ? [page('errors', 'Error Groups', AlertTriangle)] : []),
+      ],
+    },
   ];
 
   // Which tab Janus sees in chat (JAN-250); the tab's data comes from its own section.
-  useTabbedPageContext('Settings', 'Settings', [...tabs, ...monitoringTabs], activeTab, (tab) => setActiveTab(tab as TabId));
+  useTabbedPageContext('Settings', 'Settings', sections.flatMap((section) => section.items), activeTab, (tab) =>
+    setActiveTab(tab as TabId)
+  );
 
   if (searchParams.get('tab') === 'rules') {
     return <Navigate to="/memory?tab=rules" replace />;
   }
+
+  const subTabs = SETTINGS_SUB_TABS[activeTab];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -208,309 +228,129 @@ const Settings: React.FC = () => {
 
       <div className="space-y-6">
         <PageSectionNav
-          sections={[
-            { items: tabs },
-            { title: 'Monitoring', items: monitoringTabs },
-          ]}
+          sections={sections}
           activeId={activeTab}
           onSelect={(tabId) => setActiveTab(tabId as TabId)}
           ariaLabel="Settings sections"
         />
 
-        <div className="min-w-0">
-          <section
-            id={SETTINGS_SECTION_IDS.accounts.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.accounts.tabId}
-            hidden={activeTab !== 'accounts'}
-            tabIndex={activeTab === 'accounts' ? 0 : -1}
-          >
-            {activeTab === 'accounts' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <AccountManager />
-              </div>
-            )}
-          </section>
+        <div className="min-w-0 space-y-6">
+          {subTabs && activeSub && (
+            <SubTabs
+              tabs={subTabs}
+              activeId={activeSub}
+              onSelect={setActiveSub}
+              ariaLabel={`${sections.flatMap((section) => section.items).find((item) => item.id === activeTab)?.name} sections`}
+              idPrefix={`settings-${activeTab}`}
+            />
+          )}
 
-          <section
-            id={SETTINGS_SECTION_IDS.whatsapp.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.whatsapp.tabId}
-            hidden={activeTab !== 'whatsapp'}
-            tabIndex={activeTab === 'whatsapp' ? 0 : -1}
-          >
-            {activeTab === 'whatsapp' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <WhatsAppAccountManager />
-              </div>
-            )}
-          </section>
+          <Panel id="system" active={activeTab === 'system'}>
+            <SubPanel page="system" id="models" active={activeSub === 'models'}>
+              <LLMConfig isAdmin={isAdmin} />
+              <SurfaceModelConfig />
+            </SubPanel>
+            <SubPanel page="system" id="capabilities" active={activeSub === 'capabilities'}>
+              <CapabilitySettings isAdmin={isAdmin} />
+            </SubPanel>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.security.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.security.tabId}
-            hidden={activeTab !== 'security'}
-            tabIndex={activeTab === 'security' ? 0 : -1}
-          >
-            {activeTab === 'security' && (
-              <div className="animate-in slide-in-from-right-4 duration-300 space-y-6">
-                <PasswordChangeCard />
-              </div>
-            )}
-          </section>
+          <Panel id="connections" active={activeTab === 'connections'}>
+            <SubPanel page="connections" id="mail" active={activeSub === 'mail'}>
+              <AccountManager />
+              <ErrorBoundary title="Mail ingestion settings crashed">
+                <MailIngestionConfig isAdmin={isAdmin} />
+              </ErrorBoundary>
+            </SubPanel>
+            <SubPanel page="connections" id="calendar" active={activeSub === 'calendar'}>
+              <ErrorBoundary title="Connections crashed">
+                <ConnectionsConfig />
+              </ErrorBoundary>
+            </SubPanel>
+            <SubPanel page="connections" id="messaging" active={activeSub === 'messaging'}>
+              <WhatsAppAccountManager />
+              <TelegramConfig />
+            </SubPanel>
+            <SubPanel page="connections" id="developer" active={activeSub === 'developer'}>
+              <ErrorBoundary title="GitHub configuration crashed">
+                <GitHubConfig isAdmin={isAdmin} />
+              </ErrorBoundary>
+              <ErrorBoundary title="Linear configuration crashed">
+                <LinearConfig isAdmin={isAdmin} />
+              </ErrorBoundary>
+            </SubPanel>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.appearance.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.appearance.tabId}
-            hidden={activeTab !== 'appearance'}
-            tabIndex={activeTab === 'appearance' ? 0 : -1}
-          >
-            {activeTab === 'appearance' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Appearance settings crashed">
-                  <AppearanceSettings />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
+          <Panel id="tools" active={activeTab === 'tools'}>
+            <ErrorBoundary title="Tool registry crashed">
+              <MCPRegistryManager />
+            </ErrorBoundary>
+            <ErrorBoundary title="Self-evolution configuration crashed">
+              <SelfEvolutionConfig isAdmin={isAdmin} />
+            </ErrorBoundary>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.briefing.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.briefing.tabId}
-            hidden={activeTab !== 'briefing'}
-            tabIndex={activeTab === 'briefing' ? 0 : -1}
-          >
-            {activeTab === 'briefing' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Daily briefing settings crashed">
-                  <BriefingTab />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
+          <Panel id="character" active={activeTab === 'character'}>
+            <ErrorBoundary title="Character constitution crashed">
+              <CharacterProfileManager />
+            </ErrorBoundary>
+            <ErrorBoundary title="Adaptive character state crashed">
+              <CharacterStateManager />
+            </ErrorBoundary>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.character.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.character.tabId}
-            hidden={activeTab !== 'character'}
-            tabIndex={activeTab === 'character' ? 0 : -1}
-          >
-            {activeTab === 'character' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Character constitution crashed">
-                  <CharacterProfileManager />
-                </ErrorBoundary>
-                <div className="mt-8">
-                  <ErrorBoundary title="Adaptive character state crashed">
-                    <CharacterStateManager />
-                  </ErrorBoundary>
-                </div>
-              </div>
-            )}
-          </section>
+          <Panel id="skills" active={activeTab === 'skills'}>
+            <ErrorBoundary title="Skill management crashed">
+              <SkillManager isAdmin={isAdmin} />
+            </ErrorBoundary>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.runtime.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.runtime.tabId}
-            hidden={activeTab !== 'runtime'}
-            tabIndex={activeTab === 'runtime' ? 0 : -1}
-          >
-            {activeTab === 'runtime' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Runtime trigger manager crashed">
-                  <RuntimeTriggerManager />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
+          <Panel id="runtime" active={activeTab === 'runtime'}>
+            <ErrorBoundary title="Runtime trigger manager crashed">
+              <RuntimeTriggerManager />
+            </ErrorBoundary>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.skills.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.skills.tabId}
-            hidden={activeTab !== 'skills'}
-            tabIndex={activeTab === 'skills' ? 0 : -1}
-          >
-            {activeTab === 'skills' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Skill management crashed">
-                  <SkillManager isAdmin={isAdmin} />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
+          <Panel id="briefing" active={activeTab === 'briefing'}>
+            <ErrorBoundary title="Daily briefing settings crashed">
+              <BriefingTab />
+            </ErrorBoundary>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS['mail-ingestion'].panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS['mail-ingestion'].tabId}
-            hidden={activeTab !== 'mail-ingestion'}
-            tabIndex={activeTab === 'mail-ingestion' ? 0 : -1}
-            className="space-y-6"
-          >
-            {activeTab === 'mail-ingestion' && (
-              <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Mail ingestion settings crashed">
-                  <MailIngestionConfig isAdmin={isAdmin} />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
+          <Panel id="security" active={activeTab === 'security'}>
+            <PasswordChangeCard />
+            <DeviceAccessSettings />
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.system.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.system.tabId}
-            hidden={activeTab !== 'system'}
-            tabIndex={activeTab === 'system' ? 0 : -1}
-            className="space-y-6"
-          >
-            {activeTab === 'system' && (
-              <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                <LLMConfig isAdmin={isAdmin} />
-                <AdditionalModelSettings />
+          <Panel id="appearance" active={activeTab === 'appearance'}>
+            <ErrorBoundary title="Appearance settings crashed">
+              <AppearanceSettings />
+            </ErrorBoundary>
+          </Panel>
 
-              </div>
-            )}
-          </section>
+          <Panel id="status" active={activeTab === 'status'}>
+            <ErrorBoundary title="System status crashed">
+              <StatusPage />
+            </ErrorBoundary>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.connections.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.connections.tabId}
-            hidden={activeTab !== 'connections'}
-            tabIndex={activeTab === 'connections' ? 0 : -1}
-            className="space-y-6"
-          >
-            {activeTab === 'connections' && (
-              <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Connections crashed">
-                  <ConnectionsConfig />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
+          <Panel id="stats" active={activeTab === 'stats'}>
+            <ErrorBoundary title="Stats crashed">
+              <StatsPage />
+            </ErrorBoundary>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.github.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.github.tabId}
-            hidden={activeTab !== 'github'}
-            tabIndex={activeTab === 'github' ? 0 : -1}
-            className="space-y-6"
-          >
-            {activeTab === 'github' && (
-              <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="GitHub configuration crashed">
-                  <GitHubConfig isAdmin={isAdmin} />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
+          <Panel id="events" active={activeTab === 'events'}>
+            <ErrorBoundary title="System events crashed">
+              <Events />
+            </ErrorBoundary>
+          </Panel>
 
-          <section
-            id={SETTINGS_SECTION_IDS.linear.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.linear.tabId}
-            hidden={activeTab !== 'linear'}
-            tabIndex={activeTab === 'linear' ? 0 : -1}
-            className="space-y-6"
-          >
-            {activeTab === 'linear' && (
-              <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Linear configuration crashed">
-                  <LinearConfig isAdmin={isAdmin} />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
-
-          <section
-            id={SETTINGS_SECTION_IDS.tools.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.tools.tabId}
-            hidden={activeTab !== 'tools'}
-            tabIndex={activeTab === 'tools' ? 0 : -1}
-            className="space-y-6"
-          >
-            {activeTab === 'tools' && (
-              <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                <ToolIntegrationSettings isAdmin={isAdmin} />
-                <ErrorBoundary title="Tool registry crashed">
-                  <MCPRegistryManager />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
-
-          <section
-            id={SETTINGS_SECTION_IDS.status.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.status.tabId}
-            hidden={activeTab !== 'status'}
-            tabIndex={activeTab === 'status' ? 0 : -1}
-          >
-            {activeTab === 'status' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="System status crashed">
-                  <StatusPage />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
-
-          <section
-            id={SETTINGS_SECTION_IDS.stats.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.stats.tabId}
-            hidden={activeTab !== 'stats'}
-            tabIndex={activeTab === 'stats' ? 0 : -1}
-          >
-            {activeTab === 'stats' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Stats crashed">
-                  <StatsPage />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
-
-          <section
-            id={SETTINGS_SECTION_IDS.events.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.events.tabId}
-            hidden={activeTab !== 'events'}
-            tabIndex={activeTab === 'events' ? 0 : -1}
-          >
-            {activeTab === 'events' && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="System events crashed">
-                  <Events />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
-
-          <section
-            id={SETTINGS_SECTION_IDS.errors.panelId}
-            role="tabpanel"
-            aria-labelledby={SETTINGS_SECTION_IDS.errors.tabId}
-            hidden={activeTab !== 'errors'}
-            tabIndex={activeTab === 'errors' ? 0 : -1}
-          >
-            {activeTab === 'errors' && isAdmin && (
-              <div className="animate-in slide-in-from-right-4 duration-300">
-                <ErrorBoundary title="Error groups crashed">
-                  <ErrorsPage />
-                </ErrorBoundary>
-              </div>
-            )}
-          </section>
+          <Panel id="errors" active={activeTab === 'errors' && isAdmin}>
+            <ErrorBoundary title="Error groups crashed">
+              <ErrorsPage />
+            </ErrorBoundary>
+          </Panel>
         </div>
       </div>
     </div>

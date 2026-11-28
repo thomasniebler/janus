@@ -4,7 +4,7 @@ import { FAKE_AZURE_DENIED_KEY, FAKE_UNKNOWN_MODEL, FakeIntegrations } from './f
 import { api } from './helpers';
 
 /**
- * Settings -> AI & System, AI Configuration (JAN-222): provider switching, draft
+ * Settings -> AI & Models, AI Configuration (JAN-222): provider switching, draft
  * credentials, the per-provider model dropdown fed by `/api/planner/llm-models`, and
  * "Test Selected Backend", against a loopback fake of every provider API
  * (`fakeIntegrations.ts`), so the real backend makes its real calls and nothing reaches

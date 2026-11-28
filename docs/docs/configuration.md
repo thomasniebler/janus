@@ -192,28 +192,35 @@ Stored credentials are copied still encrypted, so the key file must move with th
 
 Everything below is stored in the database. Instance-wide cards are editable by admins only; other users see them read-only.
 
-| Tab | What you set there | Scope |
-|---|---|---|
-| Email Accounts | IMAP, Google and Microsoft mailboxes | Per user |
-| WhatsApp | WhatsApp accounts and pairing | Per user |
-| Security | Change your password (signs out your other sessions) | Per user |
-| Appearance | Classic, Terminal or Rusty Console look | Per user |
-| Daily Briefing | Briefing options, the secretary and device access | Per user |
-| Character | Character profile and character state | Per user |
-| Triggers | Trigger definitions, built-in triggers, suggested automations | Per user |
-| Skills | The skill library | Per user |
-| Mail Ingestion | How many emails the first sync of a mailbox fetches | Admin |
-| AI & System | **AI Configuration** (provider, model, keys), **Models per surface**, **Semantic search** (embeddings), **Image generation** | Admin |
-| Connections | Connect Google and Microsoft accounts | Per user |
-| GitHub, Linear | Integration credentials | Admin |
-| Tools & Connections | Web search, tool permissions, MCP servers, remote agents, prompt-injection check, self-evolution | Mixed |
-| System Status, Stats, System Events, Error Groups | Monitoring; see [Operations](operations.md#monitoring) | Error Groups is admin only |
+The tabs are grouped in the navigation: **Setup** (AI & Models, Connections, Tools & Safety), **Assistant** (Character, Skills), **Automation** (Triggers, Daily Briefing), **Account** (Security, Appearance) and **Monitoring**. AI & Models and Connections have sub-tabs.
 
-### AI & System
+| Tab | Sub-tab | What you set there | Scope |
+|---|---|---|---|
+| AI & Models | Models | **AI Configuration** (provider, model, keys), **Models per surface** | Admin |
+| AI & Models | Search & images | **Semantic search** (embeddings), **Web search**, **Image generation** | Admin |
+| Connections | Mail | IMAP, Google and Microsoft mailboxes; **Mail Ingestion** (how many emails the first sync of a mailbox fetches) | Mailboxes per user, ingestion admin |
+| Connections | Calendar & tasks | Connect Google and Microsoft accounts | Per user |
+| Connections | Messaging | WhatsApp accounts and pairing; your Telegram bot | Per user |
+| Connections | Developer | GitHub and Linear credentials | Admin |
+| Tools & Safety | | Tool permissions, MCP servers, remote agents, prompt-injection check, self-evolution | Mixed |
+| Character | | Character profile and character state | Per user |
+| Skills | | The skill library | Per user |
+| Triggers | | Trigger definitions, built-in triggers, suggested automations | Per user |
+| Daily Briefing | | Briefing options and the secretary | Per user |
+| Security | | Change your password (signs out your other sessions); device tokens for the action inbox | Per user |
+| Appearance | | Classic, Terminal or Rusty Console look | Per user |
+| System Status, Stats, System Events, Error Groups | | Monitoring; see [Operations](operations.md#monitoring) | Error Groups is admin only |
+
+Links to the earlier tabs (`?tab=accounts`, `whatsapp`, `mail-ingestion`, `github`, `linear`) open the matching Connections sub-tab.
+
+### AI & Models
 
 - **AI Configuration** picks the default model. Providers: Ollama, OpenAI, OpenRouter, Gemini, Anthropic, GitHub Models and Azure OpenAI. The model field lists the models the provider offers and also accepts free text. API keys are stored encrypted and never returned by the API. Use **Test Selected Backend** before **Save Backend Settings**.
 - **Models per surface** lets **Chat** and **Utility** (small helper calls such as titles, memory suggestions and tool selection) use another provider or model. Each trigger picks its own model in its editor under **Settings → Triggers**. A model that cannot be used fails loudly; Janus never falls back to the default model silently.
 - **Semantic search** adds an embedding model (Ollama, OpenAI or Gemini) so memory and knowledge search also match by meaning. `janus knowledge reembed` embeds everything at once.
+- **Web search** is off until an admin picks a provider: SearXNG or Brave, or OpenAI, Gemini, Anthropic or OpenRouter, which search with their own tool using the key stored on the Models sub-tab.
 - **Image generation** is off until an admin picks an image provider (OpenAI, Gemini or OpenRouter).
+
+The pickers on the Search & images sub-tab list every provider of the Models sub-tab and grey out the ones that do not offer that capability.
 
 A cloud provider chosen for any of these receives the data that surface works on. Ollama keeps it on your machine.
