@@ -1,10 +1,15 @@
 """Optional web search backends for the Janus agent (JAN-211).
 
-Two backends are supported, both chosen to fit Janus's privacy-first posture:
+Two independent backends fit Janus's privacy-first posture:
 
 * ``searxng`` -- a self-hosted SearXNG metasearch instance (no API key, the
   query only leaves the machine via the instance the operator controls).
 * ``brave`` -- the Brave Search API (independent index, API key required).
+
+Four chat providers can also search through their own built-in search tool
+(``web_search_native``): ``openai``, ``gemini``, ``anthropic`` and
+``openrouter``. They reuse the key stored for chat and send the query to that
+cloud vendor, so they are labelled third-party in Settings.
 
 Only the model-written search query is sent to the backend -- never the
 conversation, mail content, or any other Janus context. Results are public-web
@@ -24,10 +29,13 @@ import httpx
 from sqlalchemy.orm import Session
 
 from janus import models, security
+from janus.services import web_search_native
+from janus.services.web_search_native import DEFAULT_NATIVE_MODELS, NATIVE_PROVIDERS, NativeSearchError
 
 PROVIDER_BRAVE = "brave"
 PROVIDER_SEARXNG = "searxng"
-SUPPORTED_PROVIDERS = (PROVIDER_BRAVE, PROVIDER_SEARXNG)
+INDEPENDENT_PROVIDERS = (PROVIDER_BRAVE, PROVIDER_SEARXNG)
+SUPPORTED_PROVIDERS = (*INDEPENDENT_PROVIDERS, *NATIVE_PROVIDERS)
 
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
@@ -40,7 +48,8 @@ MAX_SNIPPET_CHARS = 500
 REQUEST_TIMEOUT_SECONDS = 10.0
 
 NOT_CONFIGURED_MESSAGE = (
-    "Web search is not configured. An administrator can enable it in Settings → Tools & Connections → Web Search."
+    "Web search is not configured. "
+    "An administrator can enable it in Settings → AI & Models → Search & images → Web Search."
 )
 
 UNTRUSTED_WEB_CONTENT_WARNING = (
@@ -107,7 +116,20 @@ def is_web_search_configured(settings: models.Settings | None) -> bool:
         return bool(settings.web_search_api_key)
     if settings.web_search_provider == PROVIDER_SEARXNG:
         return bool(settings.web_search_base_url)
+    if settings.web_search_provider in NATIVE_PROVIDERS:
+        return bool(_native_key(settings, settings.web_search_provider))
     return False
+
+
+def _native_key(settings: models.Settings, provider: str) -> str | None:
+    """The encrypted chat key a native provider reuses (``None`` when unset)."""
+    value = getattr(settings, f"{provider}_api_key", None)
+    return value if isinstance(value, str) and value else None
+
+
+def normalize_model(value: str | None) -> str | None:
+    """A trimmed model name; blank means the provider's default."""
+    return (value or "").strip() or None
 
 
 def get_or_create_settings(db: Session) -> models.Settings:
@@ -127,6 +149,10 @@ def describe_settings(settings: models.Settings) -> dict[str, object]:
         "provider": settings.web_search_provider,
         "api_key_configured": bool(settings.web_search_api_key),
         "base_url": settings.web_search_base_url,
+        "model": settings.web_search_model,
+        "default_models": dict(DEFAULT_NATIVE_MODELS),
+        # Which native providers already have the chat key they reuse.
+        "provider_keys": {provider: _native_key(settings, provider) is not None for provider in NATIVE_PROVIDERS},
         "configured": is_web_search_configured(settings),
     }
 
@@ -140,6 +166,7 @@ class WebSearchService:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
+        model: str | None = None,
         client: httpx.Client | None = None,
     ) -> None:
         """Create a service for ``provider``; ``client`` is injectable for tests."""
@@ -149,9 +176,12 @@ class WebSearchService:
             raise ValueError("Brave Search requires an API key.")
         if provider == PROVIDER_SEARXNG and not base_url:
             raise ValueError("SearXNG requires a base URL.")
+        if provider in NATIVE_PROVIDERS and not api_key:
+            raise ValueError(f"{provider} web search needs the {provider} API key stored under Models.")
         self.provider = provider
         self._api_key = api_key
         self._base_url = base_url
+        self._model = model
         # No cookies, no redirects to arbitrary hosts, bounded time.
         self._client = client or httpx.Client(timeout=REQUEST_TIMEOUT_SECONDS, follow_redirects=False)
 
@@ -167,7 +197,30 @@ class WebSearchService:
         count = max(1, min(int(max_results), MAX_RESULTS))
         if self.provider == PROVIDER_BRAVE:
             return self._search_brave(cleaned, count)
+        if self.provider in NATIVE_PROVIDERS:
+            return self._search_native(cleaned, count)
         return self._search_searxng(cleaned, count)
+
+    def _search_native(self, query: str, count: int) -> list[WebSearchResult]:
+        """Search through the chat provider's own tool and keep its cited sources."""
+        try:
+            hits = web_search_native.native_search(
+                self.provider,
+                client=self._client,
+                api_key=self._api_key or "",
+                base_url=self._base_url,
+                model=self._model,
+                query=query,
+                count=count,
+            )
+        except NativeSearchError as exc:
+            raise WebSearchError(str(exc)) from exc
+        return _normalize(
+            [{"title": title, "url": url, "snippet": snippet} for title, url, snippet in hits],
+            count,
+            snippet_key="snippet",
+            unique=True,
+        )
 
     def _get_json(self, url: str, *, params: dict, headers: dict) -> dict:
         """GET ``url`` and return a JSON object, mapping failures to WebSearchError."""
@@ -206,17 +259,19 @@ class WebSearchService:
         return _normalize(payload.get("results"), count, snippet_key="content")
 
 
-def _normalize(raw_results: object, count: int, *, snippet_key: str) -> list[WebSearchResult]:
-    """Convert provider result dicts into bounded WebSearchResult values."""
+def _normalize(raw_results: object, count: int, *, snippet_key: str, unique: bool = False) -> list[WebSearchResult]:
+    """Convert provider result dicts into bounded WebSearchResult values (``unique``: one hit per URL)."""
     if not isinstance(raw_results, list):
         return []
     results: list[WebSearchResult] = []
+    seen: set[str] = set()
     for item in raw_results:
         if not isinstance(item, dict):
             continue
         url = _safe_url(item.get("url"))
-        if url is None:
+        if url is None or (unique and url in seen):
             continue
+        seen.add(url)
         results.append(
             WebSearchResult(
                 title=_clean_text(item.get("title"), MAX_TITLE_CHARS),
@@ -234,12 +289,19 @@ def load_web_search_service(db: Session) -> WebSearchService | None:
     settings = db.query(models.Settings).first()
     if not is_web_search_configured(settings):
         return None
+    provider = settings.web_search_provider
+    if provider in NATIVE_PROVIDERS:
+        # A native provider reuses the key and (optional) base URL stored for chat.
+        encrypted = _native_key(settings, provider)
+        base_url = getattr(settings, f"{provider}_base_url", None) if provider != "gemini" else None
+        return WebSearchService(
+            provider,
+            api_key=security.security_service.decrypt(encrypted) if encrypted else None,
+            base_url=base_url or None,
+            model=normalize_model(settings.web_search_model),
+        )
     api_key = security.security_service.decrypt(settings.web_search_api_key) if settings.web_search_api_key else None
-    return WebSearchService(
-        settings.web_search_provider,
-        api_key=api_key,
-        base_url=settings.web_search_base_url,
-    )
+    return WebSearchService(provider, api_key=api_key, base_url=settings.web_search_base_url)
 
 
 def format_web_search_results(query: str, results: list[WebSearchResult]) -> str:
@@ -267,9 +329,12 @@ def format_web_search_results(query: str, results: list[WebSearchResult]) -> str
 
 
 __all__ = [
+    "DEFAULT_NATIVE_MODELS",
     "DEFAULT_RESULTS",
+    "INDEPENDENT_PROVIDERS",
     "MAX_QUERY_CHARS",
     "MAX_RESULTS",
+    "NATIVE_PROVIDERS",
     "NOT_CONFIGURED_MESSAGE",
     "PROVIDER_BRAVE",
     "PROVIDER_SEARXNG",
@@ -284,4 +349,5 @@ __all__ = [
     "is_web_search_configured",
     "load_web_search_service",
     "normalize_base_url",
+    "normalize_model",
 ]

@@ -127,14 +127,25 @@ test.describe('Image generation settings', () => {
     await api(adminRequest, 'patch', '/api/planner/settings', { image_provider: null, image_model: null });
   });
 
-  test('the Image generation card offers only cloud providers and persists the choice', async ({ page }) => {
-    await page.goto('/settings?tab=system');
+  test('the Image generation card lists every AI provider, lets only cloud ones be chosen, and persists the choice', async ({ page }) => {
+    await page.goto('/settings?tab=system&sub=capabilities');
     await expect(page.getByRole('heading', { name: 'Image generation' })).toBeVisible();
     const provider = page.getByLabel('Image provider');
     const save = page.getByRole('button', { name: 'Save image generation' });
 
     await expect(provider).toHaveValue('');
-    await expect(provider.locator('option')).toHaveText(['Off (no image generation)', 'OpenAI', 'Google Gemini', 'OpenRouter']);
+    await expect(provider.locator('option:not([disabled])')).toHaveText([
+      'Off (no image generation)',
+      'OpenAI',
+      'Google Gemini',
+      'OpenRouter',
+    ]);
+    await expect(provider.locator('option[disabled]')).toHaveText([
+      'Ollama / Llama (cannot generate images)',
+      'Anthropic (cannot generate images)',
+      'GitHub Models (cannot generate images)',
+      'Azure OpenAI (cannot generate images)',
+    ]);
     await provider.selectOption('openai');
     await expect(page.getByLabel('Image model')).toHaveAttribute('placeholder', 'gpt-image-1');
     await expect(page.getByTestId('image-cloud-hint')).toContainText('sent to OpenAI');

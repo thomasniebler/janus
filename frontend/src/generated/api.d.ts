@@ -8644,6 +8644,16 @@ export interface components {
             api_key_configured: boolean;
             /** Base Url */
             base_url?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Default Models */
+            default_models?: {
+                [key: string]: string;
+            };
+            /** Provider Keys */
+            provider_keys?: {
+                [key: string]: boolean;
+            };
             /** Configured */
             configured: boolean;
         };
@@ -8653,11 +8663,13 @@ export interface components {
          */
         WebSearchSettingsUpdate: {
             /** Provider */
-            provider?: ("brave" | "searxng" | "") | null;
+            provider?: ("brave" | "searxng" | "openai" | "gemini" | "anthropic" | "openrouter" | "") | null;
             /** Api Key */
             api_key?: string | null;
             /** Base Url */
             base_url?: string | null;
+            /** Model */
+            model?: string | null;
         };
         /**
          * WebhookCreate

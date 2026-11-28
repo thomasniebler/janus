@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Check, ChevronDown, ChevronRight, Cloud, Search } from 'lucide-react';
 import { plannerApi } from '../../api';
+import { unsupportedProviders } from '../../lib/aiProviders';
 import type { EmbeddingProviderId } from '../../types';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader } from '../ui/Card';
@@ -89,6 +90,11 @@ export const EmbeddingConfig: React.FC = () => {
               {PROVIDER_LABELS[id]}
             </option>
           ))}
+          {unsupportedProviders(Object.keys(PROVIDER_LABELS)).map(([id, label]) => (
+            <option key={id} value={id} disabled>
+              {label} (no embeddings)
+            </option>
+          ))}
         </Select>
         {current.provider && (
           <>
@@ -99,7 +105,7 @@ export const EmbeddingConfig: React.FC = () => {
               onChange={(event) => update({ model: event.target.value })}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Uses the {PROVIDER_LABELS[current.provider]} connection configured above. Filters such as status and origin narrow
+              Uses the {PROVIDER_LABELS[current.provider]} connection stored on the Models tab. Filters such as status and origin narrow
               the candidates first; similarity only orders them, and at most a few results come from meaning alone. Changing the
               model re-embeds every fact and topic in the background.
             </p>

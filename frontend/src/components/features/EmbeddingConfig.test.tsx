@@ -98,4 +98,12 @@ describe('EmbeddingConfig', () => {
     await user.type(input, '2');
     expect(screen.getByRole('button', { name: 'Save semantic search' })).toBeDisabled();
   });
+
+  it('lists the providers without embeddings as disabled options', async () => {
+    renderConfig();
+
+    expect(await screen.findByRole('option', { name: 'Anthropic (no embeddings)' })).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'Azure OpenAI (no embeddings)' })).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'OpenAI' })).toBeEnabled();
+  });
 });

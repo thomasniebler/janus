@@ -34318,6 +34318,31 @@
             ],
             "title": "Base Url"
           },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "default_models": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Default Models"
+          },
+          "provider_keys": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Provider Keys"
+          },
           "configured": {
             "type": "boolean",
             "title": "Configured"
@@ -34340,6 +34365,10 @@
                 "enum": [
                   "brave",
                   "searxng",
+                  "openai",
+                  "gemini",
+                  "anthropic",
+                  "openrouter",
                   ""
                 ]
               },
@@ -34370,6 +34399,17 @@
               }
             ],
             "title": "Base Url"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
           }
         },
         "type": "object",

@@ -58,4 +58,61 @@ describe('WebSearchConfig', () => {
     expect(screen.getByLabelText(/provider/i)).toBeDisabled();
     expect(screen.queryByRole('button', { name: /save settings/i })).not.toBeInTheDocument();
   });
+
+  it('offers the AI providers next to SearXNG and Brave, and saves one with its model', async () => {
+    vi.mocked(webSearchApi.getSettings).mockResolvedValue(
+      response({
+        ...unconfigured,
+        default_models: { openai: 'gpt-4.1-mini', gemini: 'gemini-2.5-flash' },
+        provider_keys: { openai: true, gemini: false },
+      })
+    );
+    vi.mocked(webSearchApi.updateSettings).mockResolvedValue(
+      response({ ...unconfigured, provider: 'openai', model: 'gpt-x', configured: true, provider_keys: { openai: true } })
+    );
+
+    renderConfig(true);
+    const user = userEvent.setup();
+
+    await screen.findByText('Not configured');
+    const options = Array.from((screen.getByLabelText('Provider') as HTMLSelectElement).options).map((option) => option.value);
+    expect(options).toEqual(['', 'searxng', 'brave', 'openai', 'gemini', 'anthropic', 'openrouter']);
+
+    await user.selectOptions(screen.getByLabelText('Provider'), 'openai');
+    expect(screen.getByLabelText('Search model')).toHaveAttribute('placeholder', 'gpt-4.1-mini');
+    expect(screen.getByTestId('web-search-cloud-hint')).toHaveTextContent('sent to OpenAI');
+    expect(screen.queryByTestId('web-search-key-missing')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Search model'), ' gpt-x ');
+    await user.click(screen.getByRole('button', { name: /save settings/i }));
+
+    expect(webSearchApi.updateSettings).toHaveBeenCalledWith({ provider: 'openai', model: 'gpt-x' });
+    expect(await screen.findByText('Enabled')).toBeInTheDocument();
+  });
+
+  it('warns when the chosen provider has no stored chat key', async () => {
+    vi.mocked(webSearchApi.getSettings).mockResolvedValue(response({ ...unconfigured, provider_keys: { gemini: false } }));
+
+    renderConfig(true);
+    const user = userEvent.setup();
+
+    await screen.findByText('Not configured');
+    await user.selectOptions(screen.getByLabelText('Provider'), 'gemini');
+
+    expect(screen.getByTestId('web-search-key-missing')).toHaveTextContent('No Google Gemini API key is stored yet');
+  });
+
+  it('starts a native provider from its default model when switching provider', async () => {
+    vi.mocked(webSearchApi.getSettings).mockResolvedValue(
+      response({ ...unconfigured, provider: 'openai', model: 'gpt-x', provider_keys: { openai: true, gemini: true } })
+    );
+
+    renderConfig(true);
+    const user = userEvent.setup();
+
+    expect(await screen.findByLabelText('Search model')).toHaveValue('gpt-x');
+    await user.selectOptions(screen.getByLabelText('Provider'), 'gemini');
+    expect(screen.getByLabelText('Search model')).toHaveValue('');
+  });
 });

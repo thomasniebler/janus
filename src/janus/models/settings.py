@@ -62,9 +62,11 @@ class Settings(database.Base):
     linear_api_key = Column(String, nullable=True)  # Encrypted at rest
     linear_default_team_id = Column(String, nullable=True)  # Team key ("ENG") or UUID; keys resolved at call time
     # Optional agent web search (JAN-211). ``None`` provider = disabled.
-    web_search_provider = Column(String, nullable=True)  # "brave" | "searxng"
-    web_search_api_key = Column(String, nullable=True)  # Encrypted at rest (Brave)
+    # "brave" | "searxng", or a chat provider ("openai" | "gemini" | "anthropic" | "openrouter") with built-in search.
+    web_search_provider = Column(String, nullable=True)
+    web_search_api_key = Column(String, nullable=True)  # Encrypted at rest (Brave; native providers use chat keys)
     web_search_base_url = Column(String, nullable=True)  # Self-hosted SearXNG instance URL
+    web_search_model = Column(String, nullable=True)  # Model for the native providers; NULL = the provider's default
     topic_tracking_available = Column(Boolean, default=True, server_default="1", nullable=False)
     topic_tracking_default_enabled = Column(Boolean, default=True, server_default="1", nullable=False)
     topic_tracking_default_scope = Column(
